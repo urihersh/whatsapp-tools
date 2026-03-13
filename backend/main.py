@@ -210,6 +210,57 @@ async def analyze_photo(request: Request, file: UploadFile,
         temp_path.unlink(missing_ok=True)
 
 
+@app.post("/api/analyze-video")
+async def analyze_video(request: Request, file: UploadFile,
+                        group_id: str = "", group_name: str = "", sender: str = "unknown"):
+    """Called by the WhatsApp bot when a video arrives in a monitored group."""
+    suffix = Path(file.filename or "video.mp4").suffix or ".mp4"
+    temp_path = DATA_DIR / "temp" / f"{uuid.uuid4()}{suffix}"
+    try:
+        async with aiofiles.open(temp_path, "wb") as f:
+            await f.write(await file.read())
+
+        db_settings = get_settings()
+        threshold = float(db_settings.get("confidence_threshold", "0.35"))
+        kid_ids, kid_names, config_name = _resolve_group(group_id, db_settings)
+        group_name = group_name or config_name
+
+        if not kid_ids:
+            return {"matched": False, "faces_detected": 0, "matches": [],
+                    "error": "No kids configured for this group"}
+
+        result = request.app.state.face_service.analyze_video(str(temp_path), kid_ids, threshold)
+        best_frame_bytes = result.pop("best_frame_bytes", None)
+        matched_kids, best_confidence = _enrich_matches(result, kid_names)
+
+        forwarded = False
+        if result.get("matched") and best_frame_bytes:
+            save_matched_photo(best_frame_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings)
+            await save_to_google_photos(best_frame_bytes, group_name, matched_kids, db_settings)
+            forward_to = db_settings.get("forward_to_id")
+            if forward_to:
+                forwarded, fwd_err = await _forward_photo(
+                    forward_to, best_frame_bytes, matched_kids, best_confidence, " [video]"
+                )
+                if fwd_err:
+                    result["forward_error"] = fwd_err
+
+        result["forwarded"] = forwarded
+        log_activity(
+            photo_filename=file.filename or "video.mp4",
+            sender=sender or "unknown",
+            group_name=group_name or group_id or "unknown",
+            faces_detected=result.get("faces_detected", 0),
+            matched=result.get("matched", False),
+            confidence=best_confidence,
+            forwarded=forwarded,
+            kid_names=", ".join(m["kid_name"] for m in matched_kids),
+        )
+        return result
+    finally:
+        temp_path.unlink(missing_ok=True)
+
+
 @app.post("/api/fetch-history")
 async def fetch_history(group_id: str = ""):
     """Ask the bot to request older message history from WhatsApp for a group."""

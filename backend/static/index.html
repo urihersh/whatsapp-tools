@@ -102,6 +102,32 @@
         </div>
       </div>
 
+      <!-- Unmatched Today -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-red-50 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Unmatched Today</p>
+          <p id="stat-unmatched-today" class="text-2xl font-bold text-gray-900">--</p>
+        </div>
+      </div>
+
+      <!-- Total Unmatched -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Total Unmatched</p>
+          <p id="stat-unmatched-total" class="text-2xl font-bold text-gray-900">--</p>
+        </div>
+      </div>
+
     </div>
 
     <!-- Test Panel -->
@@ -370,6 +396,8 @@
         document.getElementById('stat-enrolled').textContent = d.enrolled_photos ?? '--';
         document.getElementById('stat-today').textContent = d.today_matched ?? '--';
         document.getElementById('stat-total').textContent = d.total_matched ?? '--';
+        document.getElementById('stat-unmatched-today').textContent = d.today_unmatched ?? '--';
+        document.getElementById('stat-unmatched-total').textContent = d.total_unmatched ?? '--';
       } catch (_) {}
     }
 

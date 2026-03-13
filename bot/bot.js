@@ -42,6 +42,12 @@ function isImageMsg(msg) {
     (msgType === 'documentMessage' && (msg.message?.documentMessage?.mimetype || '').startsWith('image/'));
 }
 
+function isVideoMsg(msg) {
+  const msgType = Object.keys(msg.message || {})[0];
+  return msgType === 'videoMessage' ||
+    (msgType === 'documentMessage' && (msg.message?.documentMessage?.mimetype || '').startsWith('video/'));
+}
+
 function getSender(msg) {
   const jid = msg.key.participant || msg.key.remoteJid || '';
   return msg.pushName || jid.split('@')[0];
@@ -138,7 +144,9 @@ async function connect() {
 
       if (msg.key.fromMe) continue;
 
-      if (!isImageMsg(msg)) continue;
+      const isImage = isImageMsg(msg);
+      const isVideo = isVideoMsg(msg);
+      if (!isImage && !isVideo) continue;
 
       const groupId = msg.key.remoteJid;
       if (!groupId?.endsWith('@g.us')) continue;
@@ -161,7 +169,8 @@ async function connect() {
       if (!forwardToId) { console.log('[bot] No forward target configured.'); continue; }
 
       const groupName = groupConfig.name || groupId;
-      console.log(`[bot] Image received from "${groupName}", downloading...`);
+      const mediaType = isVideo ? 'Video' : 'Image';
+      console.log(`[bot] ${mediaType} received from "${groupName}", downloading...`);
 
       let buffer;
       try {
@@ -175,27 +184,35 @@ async function connect() {
 
       try {
         const form = new FormData();
-        form.append('file', buffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+        if (isVideo) {
+          form.append('file', buffer, { filename: 'video.mp4', contentType: 'video/mp4' });
+        } else {
+          form.append('file', buffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+        }
 
+        const endpoint = isVideo ? 'analyze-video' : 'analyze';
+        const timeout = isVideo ? 90000 : 30000;
         const res = await axios.post(
-          `${PYTHON_API_URL}/api/analyze?group_id=${encodeURIComponent(groupId)}&group_name=${encodeURIComponent(groupName)}&sender=${encodeURIComponent(senderName)}`,
+          `${PYTHON_API_URL}/api/${endpoint}?group_id=${encodeURIComponent(groupId)}&group_name=${encodeURIComponent(groupName)}&sender=${encodeURIComponent(senderName)}`,
           form,
-          { headers: { ...form.getHeaders() }, timeout: 30000 }
+          { headers: { ...form.getHeaders() }, timeout }
         );
 
         const result = res.data;
         const matchedKids = (result.matches || []).filter(m => m.matched);
-        console.log(`[bot] matched=${result.matched}, faces=${result.faces_detected}, kids=${matchedKids.map(m => m.kid_name || m.kid_id).join(', ') || 'none'}`);
+        const extra = isVideo ? ` frames_sampled=${result.frames_sampled}` : '';
+        console.log(`[bot] matched=${result.matched}, faces=${result.faces_detected}${extra}, kids=${matchedKids.map(m => m.kid_name || m.kid_id).join(', ') || 'none'}`);
 
         if (result.matched) {
           const names = matchedKids.map(m => m.kid_name || 'your kid').join(' & ');
           const bestConf = Math.max(...matchedKids.map(m => m.confidence));
           const verb = matchedKids.length > 1 ? 'are' : 'is';
-          // True WhatsApp forward — preserves original group name and sender
+          const medium = isVideo ? 'video' : 'photo';
+          // Forward original message (preserves group name, sender, and media)
           await sock.sendMessage(forwardToId, { forward: msg });
           // Follow-up text with match details
           await sock.sendMessage(forwardToId, {
-            text: `${names} ${verb} in this photo! (${(bestConf * 100).toFixed(0)}% confidence) — from "${groupName}"`,
+            text: `${names} ${verb} in this ${medium}! (${(bestConf * 100).toFixed(0)}% confidence) — from "${groupName}"`,
           });
           console.log(`[bot] Forwarded to ${forwardToId}`);
         }

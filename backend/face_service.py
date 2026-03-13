@@ -170,6 +170,81 @@ class FaceService:
             "threshold": threshold,
         }
 
+    def analyze_video(self, video_path: str, kid_ids: list[str], threshold: float = 0.35,
+                      sample_fps: float = 1.0, max_frames: int = 30) -> dict:
+        """Sample frames from a video and check each against enrolled kids.
+
+        Returns the same shape as analyze_photo plus 'frames_sampled' and
+        'best_frame_bytes' (JPEG bytes of the highest-confidence frame, or None).
+        """
+        cap = cv2.VideoCapture(video_path)
+        if not cap.isOpened():
+            return {"matched": False, "faces_detected": 0, "matches": [],
+                    "error": "Could not open video", "best_frame_bytes": None, "frames_sampled": 0}
+
+        video_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
+        frame_interval = max(1, int(video_fps / sample_fps))
+
+        kid_best: dict[str, float] = {kid_id: 0.0 for kid_id in kid_ids}
+        best_frame: np.ndarray | None = None
+        best_overall_conf = 0.0
+        max_faces_seen = 0
+        frame_idx = 0
+        frames_sampled = 0
+        model = _get_model()
+
+        try:
+            while frames_sampled < max_frames:
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                frame_idx += frame_interval
+                frames_sampled += 1
+
+                try:
+                    faces = model.get(frame)
+                except Exception:
+                    continue
+                if not faces:
+                    continue
+
+                max_faces_seen = max(max_faces_seen, len(faces))
+                face_embeddings = [f.normed_embedding for f in faces]
+
+                for kid_id in kid_ids:
+                    stored = self._load_embeddings(kid_id)
+                    if not stored:
+                        continue
+                    conf = max(float(np.dot(fe, se)) for fe in face_embeddings for se in stored)
+                    if conf > kid_best[kid_id]:
+                        kid_best[kid_id] = conf
+                    if conf > best_overall_conf:
+                        best_overall_conf = conf
+                        best_frame = frame.copy()
+        finally:
+            cap.release()
+
+        kid_results = [
+            {"kid_id": kid_id, "confidence": round(kid_best[kid_id], 4),
+             "matched": kid_best[kid_id] >= threshold}
+            for kid_id in kid_ids if self._load_embeddings(kid_id)
+        ]
+
+        best_frame_bytes = None
+        if best_frame is not None:
+            _, buf = cv2.imencode(".jpg", best_frame)
+            best_frame_bytes = buf.tobytes()
+
+        return {
+            "matched": any(r["matched"] for r in kid_results),
+            "faces_detected": max_faces_seen,
+            "matches": kid_results,
+            "threshold": threshold,
+            "frames_sampled": frames_sampled,
+            "best_frame_bytes": best_frame_bytes,
+        }
+
     def get_enrolled_count(self, kid_id: str) -> int:
         d = self.kids_dir / kid_id / "embeddings"
         return len(list(d.glob("*.npy"))) if d.exists() else 0

@@ -143,6 +143,7 @@ def get_stats() -> dict:
         today = datetime.utcnow().replace(hour=0, minute=0, second=0, microsecond=0)
         total = db.query(ActivityLog).count()
         total_matched = db.query(ActivityLog).filter(ActivityLog.matched == True).count()
+        today_total = db.query(ActivityLog).filter(ActivityLog.timestamp >= today).count()
         today_matched = db.query(ActivityLog).filter(
             ActivityLog.matched == True,
             ActivityLog.timestamp >= today
@@ -150,7 +151,9 @@ def get_stats() -> dict:
         return {
             "total_processed": total,
             "total_matched": total_matched,
+            "total_unmatched": total - total_matched,
             "today_matched": today_matched,
+            "today_unmatched": today_total - today_matched,
         }
     finally:
         db.close()
