@@ -237,10 +237,18 @@
             <div class="space-y-4">
 
               <div>
-                <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
-                <select id="hist-group-select" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
-                  <option value="">-- pick a monitored group --</option>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Group <span class="text-gray-400 font-normal">(optional for upload)</span></label>
+                <select id="hist-group-select" onchange="onHistGroupChange()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
+                  <option value="">-- any group --</option>
                 </select>
+              </div>
+
+              <!-- Kids picker: shown when no group is selected (upload tab only) -->
+              <div id="hist-kids-picker" class="hidden">
+                <label class="block text-sm font-medium text-gray-700 mb-1">Kids to detect</label>
+                <div id="hist-kids-list" class="space-y-1 border border-gray-200 rounded-xl p-2.5 max-h-36 overflow-y-auto bg-white text-sm text-gray-400 italic">
+                  Loading…
+                </div>
               </div>
 
               <!-- WhatsApp history controls -->
@@ -681,6 +689,8 @@
       document.getElementById('hist-results').innerHTML = '';
       document.getElementById('hist-summary').classList.add('hidden');
       document.getElementById('hist-note').classList.add('hidden');
+      // kids picker only relevant for upload tab
+      onHistGroupChange();
     }
 
     // Upload drop zone
@@ -703,10 +713,23 @@
         : 'Drop photos here or click to select';
     }
 
+    function onHistGroupChange() {
+      const groupId = document.getElementById('hist-group-select').value;
+      const isUploadTab = !document.getElementById('hist-tab-upload').classList.contains('hidden');
+      document.getElementById('hist-kids-picker').classList.toggle('hidden', !!groupId || !isUploadTab);
+    }
+
     async function runUploadScan() {
       const groupId = document.getElementById('hist-group-select').value;
-      if (!groupId) { alert('Pick a group first.'); return; }
       if (!uploadFiles.length) { alert('Select at least one photo.'); return; }
+
+      // When no group selected, use explicitly checked kids
+      let kidIds = '';
+      if (!groupId) {
+        const checked = [...document.querySelectorAll('#hist-kids-list input[type=checkbox]:checked')];
+        if (!checked.length) { alert('Select a group or at least one kid to detect.'); return; }
+        kidIds = checked.map(cb => cb.value).join(',');
+      }
 
       const shouldForward = document.getElementById('upload-forward').checked;
       const resultsEl = document.getElementById('hist-results');
@@ -732,10 +755,10 @@
         form.append('file', file);
 
         try {
-          const r = await fetch(
-            `/api/analyze?group_id=${encodeURIComponent(groupId)}&is_test=true&forward=${shouldForward}`,
-            { method: 'POST', body: form }
-          );
+          let url = `/api/analyze?is_test=true&forward=${shouldForward}`;
+          if (groupId) url += `&group_id=${encodeURIComponent(groupId)}`;
+          if (kidIds) url += `&kid_ids=${encodeURIComponent(kidIds)}`;
+          const r = await fetch(url, { method: 'POST', body: form });
           const d = await r.json();
 
           if (d.matched) matched++;
@@ -771,11 +794,16 @@
 
     async function loadHistGroups() {
       try {
-        const r = await fetch('/api/settings');
-        const d = await r.json();
-        histWatchedGroups = JSON.parse(d.watch_groups || '[]');
+        const [settingsRes, kidsRes] = await Promise.all([
+          fetch('/api/settings'),
+          fetch('/api/enrollment/kids'),
+        ]);
+        const settingsData = await settingsRes.json();
+        const kidsData = await kidsRes.json();
+
+        histWatchedGroups = JSON.parse(settingsData.watch_groups || '[]');
         const sel = document.getElementById('hist-group-select');
-        sel.innerHTML = '<option value="">-- pick a monitored group --</option>';
+        sel.innerHTML = '<option value="">-- any group --</option>';
         histWatchedGroups.forEach(g => {
           const opt = document.createElement('option');
           opt.value = g.id;
@@ -783,6 +811,20 @@
           sel.appendChild(opt);
         });
         if (histWatchedGroups.length === 1) sel.value = histWatchedGroups[0].id;
+
+        const enrolledKids = (kidsData.kids || []).filter(k => k.enrolled_count > 0);
+        const kidsList = document.getElementById('hist-kids-list');
+        if (!enrolledKids.length) {
+          kidsList.innerHTML = '<span class="text-gray-400 italic text-sm">No kids enrolled yet</span>';
+        } else {
+          kidsList.innerHTML = enrolledKids.map(k => `
+            <label class="flex items-center gap-2 cursor-pointer py-0.5 not-italic text-gray-700">
+              <input type="checkbox" value="${k.id}" class="accent-purple-600" checked />
+              <span class="text-sm">${k.name}</span>
+            </label>`).join('');
+        }
+
+        onHistGroupChange();
       } catch (_) {}
     }
 

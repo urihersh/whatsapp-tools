@@ -158,8 +158,12 @@ async def root():
 @app.post("/api/analyze")
 async def analyze_photo(request: Request, file: UploadFile,
                         group_id: str = "", group_name: str = "", sender: str = "unknown",
-                        forward: bool = False, is_test: bool = False):
-    """Called by the WhatsApp bot (or test panel) when a photo arrives."""
+                        forward: bool = False, is_test: bool = False, kid_ids: str = ""):
+    """Called by the WhatsApp bot (or test panel) when a photo arrives.
+
+    kid_ids: optional comma-separated kid IDs; when provided without a group_id,
+             bypasses group resolution so callers can scan for specific kids directly.
+    """
     temp_path = DATA_DIR / "temp" / f"{uuid.uuid4()}.jpg"
     try:
         async with aiofiles.open(temp_path, "wb") as f:
@@ -167,14 +171,20 @@ async def analyze_photo(request: Request, file: UploadFile,
 
         db_settings = get_settings()
         threshold = float(db_settings.get("confidence_threshold", "0.35"))
-        kid_ids, kid_names, config_name = _resolve_group(group_id, db_settings)
+
+        if kid_ids and not group_id:
+            kid_id_list = [k.strip() for k in kid_ids.split(",") if k.strip()]
+            kid_names = {k["id"]: k["name"] for k in load_kids()}
+            config_name = group_name or "manual scan"
+        else:
+            kid_id_list, kid_names, config_name = _resolve_group(group_id, db_settings)
         group_name = group_name or config_name
 
-        if not kid_ids:
+        if not kid_id_list:
             return {"matched": False, "faces_detected": 0, "matches": [],
                     "error": "No kids configured for this group"}
 
-        result = request.app.state.face_service.analyze_photo(str(temp_path), kid_ids, threshold)
+        result = request.app.state.face_service.analyze_photo(str(temp_path), kid_id_list, threshold)
         matched_kids, best_confidence = _enrich_matches(result, kid_names)
 
         if result.get("matched"):
