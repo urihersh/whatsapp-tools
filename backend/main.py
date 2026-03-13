@@ -105,25 +105,33 @@ async def save_to_google_photos(img_bytes: bytes, group_name: str, matched_kids:
         await svc.upload_photo(img_bytes, album_name=album, filename=f"{timestamp}.jpg")
 
 
-def save_matched_photo(img_bytes: bytes, group_name: str, kid_names: list, settings: dict):
-    """Save a matched photo to the configured local folder."""
+def save_matched_photo(img_bytes: bytes, group_name: str, kid_names: list, settings: dict,
+                       original_filename: str = ""):
+    """Save a matched photo to the configured local folder.
+
+    Uses original_filename when provided (preserves the uploader's filename).
+    Falls back to a timestamp-based name for live bot detections.
+    """
     if settings.get("save_photos_enabled") != "true":
         return
     save_path = settings.get("save_photos_path", "").strip()
     if not save_path:
         return
     base = Path(save_path)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19]
+    if original_filename:
+        filename = _safe_filename(original_filename)
+    else:
+        filename = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19] + ".jpg"
     try:
         if settings.get("save_photos_organize_by") == "kid":
             for name in kid_names:
                 folder = base / _safe_filename(name)
                 folder.mkdir(parents=True, exist_ok=True)
-                (folder / f"{timestamp}.jpg").write_bytes(img_bytes)
+                (folder / filename).write_bytes(img_bytes)
         else:
             folder = base / _safe_filename(group_name)
             folder.mkdir(parents=True, exist_ok=True)
-            (folder / f"{timestamp}.jpg").write_bytes(img_bytes)
+            (folder / filename).write_bytes(img_bytes)
     except Exception:
         pass
 
@@ -189,7 +197,8 @@ async def analyze_photo(request: Request, file: UploadFile,
 
         if result.get("matched"):
             img_bytes = temp_path.read_bytes()
-            save_matched_photo(img_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings)
+            save_matched_photo(img_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
+                               original_filename=file.filename or "")
             await save_to_google_photos(img_bytes, group_name, matched_kids, db_settings)
 
         forwarded = False
@@ -245,7 +254,8 @@ async def analyze_video(request: Request, file: UploadFile,
 
         forwarded = False
         if result.get("matched") and best_frame_bytes:
-            save_matched_photo(best_frame_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings)
+            save_matched_photo(best_frame_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
+                               original_filename=file.filename or "")
             await save_to_google_photos(best_frame_bytes, group_name, matched_kids, db_settings)
             forward_to = db_settings.get("forward_to_id")
             if forward_to:
