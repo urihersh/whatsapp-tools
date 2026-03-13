@@ -160,8 +160,8 @@
               <div id="test-drop"
                    class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
                 <div id="test-drop-icon" class="text-3xl mb-1">🔍</div>
-                <p id="test-drop-label" class="text-sm text-gray-500">Drop a photo or click to select</p>
-                <input type="file" id="test-file-input" accept="image/*" class="hidden" />
+                <p id="test-drop-label" class="text-sm text-gray-500">Drop a photo or video, or click to select</p>
+                <input type="file" id="test-file-input" accept="image/*,video/*" class="hidden" />
               </div>
             </div>
 
@@ -521,24 +521,31 @@
     function setTestFile(file) {
       if (!file) return;
       testFile = file;
-      const reader = new FileReader();
-      reader.onload = e => {
-        const drop = document.getElementById('test-drop');
-        drop.style.backgroundImage = `url(${e.target.result})`;
-        drop.style.backgroundSize = 'cover';
-        drop.style.backgroundPosition = 'center';
-        document.getElementById('test-drop-icon').textContent = '';
-        document.getElementById('test-drop-label').textContent = file.name;
-        document.getElementById('test-drop-label').className = 'text-sm text-white font-medium bg-black/50 px-2 py-0.5 rounded-lg';
-      };
-      reader.readAsDataURL(file);
+      const drop = document.getElementById('test-drop');
+      const label = document.getElementById('test-drop-label');
+      label.className = 'text-sm font-medium bg-black/50 px-2 py-0.5 rounded-lg text-white';
+      label.textContent = file.name;
+      if (file.type.startsWith('video/')) {
+        drop.style.backgroundImage = '';
+        document.getElementById('test-drop-icon').textContent = '🎬';
+      } else {
+        const reader = new FileReader();
+        reader.onload = e => {
+          drop.style.backgroundImage = `url(${e.target.result})`;
+          drop.style.backgroundSize = 'cover';
+          drop.style.backgroundPosition = 'center';
+          document.getElementById('test-drop-icon').textContent = '';
+        };
+        reader.readAsDataURL(file);
+      }
     }
 
     async function runTest() {
       const groupId = document.getElementById('test-group-select').value;
       if (!groupId) { alert('Pick a group to simulate.'); return; }
-      if (!testFile) { alert('Select a photo to test.'); return; }
+      if (!testFile) { alert('Select a photo or video to test.'); return; }
 
+      const isVideo = testFile.type.startsWith('video/');
       const group = watchedGroups.find(g => g.id === groupId);
       document.getElementById('test-drop-icon').textContent = '⏳';
       document.getElementById('test-drop-label').textContent = 'Analyzing...';
@@ -548,25 +555,25 @@
 
       try {
         const shouldForward = document.getElementById('test-forward').checked;
-        const r = await fetch(`/api/analyze?group_id=${encodeURIComponent(groupId)}&forward=${shouldForward}&is_test=true`, {
-          method: 'POST',
-          body: form,
-        });
+        const endpoint = isVideo
+          ? `/api/analyze-video?group_id=${encodeURIComponent(groupId)}&sender=test`
+          : `/api/analyze?group_id=${encodeURIComponent(groupId)}&forward=${shouldForward}&is_test=true`;
+        const r = await fetch(endpoint, { method: 'POST', body: form });
         const d = await r.json();
 
-        document.getElementById('test-drop-icon').textContent = '📷';
+        document.getElementById('test-drop-icon').textContent = isVideo ? '🎬' : '📷';
         document.getElementById('test-drop-label').textContent = testFile.name;
         document.getElementById('test-placeholder').classList.add('hidden');
         document.getElementById('test-result').classList.remove('hidden');
-        showTestResult(d);
+        showTestResult(d, isVideo);
       } catch (e) {
         document.getElementById('test-drop-icon').textContent = '🔍';
-        document.getElementById('test-drop-label').textContent = 'Drop a photo or click to select';
+        document.getElementById('test-drop-label').textContent = 'Drop a photo or video, or click to select';
         alert('Test failed — is the backend running?');
       }
     }
 
-    function showTestResult(d) {
+    function showTestResult(d, isVideo = false) {
       const banner = document.getElementById('test-banner');
       const headline = document.getElementById('test-headline');
       const sub = document.getElementById('test-sub');
@@ -587,7 +594,7 @@
         banner.className = 'rounded-xl p-4 mb-4 text-center bg-gray-100';
         headline.textContent = 'No faces detected';
         headline.className = 'text-lg font-bold text-gray-500';
-        sub.textContent = 'Try a photo with a clearer face';
+        sub.textContent = isVideo ? 'No faces detected in any sampled frame' : 'Try a photo with a clearer face';
         kidsEl.innerHTML = '';
         captionEl.textContent = '(nothing would be sent)';
         return;
@@ -607,10 +614,11 @@
 
       const matchedKids = (d.matches || []).filter(m => m.matched);
 
+      const frameNote = isVideo && d.frames_sampled ? ` · ${d.frames_sampled} frames sampled` : '';
       if (d.matched) {
-        sub.textContent = `${d.faces_detected} face${d.faces_detected !== 1 ? 's' : ''} · ${matchedKids.length} kid${matchedKids.length !== 1 ? 's' : ''} matched · ${((d.threshold || 0.35) * 100).toFixed(0)}% threshold`;
+        sub.textContent = `${d.faces_detected} face${d.faces_detected !== 1 ? 's' : ''} · ${matchedKids.length} kid${matchedKids.length !== 1 ? 's' : ''} matched · ${((d.threshold || 0.35) * 100).toFixed(0)}% threshold${frameNote}`;
       } else {
-        sub.textContent = `${d.faces_detected} face${d.faces_detected !== 1 ? 's' : ''} scanned · threshold ${((d.threshold || 0.35) * 100).toFixed(0)}%`;
+        sub.textContent = `${d.faces_detected} face${d.faces_detected !== 1 ? 's' : ''} scanned · threshold ${((d.threshold || 0.35) * 100).toFixed(0)}%${frameNote}`;
       }
 
       kidsEl.innerHTML = (d.matches || []).map(m => `
@@ -630,7 +638,7 @@
         const names = matchedKids.map(m => m.kid_name || 'your kid').join(' & ');
         const best = Math.max(...matchedKids.map(m => m.confidence));
         const verb = matchedKids.length > 1 ? 'are' : 'is';
-        captionEl.textContent = `"${names} ${verb} in this photo! (${(best * 100).toFixed(0)}% confidence)"`;
+        captionEl.textContent = `"${names} ${verb} in this ${isVideo ? 'video' : 'photo'}! (${(best * 100).toFixed(0)}% confidence)"`;
         if (d.forwarded) forwardedBadge.classList.remove('hidden');
         if (d.forward_error) {
           forwardError.textContent = `Forward failed: ${d.forward_error}`;
