@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parent Tool – Dashboard</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/dark.css" />
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+
+  <!-- Nav -->
+  <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="/static/index.html" class="flex items-center gap-2.5 group">
+        <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm group-hover:bg-blue-700 transition-colors">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <span class="text-base font-bold text-gray-900">Parent Tool</span>
+      </a>
+      <div class="flex gap-1">
+        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-blue-600 bg-blue-50">Dashboard</a>
+        <a href="/static/enrollment.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Enrollment</a>
+        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
+      </div>
+      <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors" title="Toggle dark mode">
+        <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+        <svg id="dark-icon-sun" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+        </svg>
+      </button>
+      <div id="bot-status" class="flex items-center gap-2 text-sm">
+        <span id="status-dot" class="w-2 h-2 rounded-full bg-gray-300"></span>
+        <span id="status-label" class="text-gray-400">Checking...</span>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-6 py-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-6">Dashboard</h1>
+
+    <!-- Stats -->
+    <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+
+      <!-- Bot Status -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-gray-100 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Bot Status</p>
+          <p id="stat-bot" class="text-2xl font-bold text-gray-300">--</p>
+        </div>
+      </div>
+
+      <!-- Enrolled Photos -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Enrolled Photos</p>
+          <p id="stat-enrolled" class="text-2xl font-bold text-gray-900">--</p>
+        </div>
+      </div>
+
+      <!-- Matches Today -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Matches Today</p>
+          <p id="stat-today" class="text-2xl font-bold text-blue-600">--</p>
+        </div>
+      </div>
+
+      <!-- Total Matches -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 flex items-center gap-4">
+        <div class="w-10 h-10 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+          <svg class="w-5 h-5 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-xs text-gray-400 uppercase tracking-wide mb-0.5">Total Matches</p>
+          <p id="stat-total" class="text-2xl font-bold text-gray-900">--</p>
+        </div>
+      </div>
+
+    </div>
+
+    <!-- Test Panel -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6">
+      <button onclick="toggleTest()" class="w-full px-6 py-4 flex items-center justify-between text-left">
+        <div>
+          <h2 class="font-semibold text-gray-900">Test Recognition</h2>
+          <p class="text-xs text-gray-400 mt-0.5">Simulate an incoming photo without needing WhatsApp</p>
+        </div>
+        <svg id="test-chevron" class="w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+
+      <div id="test-panel" class="hidden border-t border-gray-100 p-6">
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+          <!-- Left: controls -->
+          <div class="space-y-4">
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Simulate group</label>
+              <select id="test-group-select" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+                <option value="">-- pick a monitored group --</option>
+              </select>
+              <p class="text-xs text-gray-400 mt-1">Only groups configured in Settings appear here</p>
+            </div>
+
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-1">Photo to test</label>
+              <div id="test-drop"
+                   class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors">
+                <div id="test-drop-icon" class="text-3xl mb-1">🔍</div>
+                <p id="test-drop-label" class="text-sm text-gray-500">Drop a photo or click to select</p>
+                <input type="file" id="test-file-input" accept="image/*" class="hidden" />
+              </div>
+            </div>
+
+            <label class="flex items-center gap-2 cursor-pointer select-none">
+              <input type="checkbox" id="test-forward" class="accent-blue-600" />
+              <span class="text-sm text-gray-600">Forward to destination if matched</span>
+            </label>
+
+            <button onclick="runTest()"
+                    class="w-full py-2.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-medium text-sm rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm">
+              Run Test
+            </button>
+          </div>
+
+          <!-- Right: result -->
+          <div id="test-result" class="hidden">
+            <label class="block text-sm font-medium text-gray-700 mb-3">Result</label>
+
+            <div id="test-banner" class="rounded-xl p-4 mb-4 text-center">
+              <p id="test-headline" class="text-lg font-bold"></p>
+              <p id="test-sub" class="text-sm mt-1 opacity-75"></p>
+            </div>
+
+            <div id="test-kids" class="space-y-2"></div>
+
+            <div class="mt-4 p-3 bg-gray-50 rounded-xl border border-gray-100">
+              <p class="text-xs text-gray-500 font-medium mb-1">Caption:</p>
+              <p id="test-caption" class="text-sm text-gray-700 italic"></p>
+            </div>
+            <div id="test-forwarded-badge" class="hidden mt-2 px-3 py-2 bg-green-50 border border-green-200 rounded-xl text-sm text-green-700 font-medium text-center">
+              ✓ Forwarded to destination
+            </div>
+            <div id="test-forward-error" class="hidden mt-2 px-3 py-2 bg-red-50 border border-red-200 rounded-xl text-sm text-red-600 text-center"></div>
+          </div>
+
+          <div id="test-placeholder" class="hidden md:flex items-center justify-center text-gray-200 text-5xl">
+            ›
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Historical Scan Panel -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-6">
+      <button onclick="toggleHistorical()" class="w-full px-6 py-4 flex items-center justify-between text-left">
+        <div>
+          <h2 class="font-semibold text-gray-900">Scan Past Photos</h2>
+          <p class="text-xs text-gray-400 mt-0.5">Go back in group history and find photos with your kid</p>
+        </div>
+        <svg id="hist-chevron" class="w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
+        </svg>
+      </button>
+
+      <div id="hist-panel" class="hidden border-t border-gray-100">
+
+        <!-- Tabs -->
+        <div class="flex border-b border-gray-100">
+          <button onclick="switchHistTab('whatsapp')" id="tab-whatsapp"
+                  class="px-6 py-3 text-sm font-medium border-b-2 border-purple-600 text-purple-600">
+            From WhatsApp history
+          </button>
+          <button onclick="switchHistTab('upload')" id="tab-upload"
+                  class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-600">
+            Upload from device
+          </button>
+        </div>
+
+        <div class="p-6">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+            <!-- Left: controls (shared group + forward, tab-specific middle) -->
+            <div class="space-y-4">
+
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Group</label>
+                <select id="hist-group-select" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
+                  <option value="">-- pick a monitored group --</option>
+                </select>
+              </div>
+
+              <!-- WhatsApp history controls -->
+              <div id="hist-tab-whatsapp">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">How far back</label>
+                  <select id="hist-days" onchange="onHistRangeChange()" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
+                    <option value="1">Last 24 hours</option>
+                    <option value="3">Last 3 days</option>
+                    <option value="7" selected>Last 7 days</option>
+                    <option value="14">Last 2 weeks</option>
+                    <option value="30">Last 30 days</option>
+                    <option value="90">Last 3 months</option>
+                    <option value="0">All available history</option>
+                    <option value="custom">Since a specific date...</option>
+                  </select>
+                  <input type="date" id="hist-since-date"
+                         class="hidden mt-2 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-500" />
+                  <p class="text-xs text-gray-400 mt-1">Only photos the bot has seen since it started</p>
+                </div>
+
+                <label class="flex items-center gap-2 cursor-pointer select-none mt-4">
+                  <input type="checkbox" id="hist-forward" class="accent-purple-600" />
+                  <span class="text-sm text-gray-600">Forward matched photos to destination</span>
+                </label>
+
+                <div class="flex gap-2 mt-4">
+                  <button onclick="loadMoreHistory()" id="hist-load-btn"
+                          class="flex-1 py-2.5 bg-white border border-purple-200 text-purple-700 font-medium text-sm rounded-xl hover:bg-purple-50 transition-colors">
+                    Load more history
+                  </button>
+                  <button onclick="runHistoricalScan()" id="hist-scan-btn"
+                          class="flex-1 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-medium text-sm rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all shadow-sm">
+                    Scan History
+                  </button>
+                </div>
+                <p id="hist-load-msg" class="hidden text-xs text-center mt-1"></p>
+              </div>
+
+              <!-- Upload from device controls -->
+              <div id="hist-tab-upload" class="hidden">
+                <div>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Photos</label>
+                  <div id="upload-drop"
+                       class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
+                    <div id="upload-drop-icon" class="text-3xl mb-1">📂</div>
+                    <p id="upload-drop-label" class="text-sm text-gray-500">Drop photos here or click to select</p>
+                    <p class="text-xs text-gray-400 mt-1">Multiple files supported</p>
+                    <input type="file" id="upload-file-input" accept="image/*" multiple class="hidden" />
+                  </div>
+                </div>
+
+                <label class="flex items-center gap-2 cursor-pointer select-none mt-4">
+                  <input type="checkbox" id="upload-forward" class="accent-purple-600" />
+                  <span class="text-sm text-gray-600">Forward matched photos to destination</span>
+                </label>
+
+                <button onclick="runUploadScan()" id="upload-scan-btn"
+                        class="w-full mt-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-medium text-sm rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all shadow-sm">
+                  Scan Photos
+                </button>
+              </div>
+
+            </div>
+
+            <!-- Right: shared results -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-3">Results</label>
+              <div id="hist-status" class="hidden mb-3 text-sm text-purple-600 flex items-center gap-2">
+                <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24">
+                  <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                  <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+                </svg>
+                <span id="hist-status-label">Scanning...</span>
+              </div>
+              <div id="hist-results" class="space-y-1.5 max-h-72 overflow-y-auto"></div>
+              <div id="hist-summary" class="hidden mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100 text-sm text-gray-600"></div>
+              <div id="hist-note" class="hidden mt-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3"></div>
+            </div>
+
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100">
+      <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h2 class="font-semibold text-gray-900">Recent Activity</h2>
+        <div class="flex items-center gap-3">
+          <span class="text-xs text-gray-400">Auto-refreshes every 30s</span>
+          <button onclick="clearActivity()" class="text-xs text-red-400 hover:text-red-600 transition-colors">Clear</button>
+        </div>
+      </div>
+      <div class="px-6 pb-3 pt-1 flex flex-wrap gap-2 border-b border-gray-100">
+        <select id="filter-matched" onchange="loadActivity()" class="border border-gray-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+          <option value="">All results</option>
+          <option value="true">Matches only</option>
+          <option value="false">No-match only</option>
+        </select>
+        <input type="text" id="filter-group" placeholder="Filter by group…" oninput="debouncedFilter()"
+               class="border border-gray-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-36" />
+        <input type="text" id="filter-kid" placeholder="Filter by kid…" oninput="debouncedFilter()"
+               class="border border-gray-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 w-28" />
+        <button onclick="clearFilters()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors px-2">Reset filters</button>
+      </div>
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50/70">
+            <tr>
+              <th class="text-left px-6 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Time</th>
+              <th class="text-left px-6 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Sender</th>
+              <th class="text-left px-6 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Group</th>
+              <th class="text-left px-6 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Faces</th>
+              <th class="text-left px-6 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Result</th>
+              <th class="text-left px-6 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Confidence</th>
+            </tr>
+          </thead>
+          <tbody id="activity-body">
+            <tr>
+              <td colspan="6" class="px-6 py-10 text-center text-gray-300">Loading...</td>
+            </tr>
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    // First-visit onboarding redirect (dark.js handles applyDark/toggleDark)
+
+    // First-visit onboarding redirect
+    if (!localStorage.getItem('pt_onboarding_done')) {
+      window.location.href = '/static/onboarding.html';
+    }
+
+    function relativeTime(isoStr) {
+      const diff = Date.now() - new Date(isoStr).getTime();
+      const m = Math.floor(diff / 60000);
+      const h = Math.floor(diff / 3600000);
+      const d = Math.floor(diff / 86400000);
+      if (m < 1) return 'just now';
+      if (m < 60) return `${m}m ago`;
+      if (h < 24) return `${h}h ago`;
+      if (d < 7) return `${d}d ago`;
+      return new Date(isoStr).toLocaleDateString();
+    }
+
+    async function loadStats() {
+      try {
+        const r = await fetch('/api/dashboard/stats');
+        const d = await r.json();
+        document.getElementById('stat-enrolled').textContent = d.enrolled_photos ?? '--';
+        document.getElementById('stat-today').textContent = d.today_matched ?? '--';
+        document.getElementById('stat-total').textContent = d.total_matched ?? '--';
+      } catch (_) {}
+    }
+
+    async function loadBotStatus() {
+      try {
+        const r = await fetch('/api/settings/whatsapp/status');
+        const d = await r.json();
+        const dot = document.getElementById('status-dot');
+        const label = document.getElementById('status-label');
+        const statBot = document.getElementById('stat-bot');
+        if (d.connected) {
+          dot.className = 'w-2 h-2 rounded-full bg-green-500';
+          label.textContent = d.phone?.name ? `Connected (${d.phone.name})` : 'Connected';
+          label.className = 'text-green-600 text-sm';
+          statBot.textContent = 'Online';
+          statBot.className = 'text-2xl font-bold text-green-600';
+        } else {
+          dot.className = 'w-2 h-2 rounded-full bg-red-400';
+          label.textContent = 'Disconnected';
+          label.className = 'text-red-500 text-sm';
+          statBot.textContent = 'Offline';
+          statBot.className = 'text-2xl font-bold text-red-400';
+        }
+      } catch (_) {}
+    }
+
+    async function loadActivity() {
+      try {
+        const matched = document.getElementById('filter-matched')?.value;
+        const group = document.getElementById('filter-group')?.value || '';
+        const kid = document.getElementById('filter-kid')?.value || '';
+        let url = '/api/dashboard/activity?limit=30';
+        if (matched) url += `&matched=${matched}`;
+        if (group) url += `&group_name=${encodeURIComponent(group)}`;
+        if (kid) url += `&kid_name=${encodeURIComponent(kid)}`;
+        const r = await fetch(url);
+        const d = await r.json();
+        const tbody = document.getElementById('activity-body');
+        if (!d.activity.length) {
+          tbody.innerHTML = '<tr><td colspan="6" class="px-6 py-10 text-center text-gray-300">No activity yet. Waiting for photos from the teacher\'s group...</td></tr>';
+          return;
+        }
+        tbody.innerHTML = d.activity.map(row => {
+          const t = relativeTime(row.timestamp);
+          const badge = row.matched
+            ? `<span class="px-2 py-0.5 bg-green-100 text-green-700 rounded-full text-xs font-medium">Match</span>${row.kid_names ? `<span class="ml-1 text-xs text-gray-500">${row.kid_names}</span>` : ''}`
+            : '<span class="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-full text-xs">No match</span>';
+          const conf = row.matched ? `${(row.confidence * 100).toFixed(0)}%` : '-';
+          return `<tr class="border-t border-gray-50 hover:bg-gray-50/70 transition-colors">
+            <td class="px-6 py-3 text-gray-400 whitespace-nowrap text-xs" title="${new Date(row.timestamp).toLocaleString()}">${t}</td>
+            <td class="px-6 py-3 text-gray-700 font-medium">${row.sender}</td>
+            <td class="px-6 py-3 text-gray-400 text-xs">${row.group_name}</td>
+            <td class="px-6 py-3 text-gray-600">${row.faces_detected}</td>
+            <td class="px-6 py-3">${badge}</td>
+            <td class="px-6 py-3 text-gray-600">${conf}</td>
+          </tr>`;
+        }).join('');
+      } catch (_) {}
+    }
+
+    let filterTimer;
+    function debouncedFilter() {
+      clearTimeout(filterTimer);
+      filterTimer = setTimeout(loadActivity, 400);
+    }
+    function clearFilters() {
+      document.getElementById('filter-matched').value = '';
+      document.getElementById('filter-group').value = '';
+      document.getElementById('filter-kid').value = '';
+      loadActivity();
+    }
+
+    function refresh() {
+      Promise.all([loadStats(), loadBotStatus(), loadActivity()]);
+    }
+
+    refresh();
+    setInterval(refresh, 30000);
+
+    // ── Test Panel ─────────────────────────────────────────────────────────────
+
+    let testPanelOpen = false;
+    let testFile = null;
+    let watchedGroups = [];
+
+    function toggleTest() {
+      testPanelOpen = !testPanelOpen;
+      document.getElementById('test-panel').classList.toggle('hidden', !testPanelOpen);
+      document.getElementById('test-chevron').style.transform = testPanelOpen ? 'rotate(90deg)' : '';
+      if (testPanelOpen && !watchedGroups.length) loadWatchedGroups();
+    }
+
+    async function loadWatchedGroups() {
+      try {
+        const r = await fetch('/api/settings');
+        const d = await r.json();
+        watchedGroups = JSON.parse(d.watch_groups || '[]');
+        const sel = document.getElementById('test-group-select');
+        sel.innerHTML = '<option value="">-- pick a monitored group --</option>';
+        watchedGroups.forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g.id;
+          opt.textContent = g.name;
+          sel.appendChild(opt);
+        });
+        if (watchedGroups.length === 1) sel.value = watchedGroups[0].id;
+      } catch (_) {}
+    }
+
+    const testDrop = document.getElementById('test-drop');
+    const testInput = document.getElementById('test-file-input');
+    testDrop.addEventListener('click', () => testInput.click());
+    testDrop.addEventListener('dragover', e => { e.preventDefault(); testDrop.classList.add('border-blue-400'); });
+    testDrop.addEventListener('dragleave', () => testDrop.classList.remove('border-blue-400'));
+    testDrop.addEventListener('drop', e => {
+      e.preventDefault(); testDrop.classList.remove('border-blue-400');
+      setTestFile(e.dataTransfer.files[0]);
+    });
+    testInput.addEventListener('change', () => { setTestFile(testInput.files[0]); testInput.value = ''; });
+
+    function setTestFile(file) {
+      if (!file) return;
+      testFile = file;
+      const reader = new FileReader();
+      reader.onload = e => {
+        const drop = document.getElementById('test-drop');
+        drop.style.backgroundImage = `url(${e.target.result})`;
+        drop.style.backgroundSize = 'cover';
+        drop.style.backgroundPosition = 'center';
+        document.getElementById('test-drop-icon').textContent = '';
+        document.getElementById('test-drop-label').textContent = file.name;
+        document.getElementById('test-drop-label').className = 'text-sm text-white font-medium bg-black/50 px-2 py-0.5 rounded-lg';
+      };
+      reader.readAsDataURL(file);
+    }
+
+    async function runTest() {
+      const groupId = document.getElementById('test-group-select').value;
+      if (!groupId) { alert('Pick a group to simulate.'); return; }
+      if (!testFile) { alert('Select a photo to test.'); return; }
+
+      const group = watchedGroups.find(g => g.id === groupId);
+      document.getElementById('test-drop-icon').textContent = '⏳';
+      document.getElementById('test-drop-label').textContent = 'Analyzing...';
+
+      const form = new FormData();
+      form.append('file', testFile);
+
+      try {
+        const shouldForward = document.getElementById('test-forward').checked;
+        const r = await fetch(`/api/analyze?group_id=${encodeURIComponent(groupId)}&forward=${shouldForward}&is_test=true`, {
+          method: 'POST',
+          body: form,
+        });
+        const d = await r.json();
+
+        document.getElementById('test-drop-icon').textContent = '📷';
+        document.getElementById('test-drop-label').textContent = testFile.name;
+        document.getElementById('test-placeholder').classList.add('hidden');
+        document.getElementById('test-result').classList.remove('hidden');
+        showTestResult(d);
+      } catch (e) {
+        document.getElementById('test-drop-icon').textContent = '🔍';
+        document.getElementById('test-drop-label').textContent = 'Drop a photo or click to select';
+        alert('Test failed — is the backend running?');
+      }
+    }
+
+    function showTestResult(d) {
+      const banner = document.getElementById('test-banner');
+      const headline = document.getElementById('test-headline');
+      const sub = document.getElementById('test-sub');
+      const kidsEl = document.getElementById('test-kids');
+      const captionEl = document.getElementById('test-caption');
+
+      if (d.error && !d.faces_detected) {
+        banner.className = 'rounded-xl p-4 mb-4 text-center bg-gray-100';
+        headline.textContent = 'Error';
+        headline.className = 'text-lg font-bold text-gray-500';
+        sub.textContent = d.error;
+        kidsEl.innerHTML = '';
+        captionEl.textContent = '(nothing would be sent)';
+        return;
+      }
+
+      if (d.faces_detected === 0) {
+        banner.className = 'rounded-xl p-4 mb-4 text-center bg-gray-100';
+        headline.textContent = 'No faces detected';
+        headline.className = 'text-lg font-bold text-gray-500';
+        sub.textContent = 'Try a photo with a clearer face';
+        kidsEl.innerHTML = '';
+        captionEl.textContent = '(nothing would be sent)';
+        return;
+      }
+
+      if (d.matched) {
+        banner.className = 'rounded-xl p-4 mb-4 text-center bg-green-100';
+        headline.textContent = '✓ Match found — would forward!';
+        headline.className = 'text-lg font-bold text-green-800';
+        sub.className = 'text-sm mt-1 opacity-75 text-green-700';
+      } else {
+        banner.className = 'rounded-xl p-4 mb-4 text-center bg-gray-100';
+        headline.textContent = 'No match';
+        headline.className = 'text-lg font-bold text-gray-600';
+        sub.className = 'text-sm mt-1 opacity-75 text-gray-500';
+      }
+
+      const matchedKids = (d.matches || []).filter(m => m.matched);
+
+      if (d.matched) {
+        sub.textContent = `${d.faces_detected} face${d.faces_detected !== 1 ? 's' : ''} · ${matchedKids.length} kid${matchedKids.length !== 1 ? 's' : ''} matched · ${((d.threshold || 0.35) * 100).toFixed(0)}% threshold`;
+      } else {
+        sub.textContent = `${d.faces_detected} face${d.faces_detected !== 1 ? 's' : ''} scanned · threshold ${((d.threshold || 0.35) * 100).toFixed(0)}%`;
+      }
+
+      kidsEl.innerHTML = (d.matches || []).map(m => `
+        <div class="flex items-center justify-between px-3 py-2 rounded-xl ${m.matched ? 'bg-green-50 border border-green-200' : 'bg-gray-50 border border-gray-100'}">
+          <span class="text-sm font-medium ${m.matched ? 'text-green-800' : 'text-gray-500'}">${m.kid_name || m.kid_id}</span>
+          <span class="text-sm ${m.matched ? 'text-green-600 font-semibold' : 'text-gray-400'}">
+            ${(m.confidence * 100).toFixed(1)}% ${m.matched ? '✓' : ''}
+          </span>
+        </div>`).join('');
+
+      const forwardedBadge = document.getElementById('test-forwarded-badge');
+      const forwardError = document.getElementById('test-forward-error');
+      forwardedBadge.classList.add('hidden');
+      forwardError.classList.add('hidden');
+
+      if (matchedKids.length) {
+        const names = matchedKids.map(m => m.kid_name || 'your kid').join(' & ');
+        const best = Math.max(...matchedKids.map(m => m.confidence));
+        const verb = matchedKids.length > 1 ? 'are' : 'is';
+        captionEl.textContent = `"${names} ${verb} in this photo! (${(best * 100).toFixed(0)}% confidence)"`;
+        if (d.forwarded) forwardedBadge.classList.remove('hidden');
+        if (d.forward_error) {
+          forwardError.textContent = `Forward failed: ${d.forward_error}`;
+          forwardError.classList.remove('hidden');
+        }
+      } else {
+        captionEl.textContent = '(nothing would be sent)';
+      }
+    }
+
+    async function clearActivity() {
+      if (!confirm('Clear all recent activity logs?')) return;
+      try {
+        await fetch('/api/dashboard/activity', { method: 'DELETE' });
+        loadActivity();
+        loadStats();
+      } catch (_) {}
+    }
+
+    // ── Historical Scan ─────────────────────────────────────────────────────────
+
+    let histPanelOpen = false;
+    let histWatchedGroups = [];
+    let uploadFiles = [];
+
+    function toggleHistorical() {
+      histPanelOpen = !histPanelOpen;
+      document.getElementById('hist-panel').classList.toggle('hidden', !histPanelOpen);
+      document.getElementById('hist-chevron').style.transform = histPanelOpen ? 'rotate(90deg)' : '';
+      if (histPanelOpen && !histWatchedGroups.length) loadHistGroups();
+    }
+
+    function switchHistTab(tab) {
+      const isWA = tab === 'whatsapp';
+      document.getElementById('hist-tab-whatsapp').classList.toggle('hidden', !isWA);
+      document.getElementById('hist-tab-upload').classList.toggle('hidden', isWA);
+      document.getElementById('tab-whatsapp').className = `px-6 py-3 text-sm font-medium border-b-2 ${isWA ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`;
+      document.getElementById('tab-upload').className = `px-6 py-3 text-sm font-medium border-b-2 ${!isWA ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`;
+      // clear results when switching
+      document.getElementById('hist-results').innerHTML = '';
+      document.getElementById('hist-summary').classList.add('hidden');
+      document.getElementById('hist-note').classList.add('hidden');
+    }
+
+    // Upload drop zone
+    const uploadDrop = document.getElementById('upload-drop');
+    const uploadInput = document.getElementById('upload-file-input');
+    uploadDrop.addEventListener('click', () => uploadInput.click());
+    uploadDrop.addEventListener('dragover', e => { e.preventDefault(); uploadDrop.classList.add('border-purple-400'); });
+    uploadDrop.addEventListener('dragleave', () => uploadDrop.classList.remove('border-purple-400'));
+    uploadDrop.addEventListener('drop', e => {
+      e.preventDefault(); uploadDrop.classList.remove('border-purple-400');
+      setUploadFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
+    });
+    uploadInput.addEventListener('change', () => { setUploadFiles(Array.from(uploadInput.files)); uploadInput.value = ''; });
+
+    function setUploadFiles(files) {
+      uploadFiles = files;
+      document.getElementById('upload-drop-icon').textContent = files.length ? '📷' : '📂';
+      document.getElementById('upload-drop-label').textContent = files.length
+        ? `${files.length} photo${files.length !== 1 ? 's' : ''} selected`
+        : 'Drop photos here or click to select';
+    }
+
+    async function runUploadScan() {
+      const groupId = document.getElementById('hist-group-select').value;
+      if (!groupId) { alert('Pick a group first.'); return; }
+      if (!uploadFiles.length) { alert('Select at least one photo.'); return; }
+
+      const shouldForward = document.getElementById('upload-forward').checked;
+      const resultsEl = document.getElementById('hist-results');
+      const summaryEl = document.getElementById('hist-summary');
+      const statusEl = document.getElementById('hist-status');
+      const statusLabel = document.getElementById('hist-status-label');
+      const noteEl = document.getElementById('hist-note');
+      const btn = document.getElementById('upload-scan-btn');
+
+      resultsEl.innerHTML = '';
+      summaryEl.classList.add('hidden');
+      noteEl.classList.add('hidden');
+      btn.disabled = true;
+
+      let matched = 0, forwarded = 0, errors = 0;
+
+      for (let i = 0; i < uploadFiles.length; i++) {
+        const file = uploadFiles[i];
+        statusEl.classList.remove('hidden');
+        statusLabel.textContent = `Scanning ${i + 1} of ${uploadFiles.length}...`;
+
+        const form = new FormData();
+        form.append('file', file);
+
+        try {
+          const r = await fetch(
+            `/api/analyze?group_id=${encodeURIComponent(groupId)}&is_test=true&forward=${shouldForward}`,
+            { method: 'POST', body: form }
+          );
+          const d = await r.json();
+
+          if (d.matched) matched++;
+          if (d.forwarded) forwarded++;
+
+          const matchedKids = (d.matches || []).filter(m => m.matched);
+          const names = matchedKids.map(m => m.kid_name || m.kid_id).join(', ');
+          const bestConf = matchedKids.length ? Math.max(...matchedKids.map(m => m.confidence)) : 0;
+
+          const row = document.createElement('div');
+          row.className = `flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${d.matched ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`;
+          row.innerHTML = `
+            <span class="text-gray-500 text-xs truncate flex-1" title="${file.name}">${file.name}</span>
+            <span class="${d.matched ? 'text-green-700 font-semibold' : 'text-gray-400'} text-xs whitespace-nowrap">
+              ${d.matched ? `✓ ${names} ${(bestConf * 100).toFixed(0)}%${d.forwarded ? ' · sent' : ''}` : d.faces_detected === 0 ? 'No faces' : 'No match'}
+            </span>`;
+          resultsEl.appendChild(row);
+          resultsEl.scrollTop = resultsEl.scrollHeight;
+        } catch (e) {
+          errors++;
+          const row = document.createElement('div');
+          row.className = 'flex items-center gap-2 px-3 py-2 rounded-xl border bg-red-50 border-red-200 text-sm';
+          row.innerHTML = `<span class="text-gray-500 text-xs truncate flex-1">${file.name}</span><span class="text-red-500 text-xs">Error</span>`;
+          resultsEl.appendChild(row);
+        }
+      }
+
+      statusEl.classList.add('hidden');
+      btn.disabled = false;
+      summaryEl.classList.remove('hidden');
+      summaryEl.textContent = `Scanned ${uploadFiles.length} photo${uploadFiles.length !== 1 ? 's' : ''} · ${matched} match${matched !== 1 ? 'es' : ''}${forwarded ? ` · ${forwarded} forwarded` : ''}${errors ? ` · ${errors} errors` : ''}`;
+    }
+
+    async function loadHistGroups() {
+      try {
+        const r = await fetch('/api/settings');
+        const d = await r.json();
+        histWatchedGroups = JSON.parse(d.watch_groups || '[]');
+        const sel = document.getElementById('hist-group-select');
+        sel.innerHTML = '<option value="">-- pick a monitored group --</option>';
+        histWatchedGroups.forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g.id;
+          opt.textContent = g.name;
+          sel.appendChild(opt);
+        });
+        if (histWatchedGroups.length === 1) sel.value = histWatchedGroups[0].id;
+      } catch (_) {}
+    }
+
+    async function loadMoreHistory() {
+      const groupId = document.getElementById('hist-group-select').value;
+      if (!groupId) { alert('Pick a group first.'); return; }
+
+      const btn = document.getElementById('hist-load-btn');
+      const msg = document.getElementById('hist-load-msg');
+      btn.disabled = true;
+      btn.textContent = 'Requesting...';
+      msg.className = 'text-xs text-center text-purple-600';
+      msg.classList.remove('hidden');
+      msg.textContent = '';
+
+      try {
+        const r = await fetch(`/api/fetch-history?group_id=${encodeURIComponent(groupId)}`, { method: 'POST' });
+        const d = await r.json();
+
+        if (d.error) {
+          msg.className = 'text-xs text-center text-red-500';
+          msg.textContent = d.error;
+          btn.disabled = false;
+          btn.textContent = 'Load more history';
+          return;
+        }
+
+        // Countdown while WhatsApp delivers the history batch
+        const oldest = d.oldest_known ? ` (had history back to ${new Date(d.oldest_known).toLocaleDateString()})` : '';
+        let secs = 10;
+        btn.textContent = `Waiting ${secs}s...`;
+        msg.textContent = `Request sent${oldest}. WhatsApp is sending older messages now...`;
+        const iv = setInterval(() => {
+          secs--;
+          if (secs <= 0) {
+            clearInterval(iv);
+            btn.disabled = false;
+            btn.textContent = 'Load more history';
+            msg.textContent = 'Done! You can now scan — or load more again to go further back.';
+          } else {
+            btn.textContent = `Waiting ${secs}s...`;
+          }
+        }, 1000);
+      } catch (e) {
+        msg.className = 'text-xs text-center text-red-500';
+        msg.textContent = 'Failed — is the bot running?';
+        btn.disabled = false;
+        btn.textContent = 'Load more history';
+      }
+    }
+
+    function onHistRangeChange() {
+      const val = document.getElementById('hist-days').value;
+      document.getElementById('hist-since-date').classList.toggle('hidden', val !== 'custom');
+    }
+
+    async function runHistoricalScan() {
+      const groupId = document.getElementById('hist-group-select').value;
+      if (!groupId) { alert('Pick a group to scan.'); return; }
+
+      const rangeVal = document.getElementById('hist-days').value;
+      const sinceDate = document.getElementById('hist-since-date').value;
+      if (rangeVal === 'custom' && !sinceDate) { alert('Please pick a date.'); return; }
+
+      const shouldForward = document.getElementById('hist-forward').checked;
+
+      let params = `group_id=${encodeURIComponent(groupId)}&forward_matches=${shouldForward}`;
+      if (rangeVal === 'custom') {
+        params += `&since_date=${sinceDate}`;
+      } else {
+        params += `&days_back=${rangeVal}`;
+      }
+      const resultsEl = document.getElementById('hist-results');
+      const summaryEl = document.getElementById('hist-summary');
+      const statusEl = document.getElementById('hist-status');
+      const statusLabel = document.getElementById('hist-status-label');
+      const noteEl = document.getElementById('hist-note');
+      const btn = document.getElementById('hist-scan-btn');
+
+      resultsEl.innerHTML = '';
+      summaryEl.classList.add('hidden');
+      noteEl.classList.add('hidden');
+      statusEl.classList.remove('hidden');
+      statusLabel.textContent = 'Fetching group history...';
+      btn.disabled = true;
+      btn.textContent = 'Scanning...';
+
+      try {
+        const r = await fetch(`/api/scan-history?${params}`, { method: 'POST' });
+        const d = await r.json();
+
+        statusEl.classList.add('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Scan History';
+
+        if (d.error) {
+          noteEl.textContent = d.error;
+          noteEl.classList.remove('hidden');
+          return;
+        }
+
+        if (d.note) {
+          noteEl.textContent = d.note;
+          noteEl.classList.remove('hidden');
+        }
+
+        if (!d.results || d.results.length === 0) {
+          resultsEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">No image messages found in this time range.<br>Note: only messages received since the bot started are stored.</p>';
+        } else {
+          resultsEl.innerHTML = d.results.map(row => {
+            if (row.error) {
+              return `<div class="flex items-center justify-between px-3 py-2 rounded-xl border bg-red-50 border-red-200 text-sm">
+                <span class="text-gray-500">${new Date(row.timestamp).toLocaleString()}</span>
+                <span class="text-red-500 text-xs">${row.error}</span>
+              </div>`;
+            }
+            const t = new Date(row.timestamp).toLocaleString();
+            const names = (row.kids || []).join(', ');
+            const conf = row.confidence ? `${(row.confidence * 100).toFixed(0)}%` : '';
+            return `<div class="flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${row.matched ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}">
+              <span class="text-gray-400 text-xs whitespace-nowrap">${t}</span>
+              <span class="text-gray-500 text-xs truncate flex-1">${row.sender}</span>
+              <span class="${row.matched ? 'text-green-700 font-semibold' : 'text-gray-400'} text-xs whitespace-nowrap">
+                ${row.matched ? `✓ ${names} ${conf}${row.forwarded ? ' · sent' : ''}` : row.faces_detected === 0 ? 'No faces' : 'No match'}
+              </span>
+            </div>`;
+          }).join('');
+        }
+
+        summaryEl.classList.remove('hidden');
+        summaryEl.textContent = `Found ${d.total} image${d.total !== 1 ? 's' : ''} · ${d.matched} match${d.matched !== 1 ? 'es' : ''}${d.results.filter(r => r.forwarded).length ? ` · ${d.results.filter(r => r.forwarded).length} forwarded` : ''}`;
+
+      } catch (e) {
+        statusEl.classList.add('hidden');
+        btn.disabled = false;
+        btn.textContent = 'Scan History';
+        noteEl.textContent = 'Scan failed — is the backend running?';
+        noteEl.classList.remove('hidden');
+      }
+    }
+  </script>
+  <script src="/static/dark.js"></script>
+</body>
+</html>

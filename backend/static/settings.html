@@ -1,0 +1,720 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parent Tool – Settings</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/dark.css" />
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+
+  <!-- Nav -->
+  <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="/static/index.html" class="flex items-center gap-2.5 group">
+        <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm group-hover:bg-blue-700 transition-colors">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <span class="text-base font-bold text-gray-900">Parent Tool</span>
+      </a>
+      <div class="flex gap-1">
+        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Dashboard</a>
+        <a href="/static/enrollment.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Enrollment</a>
+        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-blue-600 bg-blue-50">Settings</a>
+      </div>
+      <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors" title="Toggle dark mode">
+        <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+        <svg id="dark-icon-sun" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <main class="max-w-2xl mx-auto px-6 py-8">
+    <h1 class="text-2xl font-bold text-gray-900 mb-8">Settings</h1>
+
+    <!-- Toast -->
+    <div id="toast" class="hidden fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50"></div>
+
+    <!-- WhatsApp Connection -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="flex items-center gap-2.5 mb-4">
+        <div class="w-8 h-8 rounded-xl bg-green-50 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
+        <h2 class="font-semibold text-gray-900">WhatsApp Connection</h2>
+      </div>
+
+      <!-- Connected state -->
+      <div id="wa-connected" class="hidden">
+        <div class="flex items-center gap-3 p-4 bg-green-50 rounded-xl border border-green-100">
+          <span class="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></span>
+          <div>
+            <p class="font-medium text-green-800" id="wa-name">Connected</p>
+            <p class="text-sm text-green-600" id="wa-number"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Disconnected / QR state -->
+      <div id="wa-disconnected">
+        <div class="flex items-center gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100 mb-4">
+          <span class="w-3 h-3 rounded-full bg-amber-400 flex-shrink-0"></span>
+          <p class="text-amber-800 text-sm">Not connected. Start the bot then scan the QR code below.</p>
+        </div>
+        <div id="qr-section" class="text-center">
+          <div id="qr-loading" class="py-8 text-gray-400 text-sm">Waiting for QR code...</div>
+          <img id="qr-image" class="hidden mx-auto w-52 h-52 rounded-xl border border-gray-200 shadow-sm" />
+          <p class="text-xs text-gray-400 mt-3">Open WhatsApp on your phone → Linked Devices → Link a Device</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Monitor Groups -->
+    <div id="group-settings" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="flex items-center gap-2.5 mb-1">
+        <div class="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <h2 class="font-semibold text-gray-900">Monitor Groups</h2>
+      </div>
+      <p class="text-sm text-gray-400 mb-4 ml-10">Add every WhatsApp group Parent Tool should watch for photos.</p>
+      <div class="flex gap-2 mb-2">
+        <input id="group-search" type="text" placeholder="Search groups..."
+               class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+               oninput="filterGroups()" />
+        <button onclick="refreshGroups(true)" class="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors" title="Refresh from WhatsApp">↻</button>
+      </div>
+      <div id="group-list-container" class="hidden border border-gray-200 rounded-xl overflow-hidden mb-3">
+        <div id="group-list" class="max-h-48 overflow-y-auto divide-y divide-gray-50"></div>
+        <p id="group-no-results" class="hidden px-3 py-2 text-sm text-gray-400">No groups found</p>
+      </div>
+      <div id="group-selected-display" class="hidden flex items-center justify-between bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 mb-3">
+        <span id="group-selected-name" class="text-sm text-blue-800 font-medium"></span>
+        <button onclick="clearGroupSelection()" class="text-xs text-blue-400 hover:text-blue-600 transition-colors">✕</button>
+      </div>
+      <input type="hidden" id="group-select" value="" />
+      <!-- Kid picker (shown after selecting a group) -->
+      <div id="kid-picker" class="hidden mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
+        <p class="text-xs text-gray-500 mb-2 font-medium">Which kid(s) to monitor in this group?</p>
+        <div id="kid-checkboxes" class="space-y-1.5"></div>
+        <button onclick="addGroup()" class="mt-3 w-full py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm">
+          Add Group
+        </button>
+      </div>
+      <ul id="watched-groups" class="space-y-2"></ul>
+    </div>
+
+    <!-- Actions -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="flex items-center gap-2.5 mb-1">
+        <div class="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+          </svg>
+        </div>
+        <h2 class="font-semibold text-gray-900">Actions</h2>
+      </div>
+      <p class="text-sm text-gray-400 mb-5 ml-10">What should happen when a kid is spotted? Enable any combination below.</p>
+
+      <!-- WhatsApp forward -->
+      <div class="border border-gray-100 rounded-xl p-4 mb-3">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            </svg>
+            <span class="text-sm font-medium text-gray-800">WhatsApp</span>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="forward-enabled" class="accent-blue-600" onchange="toggleForwardSection()" />
+            <span class="text-sm text-gray-500">Enabled</span>
+          </label>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">Forward to a WhatsApp chat (e.g. your private chat with your spouse).</p>
+        <div id="forward-section" class="hidden flex gap-2">
+          <select id="forward-select" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
+            <option value="">-- Select a chat --</option>
+          </select>
+          <button onclick="refreshChats(true)" class="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors" title="Refresh from WhatsApp">↻</button>
+        </div>
+      </div>
+
+      <!-- Save to local folder -->
+      <div class="border border-gray-100 rounded-xl p-4 mb-3">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
+            </svg>
+            <span class="text-sm font-medium text-gray-800">Save to folder</span>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="save-enabled" class="accent-blue-600" onchange="toggleSaveSection()" />
+            <span class="text-sm text-gray-500">Enabled</span>
+          </label>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">Save every matched photo to a local folder on this computer.</p>
+        <div id="save-section" class="hidden space-y-3">
+          <div class="flex gap-2">
+            <input type="text" id="save-path" placeholder="/Users/you/Parent Tool photos"
+                   class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <button onclick="browseSaveFolder()"
+                    class="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors whitespace-nowrap">
+              Browse…
+            </button>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-2">Organise subfolders by</label>
+            <div class="flex gap-4">
+              <label class="flex items-center gap-2 cursor-pointer select-none">
+                <input type="radio" name="save-organize" value="group" checked class="accent-blue-600" />
+                <span class="text-sm text-gray-700">Group name</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer select-none">
+                <input type="radio" name="save-organize" value="kid" class="accent-blue-600" />
+                <span class="text-sm text-gray-700">Kid name</span>
+              </label>
+            </div>
+            <p class="text-xs text-gray-400 mt-1">
+              Example — <span id="save-example" class="italic">save_folder / Group Name / 20260312_143000.jpg</span>
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Google Photos -->
+      <div class="border border-gray-100 rounded-xl p-4">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2">
+            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#4285F4"/>
+              <path d="M12 7a5 5 0 1 0 0 10A5 5 0 0 0 12 7z" fill="white"/>
+              <path d="M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" fill="#4285F4"/>
+            </svg>
+            <span class="text-sm font-medium text-gray-800">Google Photos</span>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="gp-enabled" class="accent-blue-600" onchange="toggleGPSection()" />
+            <span class="text-sm text-gray-500">Enabled</span>
+          </label>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">Automatically upload every matched photo to Google Photos.</p>
+
+        <div id="gp-section" class="hidden space-y-3">
+          <!-- Credentials -->
+          <div class="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2.5">
+            <p class="text-xs font-medium text-gray-600">Step 1 — Google Cloud credentials</p>
+            <details class="text-xs text-gray-500">
+              <summary class="text-blue-600 cursor-pointer font-medium">How to get credentials ▸</summary>
+              <ol class="mt-2 space-y-1 list-decimal pl-4">
+                <li>Go to <strong>console.cloud.google.com</strong> and create a project.</li>
+                <li>Enable the <strong>Photos Library API</strong>.</li>
+                <li>Go to <strong>Credentials → Create Credentials → OAuth Client ID</strong>.</li>
+                <li>Application type: <strong>Web application</strong>.</li>
+                <li>Add authorized redirect URI: <code id="gp-redirect-uri" class="bg-white border border-gray-200 px-1 rounded break-all">http://localhost:8000/api/settings/google-photos/callback</code></li>
+                <li>Copy Client ID and Client Secret below, then click <strong>Save Settings</strong>.</li>
+              </ol>
+            </details>
+            <input type="text" id="gp-client-id" placeholder="Client ID"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            <input type="password" id="gp-client-secret" placeholder="Client Secret"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+
+          <!-- Connect -->
+          <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
+            <p class="text-xs font-medium text-gray-600 mb-2">Step 2 — Authorise Parent Tool</p>
+            <div class="flex items-center justify-between">
+              <div id="gp-not-connected" class="flex items-center gap-2 text-sm text-gray-500">
+                <span class="w-2 h-2 rounded-full bg-gray-300 inline-block"></span>
+                Not connected
+              </div>
+              <div id="gp-connected-badge" class="hidden flex items-center gap-2 text-sm text-green-700">
+                <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
+                Connected
+              </div>
+              <div class="flex gap-2">
+                <button id="gp-connect-btn" onclick="connectGooglePhotos()"
+                        class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm">
+                  Connect with Google
+                </button>
+                <button id="gp-disconnect-btn" onclick="disconnectGooglePhotos()"
+                        class="hidden px-3 py-1.5 bg-gray-200 text-gray-600 text-xs font-medium rounded-xl hover:bg-gray-300 transition-colors">
+                  Disconnect
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Album settings -->
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-2">Organise albums by</label>
+            <div class="flex flex-wrap gap-4">
+              <label class="flex items-center gap-2 cursor-pointer select-none">
+                <input type="radio" name="gp-organize" value="group" checked class="accent-blue-600" onchange="toggleGPAlbumName()" />
+                <span class="text-sm text-gray-700">Group name</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer select-none">
+                <input type="radio" name="gp-organize" value="kid" class="accent-blue-600" onchange="toggleGPAlbumName()" />
+                <span class="text-sm text-gray-700">Kid name</span>
+              </label>
+              <label class="flex items-center gap-2 cursor-pointer select-none">
+                <input type="radio" name="gp-organize" value="single" class="accent-blue-600" onchange="toggleGPAlbumName()" />
+                <span class="text-sm text-gray-700">Single album</span>
+              </label>
+            </div>
+            <div id="gp-album-name-row" class="hidden mt-2">
+              <input type="text" id="gp-album-name" placeholder="Album name (e.g. Parent Tool)"
+                     class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Confidence threshold -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="flex items-center gap-2.5 mb-1">
+        <div class="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+        </div>
+        <h2 class="font-semibold text-gray-900">Match Confidence Threshold</h2>
+      </div>
+      <p class="text-sm text-gray-400 mb-4 ml-10">
+        Higher = fewer false positives but might miss some photos. Lower = catches more but may include other kids.
+      </p>
+      <div class="flex items-center gap-4">
+        <input type="range" id="threshold-slider" min="40" max="90" value="60" step="5"
+               class="flex-1 accent-blue-600"
+               oninput="document.getElementById('threshold-value').textContent = this.value + '%'" />
+        <span id="threshold-value" class="text-lg font-semibold text-blue-600 w-14 text-right">60%</span>
+      </div>
+      <div class="flex justify-between text-xs text-gray-400 mt-1">
+        <span>More matches</span>
+        <span>Fewer false positives</span>
+      </div>
+    </div>
+
+    <!-- Save -->
+    <button onclick="saveSettings()"
+            class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 transition-all shadow-sm">
+      Save Settings
+    </button>
+  </main>
+
+  <script>
+    let groups = [];
+    let chats = [];
+    let kids = [];
+    let watchedGroups = []; // [{id, name, kid_ids:[]}]
+
+    function showToast(msg, type = 'success') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50 ${
+        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-500 text-white'
+      }`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    async function checkStatus() {
+      try {
+        const r = await fetch('/api/settings/whatsapp/status');
+        const d = await r.json();
+        if (d.connected) {
+          document.getElementById('wa-connected').classList.remove('hidden');
+          document.getElementById('wa-disconnected').classList.add('hidden');
+          document.getElementById('wa-name').textContent = d.phone?.name || 'Connected';
+          document.getElementById('wa-number').textContent = d.phone?.number ? `+${d.phone.number}` : '';
+          await refreshGroups();
+          await refreshChats();
+        } else {
+          document.getElementById('wa-connected').classList.add('hidden');
+          document.getElementById('wa-disconnected').classList.remove('hidden');
+          pollQR();
+        }
+      } catch (_) {}
+    }
+
+    async function pollQR() {
+      try {
+        const r = await fetch('/api/settings/whatsapp/qr');
+        const d = await r.json();
+        if (d.qr) {
+          document.getElementById('qr-loading').classList.add('hidden');
+          const img = document.getElementById('qr-image');
+          img.src = d.qr;
+          img.classList.remove('hidden');
+          setTimeout(checkStatus, 10000);
+        } else {
+          setTimeout(pollQR, 3000);
+        }
+      } catch (_) {
+        setTimeout(pollQR, 5000);
+      }
+    }
+
+    async function loadKids() {
+      try {
+        const r = await fetch('/api/enrollment/kids');
+        const d = await r.json();
+        kids = d.kids || [];
+      } catch (_) {}
+    }
+
+    async function refreshGroups(force = false) {
+      try {
+        const url = '/api/settings/whatsapp/groups' + (force ? '?refresh=true' : '');
+        const r = await fetch(url);
+        const d = await r.json();
+        groups = (d.groups || []).sort((a, b) => a.name.localeCompare(b.name));
+        filterGroups();
+      } catch (_) {}
+    }
+
+    function filterGroups() {
+      const query = document.getElementById('group-search').value.trim().toLowerCase();
+      const container = document.getElementById('group-list-container');
+      const list = document.getElementById('group-list');
+      const noResults = document.getElementById('group-no-results');
+
+      if (!query) { container.classList.add('hidden'); return; }
+
+      const filtered = groups.filter(g => g.name.toLowerCase().includes(query));
+      container.classList.remove('hidden');
+      noResults.classList.toggle('hidden', filtered.length > 0);
+      list.innerHTML = filtered.map(g => `
+        <button onclick="selectGroup('${g.id.replace(/'/g, "\\'")}', '${g.name.replace(/'/g, "\\'")}')"
+                class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+          ${g.name}
+        </button>`).join('');
+    }
+
+    function selectGroup(id, name) {
+      document.getElementById('group-select').value = id;
+      document.getElementById('group-search').value = '';
+      document.getElementById('group-list-container').classList.add('hidden');
+      document.getElementById('group-selected-display').classList.remove('hidden');
+      document.getElementById('group-selected-name').textContent = name;
+
+      // Show kid picker
+      const picker = document.getElementById('kid-picker');
+      picker.classList.remove('hidden');
+      const box = document.getElementById('kid-checkboxes');
+      if (!kids.length) {
+        box.innerHTML = '<p class="text-xs text-gray-400">No kids enrolled yet. Add kids in the Enrollment page first.</p>';
+        return;
+      }
+      box.innerHTML = kids.map(k => `
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" value="${k.id}" class="kid-check accent-blue-600" />
+          <span class="text-sm text-gray-700">${k.name}</span>
+        </label>`).join('');
+    }
+
+    function clearGroupSelection() {
+      document.getElementById('group-select').value = '';
+      document.getElementById('group-selected-display').classList.add('hidden');
+      document.getElementById('kid-picker').classList.add('hidden');
+      document.getElementById('group-search').value = '';
+    }
+
+    // Close dropdown when clicking outside
+    document.addEventListener('click', e => {
+      if (!e.target.closest('#group-list-container') && !e.target.closest('#group-search')) {
+        document.getElementById('group-list-container').classList.add('hidden');
+      }
+    });
+
+    async function refreshChats(force = false) {
+      try {
+        const url = '/api/settings/whatsapp/chats' + (force ? '?refresh=true' : '');
+        const r = await fetch(url);
+        const d = await r.json();
+        chats = d.chats || [];
+        const sel = document.getElementById('forward-select');
+        const current = sel.dataset.savedValue || sel.value;
+        sel.innerHTML = '<option value="">-- Select a chat --</option>';
+        chats.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.id;
+          opt.textContent = c.isGroup ? `[Group] ${c.name}` : c.name;
+          if (c.id === current) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      } catch (_) {}
+    }
+
+    function kidName(kid_id) {
+      return kids.find(k => k.id === kid_id)?.name || kid_id;
+    }
+
+    function renderWatchedGroups() {
+      const ul = document.getElementById('watched-groups');
+      if (!watchedGroups.length) {
+        ul.innerHTML = '<li class="text-sm text-gray-400 py-1">No groups added yet.</li>';
+        return;
+      }
+      ul.innerHTML = watchedGroups.map((g, i) => {
+        const kidLabels = (g.kid_ids || []).map(id => `<span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-lg text-xs">${kidName(id)}</span>`).join(' ');
+        return `
+        <li class="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-blue-900 font-medium">${g.name}</span>
+            <button onclick="removeGroup(${i})" class="text-xs text-red-400 hover:text-red-600 transition-colors ml-2">Remove</button>
+          </div>
+          <div class="flex flex-wrap gap-1 mt-1.5">${kidLabels || '<span class="text-xs text-gray-400">No kids assigned</span>'}</div>
+        </li>`;
+      }).join('');
+    }
+
+    function addGroup() {
+      const id = document.getElementById('group-select').value;
+      const name = document.getElementById('group-selected-name').textContent;
+      if (!id) { showToast('Select a group first', 'error'); return; }
+      if (watchedGroups.some(g => g.id === id)) {
+        showToast('Group already added', 'error');
+        return;
+      }
+      const kid_ids = [...document.querySelectorAll('.kid-check:checked')].map(el => el.value);
+      if (!kid_ids.length) {
+        showToast('Select at least one kid', 'error');
+        return;
+      }
+      watchedGroups.push({ id, name, kid_ids });
+      clearGroupSelection();
+      renderWatchedGroups();
+    }
+
+    function removeGroup(index) {
+      watchedGroups.splice(index, 1);
+      renderWatchedGroups();
+    }
+
+    function toggleForwardSection() {
+      const enabled = document.getElementById('forward-enabled').checked;
+      document.getElementById('forward-section').classList.toggle('hidden', !enabled);
+    }
+
+    function toggleSaveSection() {
+      const enabled = document.getElementById('save-enabled').checked;
+      document.getElementById('save-section').classList.toggle('hidden', !enabled);
+    }
+
+    function updateSaveExample() {
+      const by = document.querySelector('input[name="save-organize"]:checked')?.value || 'group';
+      document.getElementById('save-example').textContent = by === 'kid'
+        ? 'save_folder / Kid Name / 20260312_143000.jpg'
+        : 'save_folder / Group Name / 20260312_143000.jpg';
+    }
+
+    document.querySelectorAll('input[name="save-organize"]').forEach(r => r.addEventListener('change', updateSaveExample));
+
+    async function browseSaveFolder() {
+      try {
+        const r = await fetch('/api/settings/browse-folder');
+        const d = await r.json();
+        if (d.path) document.getElementById('save-path').value = d.path;
+        else if (d.error) showToast('Folder picker unavailable — type the path manually', 'error');
+      } catch (_) {
+        showToast('Could not open folder picker', 'error');
+      }
+    }
+
+    async function loadCurrentSettings() {
+      try {
+        const r = await fetch('/api/settings');
+        const d = await r.json();
+
+        if (d.watch_groups) {
+          try { watchedGroups = JSON.parse(d.watch_groups); } catch (_) {}
+          renderWatchedGroups();
+        }
+        if (d.forward_to_id) {
+          document.getElementById('forward-select').dataset.savedValue = d.forward_to_id;
+          document.getElementById('forward-enabled').checked = true;
+          document.getElementById('forward-section').classList.remove('hidden');
+        }
+        if (d.confidence_threshold) {
+          const pct = Math.round(parseFloat(d.confidence_threshold) * 100);
+          document.getElementById('threshold-slider').value = pct;
+          document.getElementById('threshold-value').textContent = pct + '%';
+        }
+        if (d.save_photos_enabled === 'true') {
+          document.getElementById('save-enabled').checked = true;
+          document.getElementById('save-section').classList.remove('hidden');
+        }
+        if (d.save_photos_path) {
+          document.getElementById('save-path').value = d.save_photos_path;
+        }
+        if (d.save_photos_organize_by) {
+          const radio = document.querySelector(`input[name="save-organize"][value="${d.save_photos_organize_by}"]`);
+          if (radio) radio.checked = true;
+        }
+        updateSaveExample();
+
+        if (d.google_photos_enabled === 'true') {
+          document.getElementById('gp-enabled').checked = true;
+          document.getElementById('gp-section').classList.remove('hidden');
+          checkGPStatus();
+        }
+        if (d.google_photos_client_id)
+          document.getElementById('gp-client-id').value = d.google_photos_client_id;
+        if (d.google_photos_client_secret)
+          document.getElementById('gp-client-secret').value = '••••••••';
+        if (d.google_photos_album_organize_by) {
+          const radio = document.querySelector(`input[name="gp-organize"][value="${d.google_photos_album_organize_by}"]`);
+          if (radio) { radio.checked = true; toggleGPAlbumName(); }
+        }
+        if (d.google_photos_album_name)
+          document.getElementById('gp-album-name').value = d.google_photos_album_name;
+      } catch (_) {}
+    }
+
+    async function saveSettings() {
+      const forwardSel = document.getElementById('forward-select');
+      const forwardEnabled = document.getElementById('forward-enabled').checked;
+      const threshold = parseInt(document.getElementById('threshold-slider').value) / 100;
+      const forwardId = forwardEnabled ? forwardSel.value : '';
+      const forwardName = forwardEnabled ? (forwardSel.options[forwardSel.selectedIndex]?.text || '') : '';
+      const saveEnabled = document.getElementById('save-enabled').checked;
+      const savePath = document.getElementById('save-path').value.trim();
+      const saveOrganizeBy = document.querySelector('input[name="save-organize"]:checked')?.value || 'group';
+
+      if (saveEnabled && !savePath) {
+        showToast('Enter a folder path to save photos', 'error');
+        return;
+      }
+
+      const gpEnabled = document.getElementById('gp-enabled').checked;
+      const gpClientId = document.getElementById('gp-client-id').value.trim();
+      const gpClientSecret = document.getElementById('gp-client-secret').value.trim();
+      const gpOrganizeBy = document.querySelector('input[name="gp-organize"]:checked')?.value || 'group';
+      const gpAlbumName = document.getElementById('gp-album-name').value.trim();
+
+      try {
+        const payload = {
+          watch_groups: JSON.stringify(watchedGroups),
+          forward_to_id: forwardId || null,
+          forward_to_name: forwardName || null,
+          confidence_threshold: String(threshold),
+          save_photos_enabled: String(saveEnabled),
+          save_photos_path: savePath || null,
+          save_photos_organize_by: saveOrganizeBy,
+          google_photos_enabled: String(gpEnabled),
+          google_photos_album_organize_by: gpOrganizeBy,
+          google_photos_album_name: gpAlbumName || null,
+        };
+        // Only update client_id/secret if user typed a real value (not the placeholder)
+        if (gpClientId) payload.google_photos_client_id = gpClientId;
+        if (gpClientSecret && gpClientSecret !== '••••••••') payload.google_photos_client_secret = gpClientSecret;
+        const r = await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(payload),
+        });
+        if (r.ok) {
+          showToast('Settings saved!');
+        } else {
+          showToast('Failed to save settings', 'error');
+        }
+      } catch (_) {
+        showToast('Failed to save settings', 'error');
+      }
+    }
+
+    // ── Google Photos ───────────────────────────────────────────────────────────
+
+    function toggleGPSection() {
+      const enabled = document.getElementById('gp-enabled').checked;
+      document.getElementById('gp-section').classList.toggle('hidden', !enabled);
+      if (enabled) checkGPStatus();
+    }
+
+    function toggleGPAlbumName() {
+      const by = document.querySelector('input[name="gp-organize"]:checked')?.value;
+      document.getElementById('gp-album-name-row').classList.toggle('hidden', by !== 'single');
+    }
+
+    async function checkGPStatus() {
+      try {
+        const r = await fetch('/api/settings/google-photos/status');
+        const d = await r.json();
+        document.getElementById('gp-not-connected').classList.toggle('hidden', d.connected);
+        document.getElementById('gp-connected-badge').classList.toggle('hidden', !d.connected);
+        document.getElementById('gp-connect-btn').classList.toggle('hidden', d.connected);
+        document.getElementById('gp-disconnect-btn').classList.toggle('hidden', !d.connected);
+      } catch (_) {}
+    }
+
+    async function connectGooglePhotos() {
+      const clientId = document.getElementById('gp-client-id').value.trim();
+      const clientSecret = document.getElementById('gp-client-secret').value.trim();
+      if (!clientId || !clientSecret) {
+        showToast('Enter Client ID and Client Secret first, then save', 'error');
+        return;
+      }
+      // Persist credentials before redirecting
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ google_photos_client_id: clientId, google_photos_client_secret: clientSecret }),
+      });
+      const r = await fetch('/api/settings/google-photos/auth-url');
+      const d = await r.json();
+      if (d.error) { showToast(d.error, 'error'); return; }
+      window.location.href = d.url;
+    }
+
+    async function disconnectGooglePhotos() {
+      await fetch('/api/settings/google-photos/disconnect', { method: 'POST' });
+      document.getElementById('gp-not-connected').classList.remove('hidden');
+      document.getElementById('gp-connected-badge').classList.add('hidden');
+      document.getElementById('gp-connect-btn').classList.remove('hidden');
+      document.getElementById('gp-disconnect-btn').classList.add('hidden');
+      showToast('Disconnected from Google Photos');
+    }
+
+    // ── Init ────────────────────────────────────────────────────────────────────
+
+    async function init() {
+      await loadCurrentSettings();
+      await loadKids();
+      await checkStatus();
+      renderWatchedGroups();
+
+      // Handle OAuth redirect back to this page
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('gp_connected') === '1') {
+        showToast('Google Photos connected!');
+        checkGPStatus();
+        window.history.replaceState({}, '', '/static/settings.html');
+      } else if (params.get('gp_error')) {
+        showToast(`Google Photos error: ${params.get('gp_error')}`, 'error');
+        window.history.replaceState({}, '', '/static/settings.html');
+      }
+    }
+
+    init();
+  </script>
+  <script src="/static/dark.js"></script>
+</body>
+</html>

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parent Tool – Enrollment</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/dark.css" />
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+
+  <!-- Nav -->
+  <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="/static/index.html" class="flex items-center gap-2.5 group">
+        <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm group-hover:bg-blue-700 transition-colors">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <span class="text-base font-bold text-gray-900">Parent Tool</span>
+      </a>
+      <div class="flex gap-1">
+        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Dashboard</a>
+        <a href="/static/enrollment.html" class="px-4 py-2 rounded-xl text-sm font-medium text-blue-600 bg-blue-50">Enrollment</a>
+        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
+      </div>
+      <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors" title="Toggle dark mode">
+        <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+        <svg id="dark-icon-sun" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <div id="toast" class="hidden fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50"></div>
+
+  <!-- Add Kid modal -->
+  <div id="add-kid-modal" class="hidden fixed inset-0 bg-black/40 z-40 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-80">
+      <h3 class="font-semibold text-gray-900 mb-4">Add a Kid</h3>
+      <input id="new-kid-name" type="text" placeholder="e.g. Emma"
+             class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+             onkeydown="if(event.key==='Enter') confirmAddKid()" />
+      <div class="flex gap-2">
+        <button onclick="confirmAddKid()" class="flex-1 py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm">Add</button>
+        <button onclick="closeModal()" class="flex-1 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-6xl mx-auto px-6 py-8 flex gap-6">
+
+    <!-- Sidebar: Kids list -->
+    <div class="w-60 flex-shrink-0">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-gray-900 text-sm">Kids</h2>
+          <button onclick="openModal()" class="flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 transition-colors px-2 py-1 rounded-lg hover:bg-blue-50">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4" />
+            </svg>
+            Add
+          </button>
+        </div>
+        <ul id="kids-list" class="space-y-1">
+          <li class="text-xs text-gray-400 py-1">No kids yet</li>
+        </ul>
+      </div>
+    </div>
+
+    <!-- Main: Photos for selected kid -->
+    <div class="flex-1 min-w-0">
+      <!-- No kid selected -->
+      <div id="no-kid-selected" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-12 text-center">
+        <div class="w-14 h-14 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+          <svg class="w-7 h-7 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7" />
+          </svg>
+        </div>
+        <p class="text-gray-600 font-medium">Select a kid to manage their photos</p>
+        <p class="text-gray-400 text-sm mt-1">or add a new kid using the sidebar</p>
+      </div>
+
+      <!-- Kid selected -->
+      <div id="kid-panel" class="hidden space-y-6">
+        <div class="flex items-center justify-between">
+          <div>
+            <h1 id="kid-panel-name" class="text-2xl font-bold text-gray-900"></h1>
+            <p id="kid-panel-count" class="text-sm text-gray-400 mt-0.5"></p>
+          </div>
+          <button id="delete-kid-btn" class="px-3 py-1.5 text-xs text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition-colors font-medium">
+            Delete Kid
+          </button>
+        </div>
+
+        <!-- Upload area -->
+        <div id="drop-zone"
+             class="bg-white border-2 border-dashed border-gray-200 rounded-2xl p-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors shadow-sm">
+          <div class="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-3">
+            <svg class="w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <p class="text-gray-700 font-medium mb-1">Drop photos here or click to upload</p>
+          <p class="text-gray-400 text-sm">JPG, PNG, WEBP — multiple files supported</p>
+          <p class="text-gray-400 text-xs mt-1">💡 Best results: one clear face per photo, good lighting, looking at the camera</p>
+          <input type="file" id="file-input" accept="image/*" multiple class="hidden" />
+        </div>
+
+        <!-- Pending confirmation -->
+        <div id="pending-section" class="hidden">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold text-gray-900">Confirm Faces</h2>
+            <button onclick="confirmAll()" class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm">
+              Enroll All
+            </button>
+          </div>
+          <div id="pending-grid" class="grid grid-cols-3 sm:grid-cols-5 gap-3"></div>
+        </div>
+
+        <!-- Enrolled photos -->
+        <div>
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold text-gray-900">Enrolled Photos</h2>
+            <button onclick="deleteAllOriginals()" id="delete-originals-btn"
+                    class="hidden text-xs text-gray-400 hover:text-red-500 transition-colors">
+              Delete all originals
+            </button>
+          </div>
+          <div id="enrolled-grid" class="grid grid-cols-3 sm:grid-cols-5 gap-3">
+            <p id="enrolled-empty" class="text-gray-400 text-sm col-span-full py-2">No photos enrolled yet.</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    let kids = [];
+    let selectedKid = null;
+    let pending = [];
+
+    function showToast(msg, type = 'success') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50 ${
+        type === 'success' ? 'bg-green-600 text-white' : 'bg-red-500 text-white'
+      }`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    // ── Kids ──────────────────────────────────────────────────────────────────
+
+    async function loadKids() {
+      const r = await fetch('/api/enrollment/kids');
+      const d = await r.json();
+      kids = d.kids || [];
+      if (selectedKid) {
+        const still = kids.find(k => k.id === selectedKid.id);
+        if (still) {
+          // Update selectedKid with fresh data but don't re-trigger full selectKid flow
+          selectedKid = still;
+          document.getElementById('kid-panel-count').textContent = `${still.enrolled_count} photo${still.enrolled_count !== 1 ? 's' : ''} enrolled`;
+        } else {
+          unselectKid();
+        }
+      }
+      renderKidsList();
+    }
+
+    function renderKidsList() {
+      const ul = document.getElementById('kids-list');
+      if (!kids.length) {
+        ul.innerHTML = '<li class="text-xs text-gray-400 py-1">No kids yet</li>';
+        return;
+      }
+      ul.innerHTML = kids.map(k => {
+        const active = selectedKid?.id === k.id;
+        return `
+        <li>
+          <button onclick="selectKid('${k.id}')"
+                  class="w-full text-left px-2.5 py-2 rounded-xl text-sm transition-colors flex items-center gap-2.5 ${active ? 'bg-blue-50 text-blue-700 font-medium ring-1 ring-blue-100' : 'text-gray-700 hover:bg-gray-50'}">
+            ${k.enrolled_count > 0
+              ? `<img src="/api/enrollment/kids/${k.id}/thumbnail" class="w-8 h-8 rounded-full object-cover flex-shrink-0 bg-gray-100 ring-2 ring-white" onerror="this.outerHTML='<div class=\\'w-8 h-8 rounded-full bg-gray-100 flex-shrink-0\\'></div>'" />`
+              : `<div class="w-8 h-8 rounded-full bg-gray-100 flex-shrink-0 flex items-center justify-center text-gray-300 text-xs font-medium">${k.name.charAt(0).toUpperCase()}</div>`
+            }
+            <div class="min-w-0">
+              <div class="truncate font-medium">${k.name}</div>
+              <div class="text-xs ${active ? 'text-blue-400' : 'text-gray-400'}">${k.enrolled_count} photo${k.enrolled_count !== 1 ? 's' : ''}</div>
+            </div>
+          </button>
+        </li>`;
+      }).join('');
+    }
+
+    function selectKid(kidId) {
+      const kid = kids.find(k => k.id === kidId);
+      if (!kid) return;
+      selectedKid = kid;
+      document.getElementById('no-kid-selected').classList.add('hidden');
+      document.getElementById('kid-panel').classList.remove('hidden');
+      document.getElementById('kid-panel-name').textContent = kid.name;
+      document.getElementById('kid-panel-count').textContent = `${kid.enrolled_count} photo${kid.enrolled_count !== 1 ? 's' : ''} enrolled`;
+      document.getElementById('delete-kid-btn').onclick = () => deleteKid(kid.id, kid.name);
+      renderKidsList();
+      pending = [];
+      document.getElementById('pending-grid').innerHTML = '';
+      document.getElementById('pending-section').classList.add('hidden');
+      loadEnrolled();
+    }
+
+    function unselectKid() {
+      selectedKid = null;
+      document.getElementById('no-kid-selected').classList.remove('hidden');
+      document.getElementById('kid-panel').classList.add('hidden');
+      renderKidsList();
+    }
+
+    function openModal() {
+      document.getElementById('new-kid-name').value = '';
+      document.getElementById('add-kid-modal').classList.remove('hidden');
+      setTimeout(() => document.getElementById('new-kid-name').focus(), 50);
+    }
+
+    function closeModal() {
+      document.getElementById('add-kid-modal').classList.add('hidden');
+    }
+
+    async function confirmAddKid() {
+      const name = document.getElementById('new-kid-name').value.trim();
+      if (!name) return;
+      const r = await fetch('/api/enrollment/kids', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name }),
+      });
+      if (r.ok) {
+        const kid = await r.json();
+        closeModal();
+        await loadKids();
+        selectKid(kid.id);
+      } else {
+        showToast('Failed to add kid', 'error');
+      }
+    }
+
+    async function deleteKid(kidId, name) {
+      if (!confirm(`Delete ${name} and all their enrolled photos?`)) return;
+      const r = await fetch(`/api/enrollment/kids/${kidId}`, { method: 'DELETE' });
+      if (r.ok) {
+        showToast(`${name} deleted`);
+        unselectKid();
+        loadKids();
+      } else {
+        showToast('Failed to delete', 'error');
+      }
+    }
+
+    // ── Upload / Enroll ───────────────────────────────────────────────────────
+
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-blue-400'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-blue-400'));
+    dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('border-blue-400'); uploadFiles([...e.dataTransfer.files]); });
+    fileInput.addEventListener('change', () => { uploadFiles([...fileInput.files]); fileInput.value = ''; });
+
+    async function uploadFiles(files) {
+      if (!selectedKid) return;
+      for (const file of files) {
+        const form = new FormData();
+        form.append('file', file);
+        const phId = `ph-${Date.now()}-${Math.random()}`;
+        addPendingPlaceholder(phId, file.name);
+        try {
+          const r = await fetch(`/api/enrollment/kids/${selectedKid.id}/upload`, { method: 'POST', body: form });
+          const d = await r.json();
+          removePlaceholder(phId);
+          if (!r.ok) { showToast(d.detail || 'No face detected', 'error'); continue; }
+          pending.push(d);
+          addPendingCard(d);
+        } catch (e) {
+          removePlaceholder(phId);
+          showToast('Upload failed', 'error');
+        }
+      }
+    }
+
+    function addPendingPlaceholder(id, filename) {
+      document.getElementById('pending-section').classList.remove('hidden');
+      const div = document.createElement('div');
+      div.id = id;
+      div.className = 'bg-white rounded-2xl border border-gray-100 p-2 animate-pulse';
+      div.innerHTML = `<div class="w-full aspect-square bg-gray-100 rounded-xl mb-1"></div><p class="text-xs text-gray-400 truncate">${filename}</p>`;
+      document.getElementById('pending-grid').appendChild(div);
+    }
+
+    function removePlaceholder(id) {
+      document.getElementById(id)?.remove();
+      if (!document.getElementById('pending-grid').children.length)
+        document.getElementById('pending-section').classList.add('hidden');
+    }
+
+    function addPendingCard(data) {
+      document.getElementById('pending-section').classList.remove('hidden');
+      const div = document.createElement('div');
+      div.id = `pending-${data.photo_id}`;
+      div.className = 'bg-white rounded-2xl border border-gray-100 shadow-sm p-2 flex flex-col gap-1';
+
+      const img = data.face_crop
+        ? `<img src="data:image/jpeg;base64,${data.face_crop}" class="w-full aspect-square object-cover rounded-xl" />`
+        : `<div class="w-full aspect-square bg-gray-100 rounded-xl"></div>`;
+
+      const faceCount = data.faces_found > 1
+        ? `<p class="text-xs text-amber-500 text-center">⚠ ${data.faces_found} faces</p>`
+        : `<p class="text-xs text-blue-500 text-center">1 face detected</p>`;
+
+      let qualityBadge = '';
+      if (data.quality === 'small') {
+        qualityBadge = `<span class="text-xs text-red-500 bg-red-50 rounded-lg px-1.5 py-0.5 text-center">Face too small</span>`;
+      } else if (data.quality === 'ok') {
+        qualityBadge = `<span class="text-xs text-amber-500 bg-amber-50 rounded-lg px-1.5 py-0.5 text-center">Small face</span>`;
+      } else {
+        qualityBadge = `<span class="text-xs text-green-600 bg-green-50 rounded-lg px-1.5 py-0.5 text-center">Good quality</span>`;
+      }
+
+      const multiWarn = data.faces_found > 1
+        ? `<p class="text-xs text-amber-600 bg-amber-50 rounded-lg px-1 py-0.5 text-center leading-tight">Largest face enrolled</p>`
+        : '';
+
+      div.innerHTML = `${img}
+        ${faceCount}
+        ${qualityBadge}
+        ${multiWarn}
+        <button onclick="confirmOne('${data.photo_id}')" class="w-full py-1 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs rounded-xl hover:from-blue-700 hover:to-blue-800">Enroll</button>
+        <button onclick="discardOne('${data.photo_id}')" class="w-full py-1 bg-gray-100 text-gray-500 text-xs rounded-xl hover:bg-gray-200">Discard</button>`;
+      document.getElementById('pending-grid').appendChild(div);
+    }
+
+    async function confirmOne(photoId) {
+      if (!selectedKid) return;
+      const btn = document.querySelector(`#pending-${photoId} button`);
+      if (btn) { btn.disabled = true; btn.textContent = '...'; }
+      const r = await fetch(`/api/enrollment/kids/${selectedKid.id}/confirm/${photoId}`, { method: 'POST' });
+      const d = await r.json();
+      if (r.ok) {
+        document.getElementById(`pending-${photoId}`)?.remove();
+        pending = pending.filter(p => p.photo_id !== photoId);
+        if (!document.getElementById('pending-grid').children.length)
+          document.getElementById('pending-section').classList.add('hidden');
+        showToast('Photo enrolled!');
+        document.getElementById('kid-panel-count').textContent = `${d.enrolled_count} photos enrolled`;
+        loadEnrolled();
+        loadKids();
+      } else {
+        showToast(d.detail || 'Enrollment failed', 'error');
+      }
+    }
+
+    function discardOne(photoId) {
+      document.getElementById(`pending-${photoId}`)?.remove();
+      pending = pending.filter(p => p.photo_id !== photoId);
+      if (!document.getElementById('pending-grid').children.length)
+        document.getElementById('pending-section').classList.add('hidden');
+    }
+
+    async function confirmAll() {
+      for (const p of [...pending]) await confirmOne(p.photo_id);
+    }
+
+    async function loadEnrolled() {
+      if (!selectedKid) return;
+      const kidId = selectedKid.id; // capture — selected kid may change while fetching
+      const r = await fetch(`/api/enrollment/kids/${kidId}/photos`);
+      const d = await r.json();
+      if (selectedKid?.id !== kidId) return; // kid changed while loading — discard
+      const grid = document.getElementById('enrolled-grid');
+      const empty = document.getElementById('enrolled-empty');
+      grid.querySelectorAll('[id^="enrolled-"]:not(#enrolled-empty)').forEach(el => el.remove());
+      document.getElementById('delete-originals-btn').classList.toggle('hidden', !d.photos.length);
+      if (!d.photos.length) { empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+      d.photos.forEach(photo => {
+        const div = document.createElement('div');
+        div.id = `enrolled-${photo.photo_id}`;
+        div.className = 'bg-white rounded-2xl border border-green-200 shadow-sm p-2 flex flex-col gap-1 group relative';
+        div.innerHTML = `
+          <div class="relative overflow-hidden rounded-xl">
+            <img id="thumb-${photo.photo_id}" src="/api/enrollment/kids/${selectedKid.id}/photos/${photo.photo_id}/thumbnail"
+                 class="w-full aspect-square object-cover bg-gray-100"
+                 onerror="this.outerHTML='<div id=\\'thumb-${photo.photo_id}\\' class=\\'w-full aspect-square bg-green-50 flex items-center justify-center text-green-400 text-2xl\\'>✓</div>'" />
+          </div>
+          <p class="text-xs text-gray-400 truncate text-center">${new Date(photo.enrolled_at).toLocaleDateString()}</p>
+          <button onclick="deleteOriginal('${photo.photo_id}')" id="del-orig-${photo.photo_id}"
+                  class="w-full py-1 bg-gray-50 text-gray-400 text-xs rounded-xl hover:bg-orange-50 hover:text-orange-500 transition-colors opacity-0 group-hover:opacity-100 transition-opacity">
+            Del. original
+          </button>
+          <button onclick="removePhoto('${photo.photo_id}')" class="w-full py-1 bg-red-50 text-red-400 text-xs rounded-xl hover:bg-red-100 opacity-0 group-hover:opacity-100 transition-opacity">Remove</button>`;
+        grid.appendChild(div);
+      });
+    }
+
+    async function deleteOriginal(photoId) {
+      if (!selectedKid) return;
+      const r = await fetch(`/api/enrollment/kids/${selectedKid.id}/photos/${photoId}/original`, { method: 'DELETE' });
+      if (r.ok) {
+        // Replace thumbnail with checkmark, disable the button
+        const thumb = document.getElementById(`thumb-${photoId}`);
+        if (thumb) thumb.outerHTML = `<div id="thumb-${photoId}" class="w-full aspect-square bg-green-50 flex items-center justify-center text-green-400 text-2xl">✓</div>`;
+        const btn = document.getElementById(`del-orig-${photoId}`);
+        if (btn) { btn.disabled = true; btn.textContent = 'Deleted'; btn.className = 'w-full py-1 bg-gray-50 text-gray-300 text-xs rounded-xl cursor-default'; }
+        showToast('Original deleted — embedding kept');
+      } else {
+        const d = await r.json();
+        showToast(d.detail || 'Already deleted', 'error');
+      }
+    }
+
+    async function deleteAllOriginals() {
+      if (!selectedKid) return;
+      if (!confirm(`Delete all original photos for ${selectedKid.name}? The face embeddings will be kept and recognition will still work.`)) return;
+      const cards = document.querySelectorAll('[id^="del-orig-"]');
+      let count = 0;
+      for (const btn of cards) {
+        const photoId = btn.id.replace('del-orig-', '');
+        const r = await fetch(`/api/enrollment/kids/${selectedKid.id}/photos/${photoId}/original`, { method: 'DELETE' });
+        if (r.ok) {
+          const thumb = document.getElementById(`thumb-${photoId}`);
+          if (thumb) thumb.outerHTML = `<div id="thumb-${photoId}" class="w-full aspect-square bg-green-50 flex items-center justify-center text-green-400 text-2xl">✓</div>`;
+          btn.disabled = true; btn.textContent = 'Deleted';
+          btn.className = 'w-full py-1 bg-gray-50 text-gray-300 text-xs rounded-xl cursor-default';
+          count++;
+        }
+      }
+      showToast(`${count} original${count !== 1 ? 's' : ''} deleted`);
+    }
+
+    async function removePhoto(photoId) {
+      if (!selectedKid) return;
+      const r = await fetch(`/api/enrollment/kids/${selectedKid.id}/photos/${photoId}`, { method: 'DELETE' });
+      if (r.ok) {
+        document.getElementById(`enrolled-${photoId}`)?.remove();
+        showToast('Removed');
+        loadKids();
+      } else {
+        showToast('Failed to remove', 'error');
+      }
+    }
+
+    loadKids();
+  </script>
+  <script src="/static/dark.js"></script>
+</body>
+</html>
