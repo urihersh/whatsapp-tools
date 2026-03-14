@@ -29,9 +29,11 @@ let allGroups = [];
 let allChats = [];
 let sock = null;
 
-// --- Image history store: groupId -> Map<msgId, msg> ---
+// --- Media history stores: groupId -> Map<msgId, msg> ---
 const imageHistory = new Map();
+const videoHistory = new Map();
 const MAX_PER_GROUP = 3000;
+const MAX_VIDEOS_PER_GROUP = 500;
 
 // Oldest message cursor per group (used for fetchMessageHistory requests)
 const groupCursors = new Map(); // groupId -> { key, timestampMs }
@@ -63,16 +65,20 @@ function updateCursor(msg) {
   }
 }
 
-function storeImageMsg(msg) {
+function storeMediaMsg(msg) {
   const jid = msg.key?.remoteJid;
   if (!jid?.endsWith('@g.us')) return;
   updateCursor(msg);
-  if (!isImageMsg(msg)) return;
-  if (!imageHistory.has(jid)) imageHistory.set(jid, new Map());
-  const byJid = imageHistory.get(jid);
-  byJid.set(msg.key.id, msg);
-  if (byJid.size > MAX_PER_GROUP) {
-    byJid.delete(byJid.keys().next().value);
+  if (isImageMsg(msg)) {
+    if (!imageHistory.has(jid)) imageHistory.set(jid, new Map());
+    const byJid = imageHistory.get(jid);
+    byJid.set(msg.key.id, msg);
+    if (byJid.size > MAX_PER_GROUP) byJid.delete(byJid.keys().next().value);
+  } else if (isVideoMsg(msg)) {
+    if (!videoHistory.has(jid)) videoHistory.set(jid, new Map());
+    const byJid = videoHistory.get(jid);
+    byJid.set(msg.key.id, msg);
+    if (byJid.size > MAX_VIDEOS_PER_GROUP) byJid.delete(byJid.keys().next().value);
   }
 }
 
@@ -95,7 +101,7 @@ async function connect() {
   sock.ev.on('messaging-history.set', ({ messages }) => {
     for (const msg of (messages || [])) {
       updateCursor(msg);  // track oldest for all message types
-      storeImageMsg(msg); // store images only
+      storeMediaMsg(msg); // store images and videos
     }
     if (messages?.length) console.log(`[bot] History sync: processed ${messages.length} messages`);
   });
@@ -140,7 +146,7 @@ async function connect() {
 
     for (const msg of messages) {
       updateCursor(msg);
-      if (!msg.key.fromMe) storeImageMsg(msg); // store before skipping
+      if (!msg.key.fromMe) storeMediaMsg(msg); // store before skipping
 
       if (msg.key.fromMe) continue;
 
@@ -330,6 +336,37 @@ app.get('/download-image/:msgId', async (req, res) => {
   try {
     const buffer = await downloadMediaMessage(msg, 'buffer', {});
     res.json({ image_b64: buffer.toString('base64') });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/history-videos', (req, res) => {
+  const { groupId, since = '0' } = req.query;
+  if (!groupId) return res.status(400).json({ error: 'groupId required' });
+  const sinceTs = parseInt(since);
+  const byJid = videoHistory.get(groupId);
+  if (!byJid) return res.json({ videos: [] });
+  const videos = [];
+  for (const [id, msg] of byJid) {
+    const ts = (msg.messageTimestamp || 0) * 1000;
+    if (sinceTs > 0 && ts < sinceTs) continue;
+    videos.push({ id, timestamp: ts, sender: getSender(msg) });
+  }
+  videos.sort((a, b) => a.timestamp - b.timestamp);
+  res.json({ videos });
+});
+
+app.get('/download-video/:msgId', async (req, res) => {
+  const { groupId } = req.query;
+  const { msgId } = req.params;
+  if (!groupId) return res.status(400).json({ error: 'groupId required' });
+  const byJid = videoHistory.get(groupId);
+  const msg = byJid?.get(msgId);
+  if (!msg) return res.status(404).json({ error: 'Message not found in history' });
+  try {
+    const buffer = await downloadMediaMessage(msg, 'buffer', {});
+    res.json({ video_b64: buffer.toString('base64') });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

@@ -4,6 +4,7 @@ from fastapi.responses import RedirectResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 from datetime import datetime
+import asyncio
 import os
 import json
 import time
@@ -295,7 +296,7 @@ async def fetch_history(group_id: str = ""):
 @app.post("/api/scan-history")
 async def scan_history(request: Request, group_id: str = "", days_back: int = 7,
                        since_date: str = "", forward_matches: bool = False):
-    """Fetch historical image messages from a WhatsApp group and scan them for kids."""
+    """Fetch historical image and video messages from a WhatsApp group and scan them for kids."""
     db_settings = get_settings()
     threshold = float(db_settings.get("confidence_threshold", "0.35"))
     forward_to = db_settings.get("forward_to_id")
@@ -313,38 +314,38 @@ async def scan_history(request: Request, group_id: str = "", days_back: int = 7,
 
     try:
         async with httpx.AsyncClient(timeout=15.0) as hx:
-            r = await hx.get(f"{BOT_API_URL}/history-images",
-                             params={"groupId": group_id, "since": since_ts})
-            data = r.json()
-            images = data.get("images", [])
-            note = data.get("note")
+            img_r, vid_r = await asyncio.gather(
+                hx.get(f"{BOT_API_URL}/history-images", params={"groupId": group_id, "since": since_ts}),
+                hx.get(f"{BOT_API_URL}/history-videos", params={"groupId": group_id, "since": since_ts}),
+            )
+            images = img_r.json().get("images", [])
+            videos = vid_r.json().get("videos", [])
+            note = img_r.json().get("note")
     except Exception as e:
         return {"error": f"Could not reach bot: {e}", "results": [], "total": 0, "matched": 0}
 
-    if not images:
+    if not images and not videos:
         return {"group_name": group_name, "total": 0, "matched": 0, "results": [],
-                "note": note or "No image messages found in that time range"}
+                "note": note or "No photos or videos found in that time range"}
 
     results = []
     matched_count = 0
 
-    # Single client for all image downloads
-    async with httpx.AsyncClient(timeout=30.0) as hx:
+    async with httpx.AsyncClient(timeout=90.0) as hx:
+        # ── Images ────────────────────────────────────────────────────────────
         for img_info in images:
             msg_id = img_info["id"]
             sender = img_info.get("sender", "unknown")
             timestamp = img_info.get("timestamp", 0)
-
             try:
-                r = await hx.get(f"{BOT_API_URL}/download-image/{msg_id}",
-                                 params={"groupId": group_id})
+                r = await hx.get(f"{BOT_API_URL}/download-image/{msg_id}", params={"groupId": group_id})
                 if r.status_code != 200:
-                    results.append({"msg_id": msg_id, "sender": sender, "timestamp": timestamp,
+                    results.append({"msg_id": msg_id, "sender": sender, "timestamp": timestamp, "type": "image",
                                     "error": f"Download failed ({r.status_code})"})
                     continue
                 img_bytes = base64.b64decode(r.json()["image_b64"])
             except Exception as e:
-                results.append({"msg_id": msg_id, "sender": sender, "timestamp": timestamp,
+                results.append({"msg_id": msg_id, "sender": sender, "timestamp": timestamp, "type": "image",
                                 "error": str(e)})
                 continue
 
@@ -353,30 +354,69 @@ async def scan_history(request: Request, group_id: str = "", days_back: int = 7,
                 temp_path.write_bytes(img_bytes)
                 result = request.app.state.face_service.analyze_photo(str(temp_path), kid_ids, threshold)
                 matched_kids, best_conf = _enrich_matches(result, kid_names)
-
                 if result.get("matched"):
                     save_matched_photo(img_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings)
                     await save_to_google_photos(img_bytes, group_name, matched_kids, db_settings)
                     matched_count += 1
-
                 forwarded = False
                 if forward_matches and result.get("matched") and forward_to:
                     forwarded, _ = await _forward_photo(
-                        forward_to, img_bytes, matched_kids, best_conf,
-                        f" [from {group_name} history]"
+                        forward_to, img_bytes, matched_kids, best_conf, f" [from {group_name} history]"
                     )
-
                 results.append({
-                    "msg_id": msg_id,
-                    "sender": sender,
-                    "timestamp": timestamp,
+                    "msg_id": msg_id, "sender": sender, "timestamp": timestamp, "type": "image",
                     "faces_detected": result.get("faces_detected", 0),
                     "matched": result.get("matched", False),
-                    "confidence": best_conf,
-                    "forwarded": forwarded,
+                    "confidence": best_conf, "forwarded": forwarded,
                     "kids": [m["kid_name"] for m in matched_kids],
                 })
             finally:
                 temp_path.unlink(missing_ok=True)
 
-    return {"group_name": group_name, "total": len(images), "matched": matched_count, "results": results}
+        # ── Videos ────────────────────────────────────────────────────────────
+        for vid_info in videos:
+            msg_id = vid_info["id"]
+            sender = vid_info.get("sender", "unknown")
+            timestamp = vid_info.get("timestamp", 0)
+            try:
+                r = await hx.get(f"{BOT_API_URL}/download-video/{msg_id}", params={"groupId": group_id})
+                if r.status_code != 200:
+                    results.append({"msg_id": msg_id, "sender": sender, "timestamp": timestamp, "type": "video",
+                                    "error": f"Download failed ({r.status_code})"})
+                    continue
+                vid_bytes = base64.b64decode(r.json()["video_b64"])
+            except Exception as e:
+                results.append({"msg_id": msg_id, "sender": sender, "timestamp": timestamp, "type": "video",
+                                "error": str(e)})
+                continue
+
+            temp_path = DATA_DIR / "temp" / f"{uuid.uuid4()}.mp4"
+            try:
+                temp_path.write_bytes(vid_bytes)
+                result = request.app.state.face_service.analyze_video(str(temp_path), kid_ids, threshold)
+                best_frame_bytes = result.pop("best_frame_bytes", None)
+                matched_kids, best_conf = _enrich_matches(result, kid_names)
+                if result.get("matched") and best_frame_bytes:
+                    save_matched_photo(best_frame_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings)
+                    await save_to_google_photos(best_frame_bytes, group_name, matched_kids, db_settings)
+                    matched_count += 1
+                forwarded = False
+                if forward_matches and result.get("matched") and best_frame_bytes and forward_to:
+                    forwarded, _ = await _forward_photo(
+                        forward_to, best_frame_bytes, matched_kids, best_conf, f" [from {group_name} history, video]"
+                    )
+                results.append({
+                    "msg_id": msg_id, "sender": sender, "timestamp": timestamp, "type": "video",
+                    "faces_detected": result.get("faces_detected", 0),
+                    "matched": result.get("matched", False),
+                    "confidence": best_conf, "forwarded": forwarded,
+                    "kids": [m["kid_name"] for m in matched_kids],
+                    "frames_sampled": result.get("frames_sampled", 0),
+                })
+            finally:
+                temp_path.unlink(missing_ok=True)
+
+    results.sort(key=lambda r: r.get("timestamp", 0))
+    return {"group_name": group_name, "total": len(images) + len(videos),
+            "total_images": len(images), "total_videos": len(videos),
+            "matched": matched_count, "results": results}

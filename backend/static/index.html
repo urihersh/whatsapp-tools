@@ -291,24 +291,24 @@
               <!-- Upload from device controls -->
               <div id="hist-tab-upload" class="hidden">
                 <div>
-                  <label class="block text-sm font-medium text-gray-700 mb-1">Photos</label>
+                  <label class="block text-sm font-medium text-gray-700 mb-1">Photos &amp; videos</label>
                   <div id="upload-drop"
                        class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors">
                     <div id="upload-drop-icon" class="text-3xl mb-1">📂</div>
-                    <p id="upload-drop-label" class="text-sm text-gray-500">Drop photos here or click to select</p>
+                    <p id="upload-drop-label" class="text-sm text-gray-500">Drop photos or videos here, or click to select</p>
                     <p class="text-xs text-gray-400 mt-1">Multiple files supported</p>
-                    <input type="file" id="upload-file-input" accept="image/*" multiple class="hidden" />
+                    <input type="file" id="upload-file-input" accept="image/*,video/*" multiple class="hidden" />
                   </div>
                 </div>
 
                 <label class="flex items-center gap-2 cursor-pointer select-none mt-4">
                   <input type="checkbox" id="upload-forward" class="accent-purple-600" />
-                  <span class="text-sm text-gray-600">Forward matched photos to destination</span>
+                  <span class="text-sm text-gray-600">Forward matches to destination</span>
                 </label>
 
                 <button onclick="runUploadScan()" id="upload-scan-btn"
                         class="w-full mt-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-medium text-sm rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all shadow-sm">
-                  Scan Photos
+                  Scan
                 </button>
               </div>
 
@@ -704,16 +704,24 @@
     uploadDrop.addEventListener('dragleave', () => uploadDrop.classList.remove('border-purple-400'));
     uploadDrop.addEventListener('drop', e => {
       e.preventDefault(); uploadDrop.classList.remove('border-purple-400');
-      setUploadFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/')));
+      setUploadFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/')));
     });
     uploadInput.addEventListener('change', () => { setUploadFiles(Array.from(uploadInput.files)); uploadInput.value = ''; });
 
     function setUploadFiles(files) {
       uploadFiles = files;
-      document.getElementById('upload-drop-icon').textContent = files.length ? '📷' : '📂';
-      document.getElementById('upload-drop-label').textContent = files.length
-        ? `${files.length} photo${files.length !== 1 ? 's' : ''} selected`
-        : 'Drop photos here or click to select';
+      if (!files.length) {
+        document.getElementById('upload-drop-icon').textContent = '📂';
+        document.getElementById('upload-drop-label').textContent = 'Drop photos or videos here, or click to select';
+        return;
+      }
+      const imgs = files.filter(f => f.type.startsWith('image/')).length;
+      const vids = files.filter(f => f.type.startsWith('video/')).length;
+      const parts = [];
+      if (imgs) parts.push(`${imgs} photo${imgs !== 1 ? 's' : ''}`);
+      if (vids) parts.push(`${vids} video${vids !== 1 ? 's' : ''}`);
+      document.getElementById('upload-drop-icon').textContent = vids && !imgs ? '🎬' : '📷';
+      document.getElementById('upload-drop-label').textContent = parts.join(' + ') + ' selected';
     }
 
     function onHistGroupChange() {
@@ -758,7 +766,10 @@
         form.append('file', file);
 
         try {
-          let url = `/api/analyze?is_test=true&forward=${shouldForward}`;
+          const isVid = file.type.startsWith('video/');
+          let url = isVid
+            ? `/api/analyze-video?sender=upload`
+            : `/api/analyze?is_test=true&forward=${shouldForward}`;
           if (groupId) url += `&group_id=${encodeURIComponent(groupId)}`;
           if (kidIds) url += `&kid_ids=${encodeURIComponent(kidIds)}`;
           const r = await fetch(url, { method: 'POST', body: form });
@@ -771,12 +782,15 @@
           const names = matchedKids.map(m => m.kid_name || m.kid_id).join(', ');
           const bestConf = matchedKids.length ? Math.max(...matchedKids.map(m => m.confidence)) : 0;
 
+          const isVid = file.type.startsWith('video/');
           const row = document.createElement('div');
           row.className = `flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${d.matched ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`;
+          const frameNote = isVid && d.frames_sampled ? ` · ${d.frames_sampled}f` : '';
           row.innerHTML = `
+            <span class="text-xs">${isVid ? '🎬' : '🖼️'}</span>
             <span class="text-gray-500 text-xs truncate flex-1" title="${file.name}">${file.name}</span>
             <span class="${d.matched ? 'text-green-700 font-semibold' : 'text-gray-400'} text-xs whitespace-nowrap">
-              ${d.matched ? `✓ ${names} ${(bestConf * 100).toFixed(0)}%${d.forwarded ? ' · sent' : ''}` : d.faces_detected === 0 ? 'No faces' : 'No match'}
+              ${d.matched ? `✓ ${names} ${(bestConf * 100).toFixed(0)}%${frameNote}${d.forwarded ? ' · sent' : ''}` : d.faces_detected === 0 ? 'No faces' : 'No match'}
             </span>`;
           resultsEl.appendChild(row);
           resultsEl.scrollTop = resultsEl.scrollHeight;
@@ -792,7 +806,12 @@
       statusEl.classList.add('hidden');
       btn.disabled = false;
       summaryEl.classList.remove('hidden');
-      summaryEl.textContent = `Scanned ${uploadFiles.length} photo${uploadFiles.length !== 1 ? 's' : ''} · ${matched} match${matched !== 1 ? 'es' : ''}${forwarded ? ` · ${forwarded} forwarded` : ''}${errors ? ` · ${errors} errors` : ''}`;
+      const imgCount = uploadFiles.filter(f => f.type.startsWith('image/')).length;
+      const vidCount = uploadFiles.filter(f => f.type.startsWith('video/')).length;
+      const scanParts = [];
+      if (imgCount) scanParts.push(`${imgCount} photo${imgCount !== 1 ? 's' : ''}`);
+      if (vidCount) scanParts.push(`${vidCount} video${vidCount !== 1 ? 's' : ''}`);
+      summaryEl.textContent = `Scanned ${scanParts.join(' + ')} · ${matched} match${matched !== 1 ? 'es' : ''}${forwarded ? ` · ${forwarded} forwarded` : ''}${errors ? ` · ${errors} errors` : ''}`;
     }
 
     async function loadHistGroups() {
@@ -935,7 +954,7 @@
         }
 
         if (!d.results || d.results.length === 0) {
-          resultsEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">No image messages found in this time range.<br>Note: only messages received since the bot started are stored.</p>';
+          resultsEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">No photos or videos found in this time range.<br>Note: only messages received since the bot started are stored.</p>';
         } else {
           resultsEl.innerHTML = d.results.map(row => {
             if (row.error) {
@@ -947,18 +966,25 @@
             const t = new Date(row.timestamp).toLocaleString();
             const names = (row.kids || []).join(', ');
             const conf = row.confidence ? `${(row.confidence * 100).toFixed(0)}%` : '';
+            const icon = row.type === 'video' ? '🎬' : '🖼️';
+            const frameNote = row.type === 'video' && row.frames_sampled ? ` · ${row.frames_sampled}f` : '';
             return `<div class="flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${row.matched ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}">
+              <span class="text-xs">${icon}</span>
               <span class="text-gray-400 text-xs whitespace-nowrap">${t}</span>
               <span class="text-gray-500 text-xs truncate flex-1">${row.sender}</span>
               <span class="${row.matched ? 'text-green-700 font-semibold' : 'text-gray-400'} text-xs whitespace-nowrap">
-                ${row.matched ? `✓ ${names} ${conf}${row.forwarded ? ' · sent' : ''}` : row.faces_detected === 0 ? 'No faces' : 'No match'}
+                ${row.matched ? `✓ ${names} ${conf}${frameNote}${row.forwarded ? ' · sent' : ''}` : row.faces_detected === 0 ? 'No faces' : 'No match'}
               </span>
             </div>`;
           }).join('');
         }
 
+        const fwdCount = d.results.filter(r => r.forwarded).length;
+        const summaryParts = [];
+        if (d.total_images) summaryParts.push(`${d.total_images} photo${d.total_images !== 1 ? 's' : ''}`);
+        if (d.total_videos) summaryParts.push(`${d.total_videos} video${d.total_videos !== 1 ? 's' : ''}`);
         summaryEl.classList.remove('hidden');
-        summaryEl.textContent = `Found ${d.total} image${d.total !== 1 ? 's' : ''} · ${d.matched} match${d.matched !== 1 ? 'es' : ''}${d.results.filter(r => r.forwarded).length ? ` · ${d.results.filter(r => r.forwarded).length} forwarded` : ''}`;
+        summaryEl.textContent = `Scanned ${summaryParts.join(' + ') || d.total + ' items'} · ${d.matched} match${d.matched !== 1 ? 'es' : ''}${fwdCount ? ` · ${fwdCount} forwarded` : ''}`;
 
       } catch (e) {
         statusEl.classList.add('hidden');
