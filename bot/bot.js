@@ -275,6 +275,19 @@ app.post('/send', express.json({ limit: '20mb' }), async (req, res) => {
   }
 });
 
+app.post('/send-video', express.json({ limit: '200mb' }), async (req, res) => {
+  if (!isConnected) return res.status(503).json({ error: 'Not connected' });
+  const { to, caption, video_b64 } = req.body;
+  if (!video_b64 || !to) return res.status(400).json({ error: 'Missing to or video_b64' });
+  try {
+    const buffer = Buffer.from(video_b64, 'base64');
+    await sock.sendMessage(to, { video: buffer, caption: caption || '' });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.get('/groups', async (req, res) => {
   if (isConnected && (allGroups.length === 0 || req.query.refresh)) await refreshGroupsAndChats();
   res.json({ groups: allGroups });

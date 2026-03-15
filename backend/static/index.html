@@ -209,7 +209,7 @@
       <button onclick="toggleHistorical()" class="w-full px-6 py-4 flex items-center justify-between text-left">
         <div>
           <h2 class="font-semibold text-gray-900">Scan Past Photos</h2>
-          <p class="text-xs text-gray-400 mt-0.5">Go back in group history and find photos with your kid</p>
+          <p class="text-xs text-gray-400 mt-0.5">Go back in group history and find photos and videos with your kid</p>
         </div>
         <svg id="hist-chevron" class="w-5 h-5 text-gray-400 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7" />
@@ -284,6 +284,10 @@
                           class="flex-1 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-medium text-sm rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all shadow-sm">
                     Scan History
                   </button>
+                  <button onclick="stopHistoricalScan()" id="hist-stop-btn"
+                          class="hidden flex-1 py-2.5 bg-white border border-red-300 text-red-600 font-medium text-sm rounded-xl hover:bg-red-50 transition-colors">
+                    Stop
+                  </button>
                 </div>
                 <p id="hist-load-msg" class="hidden text-xs text-center mt-1"></p>
               </div>
@@ -306,10 +310,16 @@
                   <span class="text-sm text-gray-600">Forward matches to destination</span>
                 </label>
 
-                <button onclick="runUploadScan()" id="upload-scan-btn"
-                        class="w-full mt-4 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-medium text-sm rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all shadow-sm">
-                  Scan
-                </button>
+                <div class="flex gap-2 mt-4">
+                  <button onclick="runUploadScan()" id="upload-scan-btn"
+                          class="flex-1 py-2.5 bg-gradient-to-r from-purple-600 to-purple-700 text-white font-medium text-sm rounded-xl hover:from-purple-700 hover:to-purple-800 transition-all shadow-sm">
+                    Scan
+                  </button>
+                  <button onclick="stopUploadScan()" id="upload-stop-btn"
+                          class="hidden flex-1 py-2.5 bg-white border border-red-300 text-red-600 font-medium text-sm rounded-xl hover:bg-red-50 transition-colors">
+                    Stop
+                  </button>
+                </div>
               </div>
 
             </div>
@@ -671,6 +681,8 @@
     let histPanelOpen = false;
     let histWatchedGroups = [];
     let uploadFiles = [];
+    let waAbortCtrl = null;
+    let stopUploadRequested = false;
 
     function toggleHistorical() {
       histPanelOpen = !histPanelOpen;
@@ -685,10 +697,6 @@
       document.getElementById('hist-tab-upload').classList.toggle('hidden', isWA);
       document.getElementById('tab-whatsapp').className = `px-6 py-3 text-sm font-medium border-b-2 ${isWA ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`;
       document.getElementById('tab-upload').className = `px-6 py-3 text-sm font-medium border-b-2 ${!isWA ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`;
-      // clear results when switching
-      document.getElementById('hist-results').innerHTML = '';
-      document.getElementById('hist-summary').classList.add('hidden');
-      document.getElementById('hist-note').classList.add('hidden');
       // kids picker and optional hint only relevant for upload tab
       document.getElementById('hist-group-optional-hint').classList.toggle('hidden', isWA);
       document.querySelector('#hist-group-select option[value=""]').textContent =
@@ -730,6 +738,9 @@
       document.getElementById('hist-kids-picker').classList.toggle('hidden', !!groupId || !isUploadTab);
     }
 
+    function stopUploadScan() { stopUploadRequested = true; }
+    function stopHistoricalScan() { waAbortCtrl?.abort(); }
+
     async function runUploadScan() {
       const groupId = document.getElementById('hist-group-select').value;
       if (!uploadFiles.length) { alert('Select at least one photo.'); return; }
@@ -742,22 +753,26 @@
         kidIds = checked.map(cb => cb.value).join(',');
       }
 
+      stopUploadRequested = false;
       const shouldForward = document.getElementById('upload-forward').checked;
       const resultsEl = document.getElementById('hist-results');
       const summaryEl = document.getElementById('hist-summary');
       const statusEl = document.getElementById('hist-status');
       const statusLabel = document.getElementById('hist-status-label');
       const noteEl = document.getElementById('hist-note');
-      const btn = document.getElementById('upload-scan-btn');
+      const scanBtn = document.getElementById('upload-scan-btn');
+      const stopBtn = document.getElementById('upload-stop-btn');
 
       resultsEl.innerHTML = '';
       summaryEl.classList.add('hidden');
       noteEl.classList.add('hidden');
-      btn.disabled = true;
+      scanBtn.classList.add('hidden');
+      stopBtn.classList.remove('hidden');
 
-      let matched = 0, forwarded = 0, errors = 0;
+      let matched = 0, forwarded = 0, errors = 0, i = 0;
 
-      for (let i = 0; i < uploadFiles.length; i++) {
+      for (; i < uploadFiles.length; i++) {
+        if (stopUploadRequested) break;
         const file = uploadFiles[i];
         statusEl.classList.remove('hidden');
         statusLabel.textContent = `Scanning ${i + 1} of ${uploadFiles.length}...`;
@@ -782,7 +797,6 @@
           const names = matchedKids.map(m => m.kid_name || m.kid_id).join(', ');
           const bestConf = matchedKids.length ? Math.max(...matchedKids.map(m => m.confidence)) : 0;
 
-          const isVid = file.type.startsWith('video/');
           const row = document.createElement('div');
           row.className = `flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${d.matched ? 'bg-green-50 border-green-200' : 'bg-gray-50 border-gray-100'}`;
           const frameNote = isVid && d.frames_sampled ? ` · ${d.frames_sampled}f` : '';
@@ -804,14 +818,19 @@
       }
 
       statusEl.classList.add('hidden');
-      btn.disabled = false;
+      scanBtn.classList.remove('hidden');
+      stopBtn.classList.add('hidden');
       summaryEl.classList.remove('hidden');
-      const imgCount = uploadFiles.filter(f => f.type.startsWith('image/')).length;
-      const vidCount = uploadFiles.filter(f => f.type.startsWith('video/')).length;
+      let imgCount = 0, vidCount = 0;
+      for (let j = 0; j < i; j++) {
+        if (uploadFiles[j].type.startsWith('image/')) imgCount++;
+        else if (uploadFiles[j].type.startsWith('video/')) vidCount++;
+      }
       const scanParts = [];
       if (imgCount) scanParts.push(`${imgCount} photo${imgCount !== 1 ? 's' : ''}`);
       if (vidCount) scanParts.push(`${vidCount} video${vidCount !== 1 ? 's' : ''}`);
-      summaryEl.textContent = `Scanned ${scanParts.join(' + ')} · ${matched} match${matched !== 1 ? 'es' : ''}${forwarded ? ` · ${forwarded} forwarded` : ''}${errors ? ` · ${errors} errors` : ''}`;
+      const stoppedNote = stopUploadRequested ? ` · stopped early` : '';
+      summaryEl.textContent = `Scanned ${scanParts.join(' + ')} · ${matched} match${matched !== 1 ? 'es' : ''}${forwarded ? ` · ${forwarded} forwarded` : ''}${errors ? ` · ${errors} errors` : ''}${stoppedNote}`;
     }
 
     async function loadHistGroups() {
@@ -924,23 +943,23 @@
       const statusEl = document.getElementById('hist-status');
       const statusLabel = document.getElementById('hist-status-label');
       const noteEl = document.getElementById('hist-note');
-      const btn = document.getElementById('hist-scan-btn');
+      const scanBtn = document.getElementById('hist-scan-btn');
+      const stopBtn = document.getElementById('hist-stop-btn');
 
       resultsEl.innerHTML = '';
       summaryEl.classList.add('hidden');
       noteEl.classList.add('hidden');
       statusEl.classList.remove('hidden');
       statusLabel.textContent = 'Fetching group history...';
-      btn.disabled = true;
-      btn.textContent = 'Scanning...';
+      scanBtn.classList.add('hidden');
+      stopBtn.classList.remove('hidden');
 
+      waAbortCtrl = new AbortController();
       try {
-        const r = await fetch(`/api/scan-history?${params}`, { method: 'POST' });
+        const r = await fetch(`/api/scan-history?${params}`, { method: 'POST', signal: waAbortCtrl.signal });
         const d = await r.json();
 
         statusEl.classList.add('hidden');
-        btn.disabled = false;
-        btn.textContent = 'Scan History';
 
         if (d.error) {
           noteEl.textContent = d.error;
@@ -988,10 +1007,16 @@
 
       } catch (e) {
         statusEl.classList.add('hidden');
-        btn.disabled = false;
-        btn.textContent = 'Scan History';
-        noteEl.textContent = 'Scan failed — is the backend running?';
+        if (e.name === 'AbortError') {
+          noteEl.textContent = 'Scan stopped.';
+        } else {
+          noteEl.textContent = 'Scan failed — is the backend running?';
+        }
         noteEl.classList.remove('hidden');
+      } finally {
+        waAbortCtrl = null;
+        scanBtn.classList.remove('hidden');
+        stopBtn.classList.add('hidden');
       }
     }
   </script>

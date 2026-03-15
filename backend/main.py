@@ -49,6 +49,20 @@ def _resolve_group(group_id: str, db_settings: dict) -> tuple[list, dict, str]:
     return kid_ids, kid_names, group_name
 
 
+def _resolve_kids(kid_ids: str, group_id: str, group_name: str, db_settings: dict) -> tuple[list, dict, str]:
+    """Return (kid_id_list, kid_names, resolved_name).
+
+    If kid_ids is provided without a group_id, parses the comma-separated IDs directly.
+    Otherwise resolves from the watch_groups config.
+    """
+    if kid_ids and not group_id:
+        kid_id_list = [k.strip() for k in kid_ids.split(",") if k.strip()]
+        kid_names = {k["id"]: k["name"] for k in load_kids()}
+        return kid_id_list, kid_names, group_name or "manual scan"
+    kid_id_list, kid_names, config_name = _resolve_group(group_id, db_settings)
+    return kid_id_list, kid_names, group_name or config_name
+
+
 def _enrich_matches(result: dict, kid_names: dict) -> tuple[list, float]:
     """Add kid_name to each match. Return (matched_kids, best_confidence)."""
     for m in result.get("matches", []):
@@ -58,26 +72,32 @@ def _enrich_matches(result: dict, kid_names: dict) -> tuple[list, float]:
     return matched_kids, best_conf
 
 
-async def _forward_photo(forward_to: str, img_bytes: bytes, matched_kids: list,
-                         best_conf: float, caption_suffix: str = "") -> tuple[bool, str | None]:
-    """Send matched photo to bot /send. Return (forwarded, error_msg)."""
+async def _forward_media(forward_to: str, media_bytes: bytes, matched_kids: list,
+                         best_conf: float, is_video: bool = False,
+                         caption_suffix: str = "") -> tuple[bool, str | None]:
+    """Send matched photo or video to the bot. Return (forwarded, error_msg)."""
     try:
         names = " & ".join(m["kid_name"] for m in matched_kids)
         verb = "are" if len(matched_kids) > 1 else "is"
-        caption = f"{names} {verb} in this photo! ({(best_conf * 100):.0f}% confidence){caption_suffix}"
-        async with httpx.AsyncClient(timeout=15.0) as hx:
-            await hx.post(f"{BOT_API_URL}/send", json={
+        media_type = "video" if is_video else "photo"
+        caption = f"{names} {verb} in this {media_type}! ({(best_conf * 100):.0f}% confidence){caption_suffix}"
+        endpoint = "send-video" if is_video else "send"
+        payload_key = "video_b64" if is_video else "image_b64"
+        timeout = 60.0 if is_video else 15.0
+        async with httpx.AsyncClient(timeout=timeout) as hx:
+            await hx.post(f"{BOT_API_URL}/{endpoint}", json={
                 "to": forward_to,
                 "caption": caption,
-                "image_b64": base64.b64encode(img_bytes).decode(),
+                payload_key: base64.b64encode(media_bytes).decode(),
             })
         return True, None
     except Exception as e:
         return False, str(e)
 
 
-async def save_to_google_photos(img_bytes: bytes, group_name: str, matched_kids: list, settings: dict):
-    """Upload matched photo to Google Photos if configured."""
+async def save_to_google_photos(media_bytes: bytes, group_name: str, matched_kids: list, settings: dict,
+                               filename: str = ""):
+    """Upload matched photo or video to Google Photos if configured."""
     if settings.get("google_photos_enabled") != "true":
         return
     client_id = settings.get("google_photos_client_id", "").strip()
@@ -97,13 +117,16 @@ async def save_to_google_photos(img_bytes: bytes, group_name: str, matched_kids:
         on_tokens_updated=lambda t: save_setting("google_photos_tokens", json.dumps(t)),
     )
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    upload_filename = filename or f"{timestamp}.jpg"
     organize_by = settings.get("google_photos_album_organize_by", "group")
     if organize_by == "kid":
-        for m in matched_kids:
-            await svc.upload_photo(img_bytes, album_name=m["kid_name"], filename=f"{timestamp}.jpg")
+        await asyncio.gather(*[
+            svc.upload_photo(media_bytes, album_name=m["kid_name"], filename=upload_filename)
+            for m in matched_kids
+        ])
     else:
         album = settings.get("google_photos_album_name", "").strip() or group_name
-        await svc.upload_photo(img_bytes, album_name=album, filename=f"{timestamp}.jpg")
+        await svc.upload_photo(media_bytes, album_name=album, filename=upload_filename)
 
 
 def save_matched_photo(img_bytes: bytes, group_name: str, kid_names: list, settings: dict,
@@ -167,27 +190,21 @@ async def root():
 @app.post("/api/analyze")
 async def analyze_photo(request: Request, file: UploadFile,
                         group_id: str = "", group_name: str = "", sender: str = "unknown",
-                        forward: bool = False, is_test: bool = False, kid_ids: str = ""):
+                        kid_ids: str = "", forward: bool = False, is_test: bool = False):
     """Called by the WhatsApp bot (or test panel) when a photo arrives.
 
     kid_ids: optional comma-separated kid IDs; when provided without a group_id,
              bypasses group resolution so callers can scan for specific kids directly.
     """
+    file_bytes = await file.read()
     temp_path = DATA_DIR / "temp" / f"{uuid.uuid4()}.jpg"
     try:
         async with aiofiles.open(temp_path, "wb") as f:
-            await f.write(await file.read())
+            await f.write(file_bytes)
 
         db_settings = get_settings()
         threshold = float(db_settings.get("confidence_threshold", "0.35"))
-
-        if kid_ids and not group_id:
-            kid_id_list = [k.strip() for k in kid_ids.split(",") if k.strip()]
-            kid_names = {k["id"]: k["name"] for k in load_kids()}
-            config_name = group_name or "manual scan"
-        else:
-            kid_id_list, kid_names, config_name = _resolve_group(group_id, db_settings)
-        group_name = group_name or config_name
+        kid_id_list, kid_names, group_name = _resolve_kids(kid_ids, group_id, group_name, db_settings)
 
         if not kid_id_list:
             return {"matched": False, "faces_detected": 0, "matches": [],
@@ -197,17 +214,16 @@ async def analyze_photo(request: Request, file: UploadFile,
         matched_kids, best_confidence = _enrich_matches(result, kid_names)
 
         if result.get("matched"):
-            img_bytes = temp_path.read_bytes()
-            save_matched_photo(img_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
+            save_matched_photo(file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
                                original_filename=file.filename or "")
-            await save_to_google_photos(img_bytes, group_name, matched_kids, db_settings)
+            await save_to_google_photos(file_bytes, group_name, matched_kids, db_settings)
 
         forwarded = False
         if forward and result.get("matched"):
             forward_to = db_settings.get("forward_to_id")
             if forward_to:
-                forwarded, fwd_err = await _forward_photo(
-                    forward_to, img_bytes, matched_kids, best_confidence, " [test]"
+                forwarded, fwd_err = await _forward_media(
+                    forward_to, file_bytes, matched_kids, best_confidence, caption_suffix=" [test]"
                 )
                 if fwd_err:
                     result["forward_error"] = fwd_err
@@ -232,51 +248,55 @@ async def analyze_photo(request: Request, file: UploadFile,
 
 @app.post("/api/analyze-video")
 async def analyze_video(request: Request, file: UploadFile,
-                        group_id: str = "", group_name: str = "", sender: str = "unknown"):
-    """Called by the WhatsApp bot when a video arrives in a monitored group."""
+                        group_id: str = "", group_name: str = "", sender: str = "unknown",
+                        kid_ids: str = "", forward: bool = False, is_test: bool = False):
+    """Called by the WhatsApp bot when a video arrives, or by the upload scan panel."""
+    file_bytes = await file.read()
     suffix = Path(file.filename or "video.mp4").suffix or ".mp4"
     temp_path = DATA_DIR / "temp" / f"{uuid.uuid4()}{suffix}"
     try:
         async with aiofiles.open(temp_path, "wb") as f:
-            await f.write(await file.read())
+            await f.write(file_bytes)
 
         db_settings = get_settings()
         threshold = float(db_settings.get("confidence_threshold", "0.35"))
-        kid_ids, kid_names, config_name = _resolve_group(group_id, db_settings)
-        group_name = group_name or config_name
+        kid_id_list, kid_names, group_name = _resolve_kids(kid_ids, group_id, group_name, db_settings)
 
-        if not kid_ids:
+        if not kid_id_list:
             return {"matched": False, "faces_detected": 0, "matches": [],
                     "error": "No kids configured for this group"}
 
-        result = request.app.state.face_service.analyze_video(str(temp_path), kid_ids, threshold)
-        best_frame_bytes = result.pop("best_frame_bytes", None)
+        result = request.app.state.face_service.analyze_video(str(temp_path), kid_id_list, threshold)
+        result.pop("best_frame_bytes", None)  # no longer forwarded as image
         matched_kids, best_confidence = _enrich_matches(result, kid_names)
 
         forwarded = False
-        if result.get("matched") and best_frame_bytes:
-            save_matched_photo(best_frame_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
-                               original_filename=file.filename or "")
-            await save_to_google_photos(best_frame_bytes, group_name, matched_kids, db_settings)
+        if result.get("matched"):
+            video_filename = file.filename or "video.mp4"
+            save_matched_photo(file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
+                               original_filename=video_filename)
+            await save_to_google_photos(file_bytes, group_name, matched_kids, db_settings,
+                                        filename=video_filename)
             forward_to = db_settings.get("forward_to_id")
-            if forward_to:
-                forwarded, fwd_err = await _forward_photo(
-                    forward_to, best_frame_bytes, matched_kids, best_confidence, " [video]"
+            if forward and forward_to:
+                forwarded, fwd_err = await _forward_media(
+                    forward_to, file_bytes, matched_kids, best_confidence, is_video=True
                 )
                 if fwd_err:
                     result["forward_error"] = fwd_err
 
         result["forwarded"] = forwarded
-        log_activity(
-            photo_filename=file.filename or "video.mp4",
-            sender=sender or "unknown",
-            group_name=group_name or group_id or "unknown",
-            faces_detected=result.get("faces_detected", 0),
-            matched=result.get("matched", False),
-            confidence=best_confidence,
-            forwarded=forwarded,
-            kid_names=", ".join(m["kid_name"] for m in matched_kids),
-        )
+        if not is_test:
+            log_activity(
+                photo_filename=file.filename or "video.mp4",
+                sender=sender or "unknown",
+                group_name=group_name or group_id or "unknown",
+                faces_detected=result.get("faces_detected", 0),
+                matched=result.get("matched", False),
+                confidence=best_confidence,
+                forwarded=forwarded,
+                kid_names=", ".join(m["kid_name"] for m in matched_kids),
+            )
         return result
     finally:
         temp_path.unlink(missing_ok=True)
@@ -394,16 +414,19 @@ async def scan_history(request: Request, group_id: str = "", days_back: int = 7,
             try:
                 temp_path.write_bytes(vid_bytes)
                 result = request.app.state.face_service.analyze_video(str(temp_path), kid_ids, threshold)
-                best_frame_bytes = result.pop("best_frame_bytes", None)
+                result.pop("best_frame_bytes", None)
                 matched_kids, best_conf = _enrich_matches(result, kid_names)
-                if result.get("matched") and best_frame_bytes:
-                    save_matched_photo(best_frame_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings)
-                    await save_to_google_photos(best_frame_bytes, group_name, matched_kids, db_settings)
+                if result.get("matched"):
+                    save_matched_photo(vid_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
+                                       original_filename=f"{msg_id}.mp4")
+                    await save_to_google_photos(vid_bytes, group_name, matched_kids, db_settings,
+                                                filename=f"{msg_id}.mp4")
                     matched_count += 1
                 forwarded = False
-                if forward_matches and result.get("matched") and best_frame_bytes and forward_to:
-                    forwarded, _ = await _forward_photo(
-                        forward_to, best_frame_bytes, matched_kids, best_conf, f" [from {group_name} history, video]"
+                if forward_matches and result.get("matched") and forward_to:
+                    forwarded, _ = await _forward_media(
+                        forward_to, vid_bytes, matched_kids, best_conf,
+                        is_video=True, caption_suffix=f" [from {group_name} history]"
                     )
                 results.append({
                     "msg_id": msg_id, "sender": sender, "timestamp": timestamp, "type": "video",

@@ -171,35 +171,44 @@ class FaceService:
         }
 
     def analyze_video(self, video_path: str, kid_ids: list[str], threshold: float = 0.35,
-                      sample_fps: float = 1.0, max_frames: int = 30) -> dict:
+                      max_frames: int = 60) -> dict:
         """Sample frames from a video and check each against enrolled kids.
 
-        Returns the same shape as analyze_photo plus 'frames_sampled' and
-        'best_frame_bytes' (JPEG bytes of the highest-confidence frame, or None).
+        Reads frames sequentially (more reliable than seeking for H.264/MP4) and
+        distributes samples evenly across the full video duration.
         """
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
             return {"matched": False, "faces_detected": 0, "matches": [],
-                    "error": "Could not open video", "best_frame_bytes": None, "frames_sampled": 0}
+                    "error": "Could not open video", "frames_sampled": 0}
 
-        video_fps = cap.get(cv2.CAP_PROP_FPS) or 25.0
-        frame_interval = max(1, int(video_fps / sample_fps))
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
+
+        # Distribute sample indices evenly across the whole video
+        if total_frames > 0 and total_frames <= max_frames:
+            sample_indices = set(range(total_frames))
+        elif total_frames > 0:
+            step = total_frames / max_frames
+            sample_indices = {int(i * step) for i in range(max_frames)}
+        else:
+            # Unknown length — fall back to sampling every ~2s at assumed 25fps
+            sample_indices = {i * 50 for i in range(max_frames)}
 
         kid_best: dict[str, float] = {kid_id: 0.0 for kid_id in kid_ids}
-        best_frame: np.ndarray | None = None
-        best_overall_conf = 0.0
         max_faces_seen = 0
         frame_idx = 0
         frames_sampled = 0
         model = _get_model()
 
         try:
-            while frames_sampled < max_frames:
-                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+            while True:
                 ret, frame = cap.read()
                 if not ret:
                     break
-                frame_idx += frame_interval
+                if frame_idx not in sample_indices:
+                    frame_idx += 1
+                    continue
+                frame_idx += 1
                 frames_sampled += 1
 
                 try:
@@ -219,9 +228,6 @@ class FaceService:
                     conf = max(float(np.dot(fe, se)) for fe in face_embeddings for se in stored)
                     if conf > kid_best[kid_id]:
                         kid_best[kid_id] = conf
-                    if conf > best_overall_conf:
-                        best_overall_conf = conf
-                        best_frame = frame.copy()
         finally:
             cap.release()
 
@@ -231,18 +237,12 @@ class FaceService:
             for kid_id in kid_ids if self._load_embeddings(kid_id)
         ]
 
-        best_frame_bytes = None
-        if best_frame is not None:
-            _, buf = cv2.imencode(".jpg", best_frame)
-            best_frame_bytes = buf.tobytes()
-
         return {
             "matched": any(r["matched"] for r in kid_results),
             "faces_detected": max_faces_seen,
             "matches": kid_results,
             "threshold": threshold,
             "frames_sampled": frames_sampled,
-            "best_frame_bytes": best_frame_bytes,
         }
 
     def get_enrolled_count(self, kid_id: str) -> int:
