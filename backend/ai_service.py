@@ -3,14 +3,25 @@ import anthropic
 import base64
 import os
 
+_client: anthropic.Anthropic | None = None
+
+
+def _get_client() -> anthropic.Anthropic | None:
+    global _client
+    if _client is None:
+        api_key = os.getenv("ANTHROPIC_API_KEY", "")
+        if not api_key:
+            return None
+        _client = anthropic.Anthropic(api_key=api_key)
+    return _client
+
 
 def get_moment_caption(image_bytes: bytes, kid_names: list[str]) -> str:
     """Call Claude Haiku with the matched photo and return a short warm caption."""
-    api_key = os.getenv("ANTHROPIC_API_KEY", "")
-    if not api_key:
+    client = _get_client()
+    if not client:
         return ""
     try:
-        client = anthropic.Anthropic(api_key=api_key)
         names = " and ".join(kid_names)
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
@@ -44,11 +55,10 @@ def get_moment_caption(image_bytes: bytes, kid_names: list[str]) -> str:
 
 def summarize_messages(transcript: str, group_name: str) -> str:
     """Summarize a WhatsApp group transcript into bullet points."""
-    api_key = os.getenv("ANTHROPIC_API_KEY", "")
-    if not api_key:
+    client = _get_client()
+    if not client:
         return "ANTHROPIC_API_KEY not set in .env"
     try:
-        client = anthropic.Anthropic(api_key=api_key)
         msg = client.messages.create(
             model="claude-haiku-4-5-20251001",
             max_tokens=400,

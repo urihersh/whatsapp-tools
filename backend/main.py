@@ -27,6 +27,10 @@ from routers.auth import router as auth_router
 
 # ── Digest queue ───────────────────────────────────────────────────────────────
 _digest_queue: list[dict] = []  # items buffered when digest_mode is on
+MAX_DIGEST_QUEUE = 100           # hard cap — prevents unbounded memory growth
+
+def _is_enabled(settings: dict, key: str) -> bool:
+    return settings.get(key) == "true"
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
 BOT_API_URL = os.getenv("BOT_API_URL", "http://localhost:3001")
@@ -174,17 +178,22 @@ async def _digest_scheduler():
     """Background task: send buffered digest at the configured daily time."""
     last_sent_date = None
     while True:
-        await asyncio.sleep(60)
+        await asyncio.sleep(30)  # 30s granularity avoids missing a target minute
         try:
+            if not _digest_queue:
+                continue  # skip DB read when nothing is queued
             settings = get_settings()
-            if settings.get("digest_mode") != "true" or not _digest_queue:
+            if not _is_enabled(settings, "digest_mode"):
                 continue
             digest_time = settings.get("digest_time", "20:00")
             now = datetime.now()
             if last_sent_date == now.date():
                 continue
             h, m = map(int, digest_time.split(":"))
-            if now.hour == h and now.minute == m:
+            # ±1 minute window so a 30s sleep drift never misses the target
+            target_minutes = h * 60 + m
+            now_minutes = now.hour * 60 + now.minute
+            if abs(now_minutes - target_minutes) <= 1:
                 await _flush_digest(settings)
                 last_sent_date = now.date()
         except Exception:
@@ -209,20 +218,22 @@ async def _flush_digest(settings: dict):
     )
     summary_text = f"📸 Daily digest: {count} match{'es' if count != 1 else ''} today\n{lines}"
     try:
-        async with httpx.AsyncClient(timeout=15.0) as hx:
-            await hx.post(f"{BOT_API_URL}/send-text", json={"to": forward_to, "text": summary_text})
-        for it in items:
-            endpoint = "send-video" if it["is_video"] else "send"
-            key = "video_b64" if it["is_video"] else "image_b64"
-            caption = f"{', '.join(it['kid_names'])} — {it['group_name']}"
-            async with httpx.AsyncClient(timeout=60.0) as hx:
+        # Reuse one client for the entire flush to avoid per-item TCP setup
+        async with httpx.AsyncClient(timeout=60.0) as hx:
+            await hx.post(f"{BOT_API_URL}/send-text", json={"to": forward_to, "text": summary_text},
+                          timeout=15.0)
+            for it in items:
+                endpoint = "send-video" if it["is_video"] else "send"
+                key = "video_b64" if it["is_video"] else "image_b64"
+                caption = f"{', '.join(it['kid_names'])} — {it['group_name']}"
                 await hx.post(f"{BOT_API_URL}/{endpoint}", json={
                     "to": forward_to,
                     "caption": caption,
                     key: base64.b64encode(it["media_bytes"]).decode(),
                 })
     except Exception:
-        pass
+        # Restore unsent items so they aren't silently dropped
+        _digest_queue[:0] = items
 
 
 @asynccontextmanager
@@ -291,17 +302,18 @@ async def analyze_photo(request: Request, file: UploadFile,
         if result.get("matched"):
             forward_to = db_settings.get("forward_to_id")
             kid_name_list = [m["kid_name"] for m in matched_kids]
-            if db_settings.get("digest_mode") == "true":
-                _digest_queue.append({
-                    "kid_names": kid_name_list,
-                    "group_name": group_name or group_id or "unknown",
-                    "confidence": best_confidence,
-                    "is_video": False,
-                    "media_bytes": file_bytes,
-                })
+            if not is_test and _is_enabled(db_settings, "digest_mode"):
+                if len(_digest_queue) < MAX_DIGEST_QUEUE:
+                    _digest_queue.append({
+                        "kid_names": kid_name_list,
+                        "group_name": group_name or group_id or "unknown",
+                        "confidence": best_confidence,
+                        "is_video": False,
+                        "media_bytes": file_bytes,
+                    })
             elif forward and forward_to:
                 caption_suffix = " [test]" if is_test else ""
-                if db_settings.get("ai_captions_enabled") == "true":
+                if _is_enabled(db_settings, "ai_captions_enabled"):
                     caption_text = await asyncio.get_event_loop().run_in_executor(
                         None, get_moment_caption, file_bytes, kid_name_list
                     )
@@ -368,14 +380,15 @@ async def analyze_video(request: Request, file: UploadFile,
                                         filename=video_filename)
             forward_to = db_settings.get("forward_to_id")
             kid_name_list = [m["kid_name"] for m in matched_kids]
-            if db_settings.get("digest_mode") == "true":
-                _digest_queue.append({
-                    "kid_names": kid_name_list,
-                    "group_name": group_name or group_id or "unknown",
-                    "confidence": best_confidence,
-                    "is_video": True,
-                    "media_bytes": file_bytes,
-                })
+            if not is_test and _is_enabled(db_settings, "digest_mode"):
+                if len(_digest_queue) < MAX_DIGEST_QUEUE:
+                    _digest_queue.append({
+                        "kid_names": kid_name_list,
+                        "group_name": group_name or group_id or "unknown",
+                        "confidence": best_confidence,
+                        "is_video": True,
+                        "media_bytes": file_bytes,
+                    })
             elif forward and forward_to:
                 forwarded, fwd_err = await _forward_media(
                     forward_to, file_bytes, matched_kids, best_confidence, is_video=True
@@ -479,8 +492,9 @@ async def scan_history(request: Request, group_id: str = "", days_back: int = 7,
                     matched_count += 1
                 forwarded = False
                 if forward_matches and result.get("matched") and forward_to:
-                    forwarded, _ = await _forward_photo(
-                        forward_to, img_bytes, matched_kids, best_conf, f" [from {group_name} history]"
+                    forwarded, _ = await _forward_media(
+                        forward_to, img_bytes, matched_kids, best_conf,
+                        caption_suffix=f" [from {group_name} history]"
                     )
                 results.append({
                     "msg_id": msg_id, "sender": sender, "timestamp": timestamp, "type": "image",

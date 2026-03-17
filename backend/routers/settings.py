@@ -50,7 +50,9 @@ async def _bot_get(path: str, params: dict | None = None, timeout: float = 5.0):
 
 @router.get("")
 async def get_all_settings():
-    return get_settings()
+    s = get_settings()
+    s.pop("app_pin", None)  # never expose the PIN to the frontend
+    return s
 
 
 @router.post("")

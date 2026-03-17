@@ -29,6 +29,22 @@ let allGroups = [];
 let allChats = [];
 let sock = null;
 
+// --- Settings cache (avoids a DB round-trip on every incoming message) ---
+let _cachedSettings = null;
+let _settingsCacheTs = 0;
+const SETTINGS_TTL_MS = 30_000;
+
+async function getSettings() {
+  const now = Date.now();
+  if (_cachedSettings && now - _settingsCacheTs < SETTINGS_TTL_MS) {
+    return _cachedSettings;
+  }
+  const res = await axios.get(`${PYTHON_API_URL}/api/settings`, { timeout: 5000 });
+  _cachedSettings = res.data;
+  _settingsCacheTs = now;
+  return _cachedSettings;
+}
+
 // --- Media history stores: groupId -> Map<msgId, msg> ---
 const imageHistory = new Map();
 const videoHistory = new Map();
@@ -241,8 +257,7 @@ async function connect() {
 
       let settings;
       try {
-        const res = await axios.get(`${PYTHON_API_URL}/api/settings`, { timeout: 5000 });
-        settings = res.data;
+        settings = await getSettings();
       } catch (e) {
         console.error('[bot] Could not fetch settings:', e.message);
         continue;

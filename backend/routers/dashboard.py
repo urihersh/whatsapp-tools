@@ -1,5 +1,5 @@
 from fastapi import APIRouter
-from fastapi.responses import Response
+from fastapi.responses import Response, FileResponse
 from pathlib import Path
 from typing import Optional
 from datetime import datetime
@@ -90,9 +90,12 @@ async def wrapped(year: int = None):
                 kid_counter[name] += 1
     top_kids = [{"name": n, "count": c} for n, c in kid_counter.most_common(5)]
 
-    # Best month
-    best_m = max(range(1, 13), key=lambda i: monthly[i]["matched"])
-    best_month = {"month": MONTH_NAMES[best_m - 1], "count": monthly[best_m]["matched"]}
+    # Best month (only meaningful when there are matches)
+    if total_matched > 0:
+        best_m = max(range(1, 13), key=lambda i: monthly[i]["matched"])
+        best_month = {"month": MONTH_NAMES[best_m - 1], "count": monthly[best_m]["matched"]}
+    else:
+        best_month = None
 
     # Most active day of week
     dow_counter: Counter = Counter()
@@ -128,7 +131,9 @@ async def memory_book(year: int = None, month: int = None):
                 ActivityLog.timestamp >= datetime(year, 1, 1),
                 ActivityLog.timestamp < datetime(year + 1, 1, 1),
             )
-        if month and year:
+        if month:
+            if not year:
+                year = datetime.now().year
             next_month = month % 12 + 1
             next_year = year + 1 if month == 12 else year
             query = query.filter(
@@ -180,7 +185,4 @@ async def memory_book_photo(activity_id: int):
     p = Path(row.matched_photo_path)
     if not p.exists():
         return Response(status_code=404)
-    suffix = p.suffix.lower()
-    media_type = "video/mp4" if suffix in {".mp4", ".mov", ".avi"} else "image/jpeg"
-    return Response(content=p.read_bytes(), media_type=media_type,
-                    headers={"Cache-Control": "max-age=86400"})
+    return FileResponse(str(p), headers={"Cache-Control": "max-age=86400"})
