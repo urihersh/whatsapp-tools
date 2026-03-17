@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Parent Tool – Wrapped</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/dark.css" />
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+
+  <!-- Nav -->
+  <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="/static/index.html" class="flex items-center gap-2.5 group">
+        <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm group-hover:bg-blue-700 transition-colors">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <span class="text-base font-bold text-gray-900">Parent Tool</span>
+      </a>
+      <div class="flex gap-1 flex-wrap">
+        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Dashboard</a>
+        <a href="/static/enrollment.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Enrollment</a>
+        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
+        <a href="/static/memory_book.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Memory Book</a>
+        <a href="/static/wrapped.html" class="px-4 py-2 rounded-xl text-sm font-medium text-indigo-600 bg-indigo-50">Wrapped</a>
+      </div>
+      <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors" title="Toggle dark mode">
+        <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
+        </svg>
+        <svg id="dark-icon-sun" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/>
+        </svg>
+      </button>
+    </div>
+  </nav>
+
+  <main class="max-w-3xl mx-auto px-6 py-8">
+
+    <!-- Year selector -->
+    <div class="flex items-center justify-between mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Your Year in Photos</h1>
+        <p class="text-sm text-gray-400 mt-1">Every moment your kids were spotted</p>
+      </div>
+      <div class="flex items-center gap-2">
+        <button onclick="changeYear(-1)" class="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19l-7-7 7-7"/></svg>
+        </button>
+        <span id="year-display" class="text-lg font-bold text-gray-900 w-14 text-center"></span>
+        <button onclick="changeYear(1)" class="p-2 rounded-xl hover:bg-gray-100 text-gray-500 transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Loading / empty states -->
+    <div id="loading" class="text-center py-20 text-gray-400">Loading your year...</div>
+    <div id="empty" class="hidden text-center py-20">
+      <p class="text-gray-400 text-lg">No data for this year yet.</p>
+      <p class="text-gray-400 text-sm mt-1">Start monitoring groups and matches will appear here.</p>
+    </div>
+
+    <div id="content" class="hidden space-y-6">
+
+      <!-- Hero banner -->
+      <div class="rounded-2xl overflow-hidden" style="background: linear-gradient(135deg, #4f46e5 0%, #7c3aed 50%, #db2777 100%); padding: 36px 32px;">
+        <p id="hero-year" class="text-white/70 text-sm font-medium mb-1 tracking-wide uppercase"></p>
+        <h2 class="text-white text-3xl font-extrabold mb-6">Your kids appeared in<br><span id="hero-count" class="text-yellow-300"></span> photos & videos</h2>
+        <div class="flex flex-wrap gap-6">
+          <div>
+            <p class="text-white/60 text-xs uppercase tracking-wide mb-1">Scanned</p>
+            <p id="hero-scanned" class="text-white text-2xl font-bold"></p>
+          </div>
+          <div>
+            <p class="text-white/60 text-xs uppercase tracking-wide mb-1">Match Rate</p>
+            <p id="hero-rate" class="text-white text-2xl font-bold"></p>
+          </div>
+          <div id="hero-best-month-block">
+            <p class="text-white/60 text-xs uppercase tracking-wide mb-1">Best Month</p>
+            <p id="hero-best-month" class="text-white text-2xl font-bold"></p>
+          </div>
+          <div id="hero-dow-block">
+            <p class="text-white/60 text-xs uppercase tracking-wide mb-1">Most Active Day</p>
+            <p id="hero-dow" class="text-white text-2xl font-bold"></p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Monthly chart -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h3 class="font-semibold text-gray-900 mb-5">Monthly Activity</h3>
+        <div id="chart" class="flex items-end gap-1.5" style="height:120px"></div>
+        <div id="chart-labels" class="flex gap-1.5 mt-2"></div>
+      </div>
+
+      <!-- Top groups + top kids side by side -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-6">
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h3 class="font-semibold text-gray-900 mb-4">Top Groups</h3>
+          <div id="top-groups" class="space-y-3"></div>
+        </div>
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h3 class="font-semibold text-gray-900 mb-4">Top Kids</h3>
+          <div id="top-kids" class="space-y-3"></div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    let currentYear = new Date().getFullYear();
+
+    function changeYear(delta) {
+      currentYear += delta;
+      document.getElementById('year-display').textContent = currentYear;
+      loadWrapped();
+    }
+
+    async function loadWrapped() {
+      document.getElementById('loading').classList.remove('hidden');
+      document.getElementById('content').classList.add('hidden');
+      document.getElementById('empty').classList.add('hidden');
+
+      try {
+        const r = await fetch(`/api/dashboard/wrapped?year=${currentYear}`);
+        const d = await r.json();
+
+        if (!d.total_scanned) {
+          document.getElementById('loading').classList.add('hidden');
+          document.getElementById('empty').classList.remove('hidden');
+          return;
+        }
+
+        // Hero
+        document.getElementById('hero-year').textContent = currentYear;
+        document.getElementById('hero-count').textContent = d.total_matched.toLocaleString();
+        document.getElementById('hero-scanned').textContent = d.total_scanned.toLocaleString() + ' scanned';
+        document.getElementById('hero-rate').textContent = d.match_rate + '%';
+        if (d.best_month) {
+          document.getElementById('hero-best-month').textContent = `${d.best_month.month} (${d.best_month.count})`;
+        } else {
+          document.getElementById('hero-best-month-block').classList.add('hidden');
+        }
+        if (d.most_active_dow) {
+          document.getElementById('hero-dow').textContent = d.most_active_dow;
+        } else {
+          document.getElementById('hero-dow-block').classList.add('hidden');
+        }
+
+        // Chart
+        const chart = document.getElementById('chart');
+        const labels = document.getElementById('chart-labels');
+        const maxMatched = Math.max(...d.monthly_counts.map(m => m.matched), 1);
+        chart.innerHTML = d.monthly_counts.map(m => {
+          const h = Math.max(4, Math.round((m.matched / maxMatched) * 100));
+          const isMax = m.matched === maxMatched && m.matched > 0;
+          return `
+            <div class="flex-1 flex flex-col items-center justify-end group relative" title="${m.month}: ${m.matched} matches">
+              <span class="absolute -top-5 text-xs font-semibold text-indigo-600 opacity-0 group-hover:opacity-100 transition-opacity">${m.matched || ''}</span>
+              <div style="height:${h}px;width:100%;border-radius:4px 4px 0 0;background:${isMax ? '#4f46e5' : '#c7d2fe'};transition:background .2s" class="group-hover:!bg-indigo-500"></div>
+            </div>`;
+        }).join('');
+        labels.innerHTML = d.monthly_counts.map(m =>
+          `<div class="flex-1 text-center text-xs text-gray-400">${m.month}</div>`
+        ).join('');
+
+        // Top groups
+        const tgEl = document.getElementById('top-groups');
+        if (d.top_groups.length) {
+          const maxG = d.top_groups[0].matched;
+          tgEl.innerHTML = d.top_groups.map(g => `
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-700 font-medium truncate pr-2">${g.name}</span>
+                <span class="text-gray-400 shrink-0">${g.matched}</span>
+              </div>
+              <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full bg-indigo-500 rounded-full" style="width:${Math.round(g.matched/maxG*100)}%"></div>
+              </div>
+            </div>`).join('');
+        } else {
+          tgEl.innerHTML = '<p class="text-sm text-gray-400">No data</p>';
+        }
+
+        // Top kids
+        const tkEl = document.getElementById('top-kids');
+        if (d.top_kids.length) {
+          const maxK = d.top_kids[0].count;
+          const colors = ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'];
+          tkEl.innerHTML = d.top_kids.map((k, i) => `
+            <div>
+              <div class="flex justify-between text-sm mb-1">
+                <span class="text-gray-700 font-medium">${k.name}</span>
+                <span class="text-gray-400">${k.count} times</span>
+              </div>
+              <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full" style="width:${Math.round(k.count/maxK*100)}%;background:${colors[i % colors.length]}"></div>
+              </div>
+            </div>`).join('');
+        } else {
+          tkEl.innerHTML = '<p class="text-sm text-gray-400">No data</p>';
+        }
+
+        document.getElementById('loading').classList.add('hidden');
+        document.getElementById('content').classList.remove('hidden');
+      } catch (e) {
+        document.getElementById('loading').textContent = 'Failed to load data.';
+      }
+    }
+
+    document.getElementById('year-display').textContent = currentYear;
+    loadWrapped();
+  </script>
+  <script src="/static/dark.js"></script>
+  <script src="/static/pin_lock.js"></script>
+</body>
+</html>

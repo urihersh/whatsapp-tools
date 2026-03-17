@@ -19,9 +19,14 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 from database import init_db, get_settings, log_activity, save_setting
 from face_service import FaceService
 from google_photos import GooglePhotosService
+from ai_service import get_moment_caption, summarize_messages
 from routers.enrollment import router as enrollment_router, load_kids
 from routers.settings import router as settings_router
 from routers.dashboard import router as dashboard_router
+from routers.auth import router as auth_router
+
+# ── Digest queue ───────────────────────────────────────────────────────────────
+_digest_queue: list[dict] = []  # items buffered when digest_mode is on
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
 BOT_API_URL = os.getenv("BOT_API_URL", "http://localhost:3001")
@@ -130,17 +135,13 @@ async def save_to_google_photos(media_bytes: bytes, group_name: str, matched_kid
 
 
 def save_matched_photo(img_bytes: bytes, group_name: str, kid_names: list, settings: dict,
-                       original_filename: str = ""):
-    """Save a matched photo to the configured local folder.
-
-    Uses original_filename when provided (preserves the uploader's filename).
-    Falls back to a timestamp-based name for live bot detections.
-    """
+                       original_filename: str = "") -> str:
+    """Save a matched photo to the configured local folder. Returns saved path or ''."""
     if settings.get("save_photos_enabled") != "true":
-        return
+        return ""
     save_path = settings.get("save_photos_path", "").strip()
     if not save_path:
-        return
+        return ""
     base = Path(save_path)
     if original_filename:
         filename = _safe_filename(original_filename)
@@ -148,19 +149,81 @@ def save_matched_photo(img_bytes: bytes, group_name: str, kid_names: list, setti
         filename = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19] + ".jpg"
     try:
         if settings.get("save_photos_organize_by") == "kid":
+            first_path = ""
             for name in kid_names:
                 folder = base / _safe_filename(name)
                 folder.mkdir(parents=True, exist_ok=True)
-                (folder / filename).write_bytes(img_bytes)
+                dest = folder / filename
+                dest.write_bytes(img_bytes)
+                if not first_path:
+                    first_path = str(dest)
+            return first_path
         else:
             folder = base / _safe_filename(group_name)
             folder.mkdir(parents=True, exist_ok=True)
-            (folder / filename).write_bytes(img_bytes)
+            dest = folder / filename
+            dest.write_bytes(img_bytes)
+            return str(dest)
     except Exception:
-        pass
+        return ""
 
 
 # ── App setup ──────────────────────────────────────────────────────────────────
+
+async def _digest_scheduler():
+    """Background task: send buffered digest at the configured daily time."""
+    last_sent_date = None
+    while True:
+        await asyncio.sleep(60)
+        try:
+            settings = get_settings()
+            if settings.get("digest_mode") != "true" or not _digest_queue:
+                continue
+            digest_time = settings.get("digest_time", "20:00")
+            now = datetime.now()
+            if last_sent_date == now.date():
+                continue
+            h, m = map(int, digest_time.split(":"))
+            if now.hour == h and now.minute == m:
+                await _flush_digest(settings)
+                last_sent_date = now.date()
+        except Exception:
+            pass
+
+
+async def _flush_digest(settings: dict):
+    """Send all queued matches as a digest message and clear the queue."""
+    global _digest_queue
+    if not _digest_queue:
+        return
+    forward_to = settings.get("forward_to_id")
+    if not forward_to:
+        return
+    items = list(_digest_queue)
+    _digest_queue.clear()
+
+    count = len(items)
+    lines = "\n".join(
+        f"• {', '.join(it['kid_names'])} in {it['group_name']} ({int(it['confidence'] * 100)}%)"
+        for it in items
+    )
+    summary_text = f"📸 Daily digest: {count} match{'es' if count != 1 else ''} today\n{lines}"
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as hx:
+            await hx.post(f"{BOT_API_URL}/send-text", json={"to": forward_to, "text": summary_text})
+        for it in items:
+            endpoint = "send-video" if it["is_video"] else "send"
+            key = "video_b64" if it["is_video"] else "image_b64"
+            caption = f"{', '.join(it['kid_names'])} — {it['group_name']}"
+            async with httpx.AsyncClient(timeout=60.0) as hx:
+                await hx.post(f"{BOT_API_URL}/{endpoint}", json={
+                    "to": forward_to,
+                    "caption": caption,
+                    key: base64.b64encode(it["media_bytes"]).decode(),
+                })
+    except Exception:
+        pass
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -168,7 +231,9 @@ async def lifespan(app: FastAPI):
     for subdir in ["enrolled", "embeddings", "temp"]:
         (DATA_DIR / subdir).mkdir(parents=True, exist_ok=True)
     app.state.face_service = FaceService(str(DATA_DIR))
+    task = asyncio.create_task(_digest_scheduler())
     yield
+    task.cancel()
 
 
 app = FastAPI(title="Parent Tool", lifespan=lifespan)
@@ -176,6 +241,7 @@ app = FastAPI(title="Parent Tool", lifespan=lifespan)
 app.include_router(enrollment_router, prefix="/api/enrollment")
 app.include_router(settings_router, prefix="/api/settings")
 app.include_router(dashboard_router, prefix="/api/dashboard")
+app.include_router(auth_router, prefix="/api/auth")
 
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
@@ -213,17 +279,36 @@ async def analyze_photo(request: Request, file: UploadFile,
         result = request.app.state.face_service.analyze_photo(str(temp_path), kid_id_list, threshold)
         matched_kids, best_confidence = _enrich_matches(result, kid_names)
 
+        matched_photo_path = ""
         if result.get("matched"):
-            save_matched_photo(file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
-                               original_filename=file.filename or "")
+            matched_photo_path = save_matched_photo(
+                file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
+                original_filename=file.filename or ""
+            )
             await save_to_google_photos(file_bytes, group_name, matched_kids, db_settings)
 
         forwarded = False
-        if forward and result.get("matched"):
+        if result.get("matched"):
             forward_to = db_settings.get("forward_to_id")
-            if forward_to:
+            kid_name_list = [m["kid_name"] for m in matched_kids]
+            if db_settings.get("digest_mode") == "true":
+                _digest_queue.append({
+                    "kid_names": kid_name_list,
+                    "group_name": group_name or group_id or "unknown",
+                    "confidence": best_confidence,
+                    "is_video": False,
+                    "media_bytes": file_bytes,
+                })
+            elif forward and forward_to:
+                caption_suffix = " [test]" if is_test else ""
+                if db_settings.get("ai_captions_enabled") == "true":
+                    caption_text = await asyncio.get_event_loop().run_in_executor(
+                        None, get_moment_caption, file_bytes, kid_name_list
+                    )
+                    if caption_text:
+                        caption_suffix = f"\n💬 {caption_text}" + caption_suffix
                 forwarded, fwd_err = await _forward_media(
-                    forward_to, file_bytes, matched_kids, best_confidence, caption_suffix=" [test]"
+                    forward_to, file_bytes, matched_kids, best_confidence, caption_suffix=caption_suffix
                 )
                 if fwd_err:
                     result["forward_error"] = fwd_err
@@ -239,6 +324,7 @@ async def analyze_photo(request: Request, file: UploadFile,
                 confidence=best_confidence,
                 forwarded=forwarded,
                 kid_names=", ".join(m["kid_name"] for m in matched_kids),
+                matched_photo_path=matched_photo_path,
             )
 
         return result
@@ -270,15 +356,27 @@ async def analyze_video(request: Request, file: UploadFile,
         result.pop("best_frame_bytes", None)  # no longer forwarded as image
         matched_kids, best_confidence = _enrich_matches(result, kid_names)
 
+        matched_photo_path = ""
         forwarded = False
         if result.get("matched"):
             video_filename = file.filename or "video.mp4"
-            save_matched_photo(file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
-                               original_filename=video_filename)
+            matched_photo_path = save_matched_photo(
+                file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
+                original_filename=video_filename
+            )
             await save_to_google_photos(file_bytes, group_name, matched_kids, db_settings,
                                         filename=video_filename)
             forward_to = db_settings.get("forward_to_id")
-            if forward and forward_to:
+            kid_name_list = [m["kid_name"] for m in matched_kids]
+            if db_settings.get("digest_mode") == "true":
+                _digest_queue.append({
+                    "kid_names": kid_name_list,
+                    "group_name": group_name or group_id or "unknown",
+                    "confidence": best_confidence,
+                    "is_video": True,
+                    "media_bytes": file_bytes,
+                })
+            elif forward and forward_to:
                 forwarded, fwd_err = await _forward_media(
                     forward_to, file_bytes, matched_kids, best_confidence, is_video=True
                 )
@@ -296,6 +394,7 @@ async def analyze_video(request: Request, file: UploadFile,
                 confidence=best_confidence,
                 forwarded=forwarded,
                 kid_names=", ".join(m["kid_name"] for m in matched_kids),
+                matched_photo_path=matched_photo_path,
             )
         return result
     finally:
@@ -443,3 +542,54 @@ async def scan_history(request: Request, group_id: str = "", days_back: int = 7,
     return {"group_name": group_name, "total": len(images) + len(videos),
             "total_images": len(images), "total_videos": len(videos),
             "matched": matched_count, "results": results}
+
+
+# ── Summarize group ─────────────────────────────────────────────────────────────
+
+@app.post("/api/summarize-group")
+async def summarize_group(group_id: str = "", limit: int = 100):
+    """Fetch recent text messages from a group and summarize with Claude."""
+    db_settings = get_settings()
+    _, _, group_name = _resolve_group(group_id, db_settings)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as hx:
+            r = await hx.get(f"{BOT_API_URL}/history-text", params={"groupId": group_id})
+            messages = r.json().get("messages", [])
+    except Exception as e:
+        return {"error": f"Could not reach bot: {e}"}
+
+    if not messages:
+        return {"summary": "", "message_count": 0, "group_name": group_name,
+                "note": "No text messages stored for this group yet"}
+
+    recent = messages[-limit:]
+    transcript = "\n".join(f"{m['sender']}: {m['text']}" for m in recent)
+    summary = await asyncio.get_event_loop().run_in_executor(
+        None, summarize_messages, transcript, group_name
+    )
+    return {"summary": summary, "message_count": len(recent), "group_name": group_name}
+
+
+# ── Digest endpoints ─────────────────────────────────────────────────────────────
+
+@app.get("/api/digest/queue")
+async def digest_queue_status():
+    return {
+        "count": len(_digest_queue),
+        "items": [
+            {"kid_names": it["kid_names"], "group_name": it["group_name"],
+             "confidence": it["confidence"], "is_video": it["is_video"]}
+            for it in _digest_queue
+        ],
+    }
+
+
+@app.post("/api/digest/send-now")
+async def digest_send_now():
+    """Flush the digest queue immediately."""
+    if not _digest_queue:
+        return {"ok": True, "sent": 0}
+    settings = get_settings()
+    count = len(_digest_queue)
+    await _flush_digest(settings)
+    return {"ok": True, "sent": count}

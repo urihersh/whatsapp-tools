@@ -35,6 +35,10 @@ const videoHistory = new Map();
 const MAX_PER_GROUP = 3000;
 const MAX_VIDEOS_PER_GROUP = 500;
 
+// --- Text history: groupId -> Array<{id, timestamp, sender, text}> ---
+const textHistory = new Map();
+const MAX_TEXT_PER_GROUP = 200;
+
 // Oldest message cursor per group (used for fetchMessageHistory requests)
 const groupCursors = new Map(); // groupId -> { key, timestampMs }
 
@@ -80,6 +84,28 @@ function storeMediaMsg(msg) {
     byJid.set(msg.key.id, msg);
     if (byJid.size > MAX_VIDEOS_PER_GROUP) byJid.delete(byJid.keys().next().value);
   }
+}
+
+function storeTextMsg(msg) {
+  const jid = msg.key?.remoteJid;
+  if (!jid?.endsWith('@g.us')) return;
+  const msgType = Object.keys(msg.message || {})[0];
+  let text = '';
+  if (msgType === 'conversation') {
+    text = msg.message.conversation;
+  } else if (msgType === 'extendedTextMessage') {
+    text = msg.message.extendedTextMessage?.text || '';
+  }
+  if (!text) return;
+  if (!textHistory.has(jid)) textHistory.set(jid, []);
+  const arr = textHistory.get(jid);
+  arr.push({
+    id: msg.key.id,
+    timestamp: (msg.messageTimestamp || 0) * 1000,
+    sender: getSender(msg),
+    text,
+  });
+  if (arr.length > MAX_TEXT_PER_GROUP) arr.splice(0, arr.length - MAX_TEXT_PER_GROUP);
 }
 
 // --- WhatsApp connection ---
@@ -146,7 +172,63 @@ async function connect() {
 
     for (const msg of messages) {
       updateCursor(msg);
-      if (!msg.key.fromMe) storeMediaMsg(msg); // store before skipping
+      if (!msg.key.fromMe) {
+        storeMediaMsg(msg);
+        storeTextMsg(msg);
+      }
+
+      // ── Enroll-from-DM: image in a direct chat with caption "enroll <name>" ──
+      if (isImageMsg(msg)) {
+        const remoteJid = msg.key.remoteJid || '';
+        const isDM = !remoteJid.endsWith('@g.us');
+        const msgType = Object.keys(msg.message || {})[0];
+        const caption = (
+          msg.message?.imageMessage?.caption ||
+          msg.message?.documentMessage?.caption || ''
+        ).trim();
+        if (isDM && /^enroll\s+\S/i.test(caption)) {
+          const kidName = caption.replace(/^enroll\s+/i, '').trim();
+          console.log(`[bot] Enroll-from-DM: "${kidName}" from ${remoteJid}`);
+          try {
+            let buffer;
+            try {
+              buffer = await downloadMediaMessage(msg, 'buffer', {});
+            } catch (e) {
+              await sock.sendMessage(remoteJid, { text: `❌ Could not download photo: ${e.message}` });
+              continue;
+            }
+            // Find or create kid
+            const kidsRes = await axios.get(`${PYTHON_API_URL}/api/enrollment/kids`, { timeout: 5000 });
+            let kid = (kidsRes.data.kids || []).find(k => k.name.toLowerCase() === kidName.toLowerCase());
+            if (!kid) {
+              const createRes = await axios.post(`${PYTHON_API_URL}/api/enrollment/kids`,
+                { name: kidName }, { timeout: 5000 });
+              kid = createRes.data;
+            }
+            // Upload photo
+            const form = new FormData();
+            form.append('file', buffer, { filename: 'enroll.jpg', contentType: 'image/jpeg' });
+            const uploadRes = await axios.post(
+              `${PYTHON_API_URL}/api/enrollment/kids/${kid.id}/upload`,
+              form, { headers: form.getHeaders(), timeout: 30000 }
+            );
+            const { photo_id } = uploadRes.data;
+            // Confirm enrollment
+            const confirmRes = await axios.post(
+              `${PYTHON_API_URL}/api/enrollment/kids/${kid.id}/confirm/${photo_id}`,
+              {}, { timeout: 10000 }
+            );
+            const count = confirmRes.data.enrolled_count || 1;
+            await sock.sendMessage(remoteJid, {
+              text: `✅ Photo enrolled for ${kid.name}! They now have ${count} enrolled photo${count !== 1 ? 's' : ''}.`
+            });
+          } catch (e) {
+            const reason = e.response?.data?.detail || e.message;
+            await sock.sendMessage(remoteJid, { text: `❌ Enrollment failed: ${reason}. Try a clearer photo with a visible face.` });
+          }
+          continue;
+        }
+      }
 
       if (msg.key.fromMe) continue;
 
@@ -260,6 +342,27 @@ app.get('/qr', async (req, res) => {
   } catch (e) {
     res.json({ qr: null, error: e.message });
   }
+});
+
+app.post('/send-text', express.json(), async (req, res) => {
+  if (!isConnected) return res.status(503).json({ error: 'Not connected' });
+  const { to, text } = req.body;
+  if (!text || !to) return res.status(400).json({ error: 'Missing to or text' });
+  try {
+    await sock.sendMessage(to, { text });
+    res.json({ success: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.get('/history-text', (req, res) => {
+  const { groupId, since = '0' } = req.query;
+  if (!groupId) return res.status(400).json({ error: 'groupId required' });
+  const sinceTs = parseInt(since);
+  const arr = textHistory.get(groupId) || [];
+  const filtered = sinceTs > 0 ? arr.filter(m => m.timestamp >= sinceTs) : arr;
+  res.json({ messages: filtered });
 });
 
 app.post('/send', express.json({ limit: '20mb' }), async (req, res) => {

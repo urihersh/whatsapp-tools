@@ -32,6 +32,11 @@ class SettingsUpdate(BaseModel):
     google_photos_client_secret: str | None = None
     google_photos_album_organize_by: str | None = None
     google_photos_album_name: str | None = None
+    digest_mode: str | None = None
+    digest_time: str | None = None
+    ai_captions_enabled: str | None = None
+    pin_enabled: str | None = None
+    app_pin: str | None = None
 
 
 async def _bot_get(path: str, params: dict | None = None, timeout: float = 5.0):
