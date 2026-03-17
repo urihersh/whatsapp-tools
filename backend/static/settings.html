@@ -94,31 +94,22 @@
         </div>
         <h2 class="font-semibold text-gray-900">Monitor Groups</h2>
       </div>
-      <p class="text-sm text-gray-400 mb-4 ml-10">Add every WhatsApp group Parent Tool should watch for photos.</p>
-      <div class="flex gap-2 mb-2">
-        <input id="group-search" type="text" placeholder="Search groups..."
+      <p class="text-sm text-gray-400 mb-4 ml-10">Check every group to monitor. Assign which kids to look for — defaults to all enrolled kids.</p>
+
+      <div class="flex gap-2 mb-3">
+        <input id="group-search" type="text" placeholder="Search groups…"
                class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-               oninput="filterGroups()" />
+               oninput="renderGroupList()" />
         <button onclick="refreshGroups(true)" class="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors" title="Refresh from WhatsApp">↻</button>
       </div>
-      <div id="group-list-container" class="hidden border border-gray-200 rounded-xl overflow-hidden mb-3">
-        <div id="group-list" class="max-h-48 overflow-y-auto divide-y divide-gray-50"></div>
-        <p id="group-no-results" class="hidden px-3 py-2 text-sm text-gray-400">No groups found</p>
+
+      <div id="group-list-wrap">
+        <p id="group-list-placeholder" class="text-sm text-gray-400 py-2">
+          Connect WhatsApp first to load groups.
+        </p>
+        <!-- group rows injected here -->
+        <div id="group-list" class="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100 hidden"></div>
       </div>
-      <div id="group-selected-display" class="hidden flex items-center justify-between bg-blue-50 border border-blue-100 rounded-xl px-3 py-2 mb-3">
-        <span id="group-selected-name" class="text-sm text-blue-800 font-medium"></span>
-        <button onclick="clearGroupSelection()" class="text-xs text-blue-400 hover:text-blue-600 transition-colors">✕</button>
-      </div>
-      <input type="hidden" id="group-select" value="" />
-      <!-- Kid picker (shown after selecting a group) -->
-      <div id="kid-picker" class="hidden mb-3 p-3 bg-gray-50 rounded-xl border border-gray-100">
-        <p class="text-xs text-gray-500 mb-2 font-medium">Which kid(s) to monitor in this group?</p>
-        <div id="kid-checkboxes" class="space-y-1.5"></div>
-        <button onclick="addGroup()" class="mt-3 w-full py-2 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-sm font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm">
-          Add Group
-        </button>
-      </div>
-      <ul id="watched-groups" class="space-y-2"></ul>
     </div>
 
     <!-- Actions -->
@@ -469,63 +460,83 @@
         const r = await fetch(url);
         const d = await r.json();
         groups = (d.groups || []).sort((a, b) => a.name.localeCompare(b.name));
-        filterGroups();
+        renderGroupList();
       } catch (_) {}
     }
 
-    function filterGroups() {
+    function renderGroupList() {
       const query = document.getElementById('group-search').value.trim().toLowerCase();
-      const container = document.getElementById('group-list-container');
-      const list = document.getElementById('group-list');
-      const noResults = document.getElementById('group-no-results');
+      const listEl = document.getElementById('group-list');
+      const placeholder = document.getElementById('group-list-placeholder');
 
-      if (!query) { container.classList.add('hidden'); return; }
-
-      const filtered = groups.filter(g => g.name.toLowerCase().includes(query));
-      container.classList.remove('hidden');
-      noResults.classList.toggle('hidden', filtered.length > 0);
-      list.innerHTML = filtered.map(g => `
-        <button onclick="selectGroup('${g.id.replace(/'/g, "\\'")}', '${g.name.replace(/'/g, "\\'")}')"
-                class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-          ${g.name}
-        </button>`).join('');
-    }
-
-    function selectGroup(id, name) {
-      document.getElementById('group-select').value = id;
-      document.getElementById('group-search').value = '';
-      document.getElementById('group-list-container').classList.add('hidden');
-      document.getElementById('group-selected-display').classList.remove('hidden');
-      document.getElementById('group-selected-name').textContent = name;
-
-      // Show kid picker
-      const picker = document.getElementById('kid-picker');
-      picker.classList.remove('hidden');
-      const box = document.getElementById('kid-checkboxes');
-      if (!kids.length) {
-        box.innerHTML = '<p class="text-xs text-gray-400">No kids enrolled yet. Add kids in the Enrollment page first.</p>';
+      if (!groups.length) {
+        listEl.classList.add('hidden');
+        placeholder.classList.remove('hidden');
         return;
       }
-      box.innerHTML = kids.map(k => `
-        <label class="flex items-center gap-2 cursor-pointer">
-          <input type="checkbox" value="${k.id}" class="kid-check accent-blue-600" />
-          <span class="text-sm text-gray-700">${k.name}</span>
-        </label>`).join('');
-    }
+      placeholder.classList.add('hidden');
+      listEl.classList.remove('hidden');
 
-    function clearGroupSelection() {
-      document.getElementById('group-select').value = '';
-      document.getElementById('group-selected-display').classList.add('hidden');
-      document.getElementById('kid-picker').classList.add('hidden');
-      document.getElementById('group-search').value = '';
-    }
+      const filtered = query ? groups.filter(g => g.name.toLowerCase().includes(query)) : groups;
 
-    // Close dropdown when clicking outside
-    document.addEventListener('click', e => {
-      if (!e.target.closest('#group-list-container') && !e.target.closest('#group-search')) {
-        document.getElementById('group-list-container').classList.add('hidden');
+      if (!filtered.length) {
+        listEl.innerHTML = '<p class="px-4 py-3 text-sm text-gray-400">No groups match your search.</p>';
+        return;
       }
-    });
+
+      listEl.innerHTML = '';
+      filtered.forEach((g, idx) => {
+        const watched = watchedGroups.find(w => w.id === g.id);
+        const isChecked = !!watched;
+        const assignedKidIds = watched ? watched.kid_ids : [];
+
+        const row = document.createElement('div');
+        row.className = 'px-4 py-3 ' + (isChecked ? 'bg-blue-50' : 'bg-white hover:bg-gray-50');
+        row.dataset.groupId = g.id;
+
+        const kidOptions = kids.length
+          ? kids.map(k => {
+              const checked = isChecked && (assignedKidIds.length === 0 || assignedKidIds.includes(k.id)) ? 'checked' : '';
+              return `<label class="flex items-center gap-1.5 cursor-pointer select-none">
+                <input type="checkbox" value="${k.id}" class="kid-assign accent-blue-600" ${checked} />
+                <span class="text-xs text-gray-700">${k.name}</span>
+              </label>`;
+            }).join('')
+          : '<span class="text-xs text-gray-400">No kids enrolled yet</span>';
+
+        row.innerHTML = `
+          <div class="flex items-center gap-3">
+            <input type="checkbox" class="group-toggle accent-blue-600 w-4 h-4 shrink-0 cursor-pointer" ${isChecked ? 'checked' : ''} />
+            <span class="text-sm font-medium text-gray-800 flex-1 truncate">${g.name}</span>
+            ${isChecked ? `<span class="text-xs text-blue-500 shrink-0">${assignedKidIds.length || kids.length} kid${(assignedKidIds.length || kids.length) !== 1 ? 's' : ''}</span>` : ''}
+          </div>
+          <div class="kid-row mt-2.5 ml-7 flex flex-wrap gap-x-4 gap-y-1.5 ${isChecked ? '' : 'hidden'}">
+            ${kidOptions}
+          </div>`;
+
+        // Toggle group monitoring on checkbox click
+        row.querySelector('.group-toggle').addEventListener('change', function () {
+          if (this.checked) {
+            const defaultKids = kids.map(k => k.id);
+            watchedGroups.push({ id: g.id, name: g.name, kid_ids: defaultKids });
+          } else {
+            watchedGroups = watchedGroups.filter(w => w.id !== g.id);
+          }
+          renderGroupList();
+        });
+
+        // Update kid_ids in watchedGroups when kid checkboxes change
+        row.querySelectorAll('.kid-assign').forEach(cb => {
+          cb.addEventListener('change', () => {
+            const entry = watchedGroups.find(w => w.id === g.id);
+            if (!entry) return;
+            entry.kid_ids = [...row.querySelectorAll('.kid-assign:checked')].map(el => el.value);
+          });
+        });
+
+        listEl.appendChild(row);
+      });
+    }
 
     async function refreshChats(force = false) {
       try {
@@ -546,51 +557,6 @@
       } catch (_) {}
     }
 
-    function kidName(kid_id) {
-      return kids.find(k => k.id === kid_id)?.name || kid_id;
-    }
-
-    function renderWatchedGroups() {
-      const ul = document.getElementById('watched-groups');
-      if (!watchedGroups.length) {
-        ul.innerHTML = '<li class="text-sm text-gray-400 py-1">No groups added yet.</li>';
-        return;
-      }
-      ul.innerHTML = watchedGroups.map((g, i) => {
-        const kidLabels = (g.kid_ids || []).map(id => `<span class="px-1.5 py-0.5 bg-blue-100 text-blue-700 rounded-lg text-xs">${kidName(id)}</span>`).join(' ');
-        return `
-        <li class="bg-blue-50 border border-blue-100 rounded-xl px-3 py-2.5">
-          <div class="flex items-center justify-between">
-            <span class="text-sm text-blue-900 font-medium">${g.name}</span>
-            <button onclick="removeGroup(${i})" class="text-xs text-red-400 hover:text-red-600 transition-colors ml-2">Remove</button>
-          </div>
-          <div class="flex flex-wrap gap-1 mt-1.5">${kidLabels || '<span class="text-xs text-gray-400">No kids assigned</span>'}</div>
-        </li>`;
-      }).join('');
-    }
-
-    function addGroup() {
-      const id = document.getElementById('group-select').value;
-      const name = document.getElementById('group-selected-name').textContent;
-      if (!id) { showToast('Select a group first', 'error'); return; }
-      if (watchedGroups.some(g => g.id === id)) {
-        showToast('Group already added', 'error');
-        return;
-      }
-      const kid_ids = [...document.querySelectorAll('.kid-check:checked')].map(el => el.value);
-      if (!kid_ids.length) {
-        showToast('Select at least one kid', 'error');
-        return;
-      }
-      watchedGroups.push({ id, name, kid_ids });
-      clearGroupSelection();
-      renderWatchedGroups();
-    }
-
-    function removeGroup(index) {
-      watchedGroups.splice(index, 1);
-      renderWatchedGroups();
-    }
 
     function toggleForwardSection() {
       const enabled = document.getElementById('forward-enabled').checked;
@@ -629,7 +595,6 @@
 
         if (d.watch_groups) {
           try { watchedGroups = JSON.parse(d.watch_groups); } catch (_) {}
-          renderWatchedGroups();
         }
         if (d.forward_to_id) {
           document.getElementById('forward-select').dataset.savedValue = d.forward_to_id;
@@ -815,7 +780,7 @@
       await loadCurrentSettings();
       await loadKids();
       await checkStatus();
-      renderWatchedGroups();
+      renderGroupList();
 
       // Handle OAuth redirect back to this page
       const params = new URLSearchParams(window.location.search);
