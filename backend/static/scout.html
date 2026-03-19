@@ -1,0 +1,1535 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WA Assistant – Scout</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/dark.css" />
+  <style>
+    .tab-btn { padding: 0.75rem 1.25rem; font-size: 0.875rem; font-weight: 500; border-bottom: 2px solid transparent; color: #6b7280; transition: all 0.15s; white-space: nowrap; }
+    .tab-btn:hover { color: #111827; }
+    .tab-btn.active { border-bottom-color: #10b981; color: #059669; }
+    .kid-card { transition: transform 0.15s, box-shadow 0.15s; cursor: pointer; }
+    .kid-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.1); }
+    .kid-card.selected { ring: 2px; }
+    .section-card { background: white; border-radius: 1rem; border: 1px solid #f3f4f6; box-shadow: 0 1px 3px rgba(0,0,0,0.05); margin-bottom: 1rem; }
+    .kbd-active { background: #ecfdf5 !important; outline: 2px solid #10b981; outline-offset: -2px; }
+    .accordion-header { width: 100%; padding: 1rem 1.25rem; display: flex; align-items: center; justify-content: space-between; text-align: left; }
+    .accordion-header:hover { background: #f9fafb; border-radius: 1rem; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+
+  <div id="toast" class="hidden fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50"></div>
+
+  <!-- Add Kid modal -->
+  <div id="add-kid-modal" class="hidden fixed inset-0 bg-black/40 z-40 flex items-center justify-center">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-80">
+      <h3 class="font-semibold text-gray-900 mb-4">Add a Kid</h3>
+      <input id="new-kid-name" type="text" placeholder="e.g. Emma"
+             class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+             onkeydown="if(event.key==='Enter') confirmAddKid()" />
+      <div class="flex gap-2">
+        <button onclick="confirmAddKid()" class="flex-1 py-2 bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 transition-colors">Add</button>
+        <button onclick="closeModal()" class="flex-1 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Nav -->
+  <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="/static/index.html" class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
+        <span class="text-base font-bold text-gray-900">WA Assistant</span>
+      </a>
+      <div class="flex gap-1">
+        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Home</a>
+        <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+          Inbox<span id="inbox-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
+        </a>
+        <a href="/static/scout.html" class="px-4 py-2 rounded-xl text-sm font-medium text-emerald-600 bg-emerald-50">Scout</a>
+        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="nav-status" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-400">
+          <span id="nav-dot" class="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0"></span>
+          <span id="nav-name">Connecting…</span>
+        </div>
+        <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors">
+          <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg id="dark-icon-sun" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <!-- Scout header -->
+  <div class="bg-white border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3">
+      <div class="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-sm">
+        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+        </svg>
+      </div>
+      <div>
+        <h1 class="font-bold text-gray-900">Scout</h1>
+        <p class="text-xs text-gray-400" id="scout-subtitle">Loading…</p>
+      </div>
+    </div>
+
+    <!-- Tab bar -->
+    <div class="max-w-6xl mx-auto px-6">
+      <div class="flex overflow-x-auto">
+        <button onclick="showTab('activity')" id="tab-btn-activity" class="tab-btn active">Activity</button>
+        <button onclick="showTab('kids')" id="tab-btn-kids" class="tab-btn">Kids</button>
+        <button onclick="showTab('groups')" id="tab-btn-groups" class="tab-btn">Groups</button>
+        <button onclick="showTab('configure')" id="tab-btn-configure" class="tab-btn">Configure</button>
+      </div>
+    </div>
+  </div>
+
+  <main class="max-w-6xl mx-auto px-6 py-6">
+
+    <!-- ── ACTIVITY TAB ───────────────────────────────────────────────────────── -->
+    <div id="tab-activity">
+
+      <!-- Today stats -->
+      <div class="grid grid-cols-3 gap-4 mb-6">
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 text-center">
+          <p class="text-2xl font-bold text-emerald-600" id="act-matched">—</p>
+          <p class="text-xs text-gray-400 mt-0.5">matched today</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 text-center">
+          <p class="text-2xl font-bold text-gray-700" id="act-scanned">—</p>
+          <p class="text-xs text-gray-400 mt-0.5">scanned today</p>
+        </div>
+        <div class="bg-white rounded-2xl p-4 shadow-sm border border-gray-100 text-center">
+          <p class="text-2xl font-bold text-gray-700" id="act-rate">—</p>
+          <p class="text-xs text-gray-400 mt-0.5">match rate</p>
+        </div>
+      </div>
+
+      <!-- Digest banner -->
+      <div id="digest-banner" class="hidden mb-5 flex items-center gap-3 px-4 py-3 bg-orange-50 border border-orange-200 rounded-2xl text-sm text-orange-800">
+        <svg class="w-4 h-4 text-orange-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+        <span>Digest mode on · <strong id="digest-count">0</strong> photos queued</span>
+        <button onclick="sendDigestNow()" class="ml-auto px-3 py-1 bg-orange-500 text-white text-xs font-medium rounded-lg hover:bg-orange-600 transition-colors">Send now</button>
+      </div>
+
+      <!-- Activity log -->
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 mb-5">
+        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <h2 class="font-semibold text-gray-900">Recent Activity</h2>
+          <div class="flex items-center gap-3">
+            <span class="text-xs text-gray-400">auto-refreshes</span>
+            <button onclick="clearActivity()" class="text-xs text-red-400 hover:text-red-600 transition-colors">Clear</button>
+          </div>
+        </div>
+        <div class="px-5 py-2.5 flex flex-wrap gap-2 border-b border-gray-100">
+          <select id="filter-matched" onchange="loadActivity()" class="border border-gray-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white">
+            <option value="">All results</option>
+            <option value="true">Matches only</option>
+            <option value="false">No-match only</option>
+          </select>
+          <input type="text" id="filter-group" placeholder="Filter by group…" oninput="debouncedFilter()"
+                 class="border border-gray-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 w-36" />
+          <input type="text" id="filter-kid" placeholder="Filter by kid…" oninput="debouncedFilter()"
+                 class="border border-gray-200 rounded-xl px-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-emerald-400 w-28" />
+          <button onclick="clearFilters()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors px-2">Reset</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead class="bg-gray-50/70">
+              <tr>
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Time</th>
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Sender</th>
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Group</th>
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Faces</th>
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Result</th>
+                <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Conf.</th>
+              </tr>
+            </thead>
+            <tbody id="activity-body">
+              <tr><td colspan="6" class="px-5 py-10 text-center text-gray-300">Loading…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Test Recognition (collapsible) -->
+      <div class="section-card">
+        <button class="accordion-header" onclick="toggleAccordion('test')">
+          <div>
+            <p class="font-semibold text-gray-900 text-sm">Test Recognition</p>
+            <p class="text-xs text-gray-400 mt-0.5">Try a photo without needing WhatsApp</p>
+          </div>
+          <svg id="test-chevron" class="w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div id="test-panel" class="hidden px-5 pb-5 border-t border-gray-100 pt-4">
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div class="space-y-4">
+              <div>
+                <label class="block text-sm font-medium text-gray-700 mb-1">Simulate group</label>
+                <select id="test-group-select" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white">
+                  <option value="">-- pick a monitored group --</option>
+                </select>
+                <p class="text-xs text-gray-400 mt-1">Only monitored groups appear here</p>
+              </div>
+              <div id="test-drop" class="relative border-2 border-dashed border-gray-200 rounded-2xl h-36 flex flex-col items-center justify-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-colors bg-cover bg-center">
+                <span id="test-drop-icon" class="text-2xl mb-1">🔍</span>
+                <p id="test-drop-label" class="text-xs text-gray-400 text-center px-2">Drop a photo or video, or click to select</p>
+                <input type="file" id="test-file-input" accept="image/*,video/*" class="hidden" />
+              </div>
+              <div class="flex items-center gap-3">
+                <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                  <input type="checkbox" id="test-forward" class="accent-emerald-600" />
+                  <span>Forward if matched</span>
+                </label>
+                <button onclick="runTest()" class="ml-auto px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 transition-colors shadow-sm">Analyze</button>
+              </div>
+            </div>
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-3">Result</label>
+              <div id="test-placeholder" class="text-center py-8 text-gray-300 text-sm">Run a test to see results here</div>
+              <div id="test-result" class="hidden">
+                <div id="test-banner" class="rounded-xl p-4 mb-3 text-center">
+                  <p id="test-headline" class="text-lg font-bold"></p>
+                  <p id="test-sub" class="text-sm mt-1 opacity-75"></p>
+                </div>
+                <div id="test-kids" class="space-y-2 mb-3"></div>
+                <p class="text-xs text-gray-400 italic" id="test-caption"></p>
+                <div id="test-forwarded-badge" class="hidden mt-2 inline-flex items-center gap-1 px-2.5 py-1 bg-green-100 text-green-700 rounded-full text-xs font-medium">✓ Forwarded</div>
+                <p id="test-forward-error" class="hidden mt-2 text-xs text-red-500"></p>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Scan History (collapsible) -->
+      <div class="section-card">
+        <button class="accordion-header" onclick="toggleAccordion('hist')">
+          <div>
+            <p class="font-semibold text-gray-900 text-sm">Scan History</p>
+            <p class="text-xs text-gray-400 mt-0.5">Scan past photos from WA groups or upload files</p>
+          </div>
+          <svg id="hist-chevron" class="w-4 h-4 text-gray-400 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+        </button>
+        <div id="hist-panel" class="hidden border-t border-gray-100">
+          <!-- Tabs inside Scan History -->
+          <div class="flex border-b border-gray-100">
+            <button id="tab-whatsapp" onclick="switchHistTab('whatsapp')" class="px-6 py-3 text-sm font-medium border-b-2 border-purple-600 text-purple-600">WA History</button>
+            <button id="tab-upload" onclick="switchHistTab('upload')" class="px-6 py-3 text-sm font-medium border-b-2 border-transparent text-gray-400 hover:text-gray-600">Upload Files</button>
+          </div>
+          <div class="p-5 grid grid-cols-1 md:grid-cols-2 gap-5">
+            <div>
+              <!-- Shared group selector -->
+              <div class="mb-3">
+                <label class="block text-xs font-medium text-gray-600 mb-1">Group</label>
+                <div class="flex gap-2">
+                  <select id="hist-group-select" onchange="onHistGroupChange()" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400">
+                    <option value="">-- pick a monitored group --</option>
+                  </select>
+                </div>
+                <p id="hist-group-optional-hint" class="hidden text-xs text-gray-400 mt-1">Optional — leave blank and pick kids below</p>
+              </div>
+
+              <!-- WA tab content -->
+              <div id="hist-tab-whatsapp">
+                <div class="mb-3">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Scan range</label>
+                  <div class="flex gap-2 items-center">
+                    <select id="hist-days" onchange="onHistRangeChange()" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-purple-400">
+                      <option value="1">Last 24 hours</option>
+                      <option value="3">Last 3 days</option>
+                      <option value="7" selected>Last 7 days</option>
+                      <option value="30">Last 30 days</option>
+                      <option value="custom">Custom date…</option>
+                    </select>
+                    <input type="date" id="hist-since-date" class="hidden border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400" />
+                  </div>
+                </div>
+                <div class="mb-3">
+                  <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                    <input type="checkbox" id="hist-forward" class="accent-purple-600" />
+                    <span>Forward matches</span>
+                  </label>
+                </div>
+                <div class="mb-3">
+                  <button id="hist-load-btn" onclick="loadMoreHistory()" class="w-full px-3 py-2 text-xs font-medium text-purple-600 bg-purple-50 border border-purple-200 rounded-xl hover:bg-purple-100 transition-colors">
+                    Load more history from WhatsApp
+                  </button>
+                  <p id="hist-load-msg" class="hidden text-xs text-center mt-1 text-purple-600"></p>
+                </div>
+                <div class="flex gap-2">
+                  <button id="hist-scan-btn" onclick="runHistoricalScan()" class="flex-1 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700 transition-colors shadow-sm">Scan</button>
+                  <button id="hist-stop-btn" onclick="stopHistoricalScan()" class="hidden flex-1 py-2 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors">Stop</button>
+                </div>
+              </div>
+
+              <!-- Upload tab content -->
+              <div id="hist-tab-upload" class="hidden">
+                <div id="upload-drop" class="border-2 border-dashed border-gray-200 rounded-2xl p-6 text-center cursor-pointer hover:border-purple-400 hover:bg-purple-50 transition-colors mb-3">
+                  <span id="upload-drop-icon" class="text-2xl block mb-1">📂</span>
+                  <p id="upload-drop-label" class="text-sm text-gray-400">Drop photos or videos here, or click to select</p>
+                  <input type="file" id="upload-file-input" accept="image/*,video/*" multiple class="hidden" />
+                </div>
+                <div id="hist-kids-picker" class="hidden mb-3">
+                  <label class="block text-xs font-medium text-gray-600 mb-1.5">Detect kids</label>
+                  <div id="hist-kids-list" class="flex flex-wrap gap-3"></div>
+                </div>
+                <div class="mb-3">
+                  <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
+                    <input type="checkbox" id="upload-forward" class="accent-purple-600" />
+                    <span>Forward matches</span>
+                  </label>
+                </div>
+                <div class="flex gap-2">
+                  <button id="upload-scan-btn" onclick="runUploadScan()" class="flex-1 py-2 bg-purple-600 text-white text-sm font-medium rounded-xl hover:bg-purple-700 transition-colors shadow-sm">Scan</button>
+                  <button id="upload-stop-btn" onclick="stopUploadScan()" class="hidden flex-1 py-2 bg-red-500 text-white text-sm font-medium rounded-xl hover:bg-red-600 transition-colors">Stop</button>
+                </div>
+              </div>
+            </div>
+
+            <!-- Results -->
+            <div>
+              <label class="block text-sm font-medium text-gray-700 mb-3">Results</label>
+              <div id="hist-status" class="hidden mb-3 text-sm text-purple-600 flex items-center gap-2">
+                <svg class="animate-spin h-4 w-4" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+                <span id="hist-status-label">Scanning...</span>
+              </div>
+              <div id="hist-results" class="space-y-1.5 max-h-64 overflow-y-auto"></div>
+              <div id="hist-summary" class="hidden mt-3 p-3 bg-gray-50 rounded-xl border border-gray-100 text-sm text-gray-600"></div>
+              <div id="hist-note" class="hidden mt-2 text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-xl p-3"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── KIDS TAB ────────────────────────────────────────────────────────────── -->
+    <div id="tab-kids" class="hidden">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h2 class="font-semibold text-gray-900">Enrolled Kids</h2>
+          <p class="text-xs text-gray-400 mt-0.5" id="kids-subtitle">Upload clear face photos for each kid</p>
+        </div>
+      </div>
+
+      <!-- Kids grid -->
+      <div id="kids-grid" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+        <!-- Cards rendered by JS. Last card is always "+ Add Kid" -->
+      </div>
+
+      <!-- Kid detail panel -->
+      <div id="kid-detail" class="hidden bg-white rounded-2xl shadow-sm border border-gray-100">
+        <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+          <div>
+            <h3 id="kid-detail-name" class="font-semibold text-gray-900"></h3>
+            <p id="kid-detail-count" class="text-xs text-gray-400 mt-0.5"></p>
+          </div>
+          <div class="flex items-center gap-2">
+            <button id="delete-kid-btn" class="px-3 py-1.5 text-xs text-red-500 bg-red-50 rounded-xl hover:bg-red-100 transition-colors font-medium">Delete Kid</button>
+            <button onclick="closeKidDetail()" class="p-1.5 text-gray-400 hover:text-gray-600 hover:bg-gray-100 rounded-xl transition-colors">
+              <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+        </div>
+        <div class="p-5">
+          <!-- Upload area -->
+          <div id="drop-zone" class="border-2 border-dashed border-gray-200 rounded-2xl p-8 text-center cursor-pointer hover:border-emerald-400 hover:bg-emerald-50 transition-colors mb-5">
+            <p class="text-gray-700 font-medium mb-1">Drop photos here or click to upload</p>
+            <p class="text-gray-400 text-sm">JPG, PNG, WEBP — multiple files OK</p>
+            <p class="text-xs text-gray-400 mt-1">💡 One clear face per photo, good lighting</p>
+            <input type="file" id="file-input" accept="image/*" multiple class="hidden" />
+          </div>
+
+          <!-- Pending section -->
+          <div id="pending-section" class="hidden mb-5">
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="font-semibold text-gray-900 text-sm">Confirm Faces</h4>
+              <button onclick="confirmAll()" class="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-xl hover:bg-emerald-700 transition-colors">Enroll All</button>
+            </div>
+            <div id="pending-grid" class="grid grid-cols-3 sm:grid-cols-5 gap-3"></div>
+          </div>
+
+          <!-- Enrolled photos -->
+          <div>
+            <div class="flex items-center justify-between mb-3">
+              <h4 class="font-semibold text-gray-900 text-sm">Enrolled Photos</h4>
+              <button onclick="deleteAllOriginals()" id="delete-originals-btn" class="hidden text-xs text-gray-400 hover:text-red-500 transition-colors">Delete all originals</button>
+            </div>
+            <div id="enrolled-grid" class="grid grid-cols-3 sm:grid-cols-5 gap-3">
+              <p id="enrolled-empty" class="text-gray-400 text-sm col-span-full py-2">No photos enrolled yet.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ── GROUPS TAB ──────────────────────────────────────────────────────────── -->
+    <div id="tab-groups" class="hidden">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="font-semibold text-gray-900">Monitored Groups</h2>
+          <p class="text-xs text-gray-400 mt-0.5" id="groups-subtitle">Search and toggle groups to monitor</p>
+        </div>
+        <div class="flex items-center gap-2">
+          <button onclick="saveGroupsNow()" class="px-4 py-2 bg-emerald-600 text-white text-sm font-medium rounded-xl hover:bg-emerald-700 transition-colors shadow-sm">Save</button>
+        </div>
+      </div>
+      <div class="flex gap-2 mb-3">
+        <input id="group-search" type="text" placeholder="Search groups…"
+               class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white"
+               oninput="renderGroupList()" />
+        <button onclick="refreshGroups(true)" class="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors" title="Refresh from WhatsApp">↻</button>
+      </div>
+      <div id="group-list-wrap">
+        <p id="group-list-placeholder" class="text-sm text-gray-400 py-4">Connect WhatsApp in Settings to load groups.</p>
+        <div id="group-list" class="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100 hidden"></div>
+      </div>
+    </div>
+
+    <!-- ── CONFIGURE TAB ───────────────────────────────────────────────────────── -->
+    <div id="tab-configure" class="hidden max-w-2xl">
+
+      <!-- Confidence threshold -->
+      <div class="section-card p-5 mb-4">
+        <div class="flex items-center gap-2.5 mb-3">
+          <div class="w-7 h-7 rounded-lg bg-amber-50 flex items-center justify-center flex-shrink-0">
+            <svg class="w-3.5 h-3.5 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"/></svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 text-sm">Match Confidence</h3>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">Higher = fewer false positives. Lower = catches more but may include other kids.</p>
+        <div class="flex items-center gap-4">
+          <input type="range" id="threshold-slider" min="40" max="90" value="60" step="5" class="flex-1 accent-emerald-500"
+                 oninput="document.getElementById('threshold-value').textContent = this.value + '%'" />
+          <span id="threshold-value" class="text-lg font-bold text-emerald-600 w-14 text-right">60%</span>
+        </div>
+        <div class="flex justify-between text-xs text-gray-400 mt-1"><span>More matches</span><span>Fewer false positives</span></div>
+      </div>
+
+      <!-- Forwarding -->
+      <div class="section-card p-5 mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-green-50 flex items-center justify-center flex-shrink-0">
+              <svg class="w-3.5 h-3.5 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+            </div>
+            <h3 class="font-semibold text-gray-900 text-sm">WhatsApp Forward</h3>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="forward-enabled" class="accent-emerald-600" onchange="toggleForwardSection()" />
+            <span class="text-xs text-gray-500">Enabled</span>
+          </label>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">Forward matched photos to a chat (e.g. your private chat with your spouse).</p>
+        <div id="forward-section" class="hidden flex gap-2">
+          <select id="forward-select" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400 bg-white">
+            <option value="">-- Select a chat --</option>
+          </select>
+          <button onclick="refreshChats(true)" class="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors" title="Refresh">↻</button>
+        </div>
+      </div>
+
+      <!-- Save to folder -->
+      <div class="section-card p-5 mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+              <svg class="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4"/></svg>
+            </div>
+            <h3 class="font-semibold text-gray-900 text-sm">Save to Folder</h3>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="save-enabled" class="accent-emerald-600" onchange="toggleSaveSection()" />
+            <span class="text-xs text-gray-500">Enabled</span>
+          </label>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">Save every matched photo to a local folder.</p>
+        <div id="save-section" class="hidden space-y-3">
+          <div class="flex gap-2">
+            <input type="text" id="save-path" placeholder="/Users/you/Scout photos"
+                   class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+            <button onclick="browseSaveFolder()" class="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors">Browse…</button>
+          </div>
+          <div>
+            <p class="text-xs font-medium text-gray-600 mb-1.5">Organise by</p>
+            <div class="flex gap-4">
+              <label class="flex items-center gap-2 cursor-pointer select-none"><input type="radio" name="save-organize" value="group" checked class="accent-emerald-600" onchange="updateSaveExample()" /><span class="text-sm text-gray-700">Group</span></label>
+              <label class="flex items-center gap-2 cursor-pointer select-none"><input type="radio" name="save-organize" value="kid" class="accent-emerald-600" onchange="updateSaveExample()" /><span class="text-sm text-gray-700">Kid</span></label>
+            </div>
+            <p class="text-xs text-gray-400 mt-1 italic" id="save-example">save_folder / Group Name / 20260312_143000.jpg</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Daily Digest -->
+      <div class="section-card p-5 mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-orange-50 flex items-center justify-center flex-shrink-0">
+              <svg class="w-3.5 h-3.5 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+            </div>
+            <h3 class="font-semibold text-gray-900 text-sm">Daily Digest</h3>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="digest-mode" class="accent-orange-500" onchange="toggleDigestTime()" />
+            <span class="text-xs text-gray-500">Enabled</span>
+          </label>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">Instead of a ping per photo, get one daily summary.</p>
+        <div id="digest-time-row" class="hidden flex items-center gap-3">
+          <label class="text-xs text-gray-600">Send at</label>
+          <input type="time" id="digest-time" value="20:00" class="border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
+        </div>
+      </div>
+
+      <!-- AI Captions -->
+      <div class="section-card p-5 mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+              <svg class="w-3.5 h-3.5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"/></svg>
+            </div>
+            <h3 class="font-semibold text-gray-900 text-sm">AI Moment Captions</h3>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="ai-captions-enabled" class="accent-violet-600" />
+            <span class="text-xs text-gray-500">Enabled</span>
+          </label>
+        </div>
+        <p class="text-xs text-gray-400 mb-2">Automatically generate a short description of what's happening in each matched photo.</p>
+        <p id="ai-key-hint" class="hidden text-xs text-amber-600">⚠ No AI model configured — <a href="/static/settings.html" class="underline font-medium">set up Anthropic or Ollama in Settings → Integrations</a></p>
+      </div>
+
+      <!-- Google Photos -->
+      <div class="section-card p-5 mb-4">
+        <div class="flex items-center justify-between mb-1">
+          <div class="flex items-center gap-2.5">
+            <div class="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <svg class="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            </div>
+            <h3 class="font-semibold text-gray-900 text-sm">Google Photos</h3>
+          </div>
+          <label class="flex items-center gap-2 cursor-pointer select-none">
+            <input type="checkbox" id="gp-enabled" class="accent-blue-500" onchange="toggleGPAlbumSettings()" />
+            <span class="text-xs text-gray-500">Enabled</span>
+          </label>
+        </div>
+        <p class="text-xs text-gray-400 mb-2">Upload every matched photo to Google Photos.</p>
+        <p id="gp-hint" class="hidden text-xs text-amber-600 mb-2">⚠ Google Photos not connected — <a href="/static/settings.html" class="underline font-medium">connect it in Settings → Integrations</a></p>
+        <div id="gp-album-settings" class="hidden space-y-2 mt-3">
+          <p class="text-xs font-medium text-gray-600">Organise albums by</p>
+          <div class="flex flex-wrap gap-4">
+            <label class="flex items-center gap-2 cursor-pointer select-none"><input type="radio" name="gp-organize" value="group" checked class="accent-blue-500" onchange="updateGPAlbumNameRow()" /><span class="text-sm text-gray-700">Group</span></label>
+            <label class="flex items-center gap-2 cursor-pointer select-none"><input type="radio" name="gp-organize" value="kid" class="accent-blue-500" onchange="updateGPAlbumNameRow()" /><span class="text-sm text-gray-700">Kid</span></label>
+            <label class="flex items-center gap-2 cursor-pointer select-none"><input type="radio" name="gp-organize" value="single" class="accent-blue-500" onchange="updateGPAlbumNameRow()" /><span class="text-sm text-gray-700">Single album</span></label>
+          </div>
+          <div id="gp-album-name-row" class="hidden">
+            <input type="text" id="gp-album-name" placeholder="Album name"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Save button -->
+      <button onclick="saveScoutSettings()" class="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm">
+        Save Settings
+      </button>
+
+      <!-- Backup & Restore -->
+      <div class="section-card p-5 mt-6">
+        <div class="flex items-center gap-2.5 mb-1">
+          <div class="w-7 h-7 rounded-lg bg-gray-100 flex items-center justify-center flex-shrink-0">
+            <svg class="w-3.5 h-3.5 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10"/>
+            </svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 text-sm">Backup & Restore</h3>
+        </div>
+        <p class="text-xs text-gray-400 mb-4">Backup includes all Scout settings and enrolled kids (photos + face data). API keys and WhatsApp session are excluded.</p>
+        <div class="flex gap-3">
+          <button onclick="downloadBackup()"
+                  class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-800 text-white text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+            Export backup
+          </button>
+          <label class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-white border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors cursor-pointer">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12"/></svg>
+            Restore backup
+            <input type="file" accept=".zip" class="hidden" onchange="uploadBackup(this)" />
+          </label>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <script>
+    // ── Utilities ───────────────────────────────────────────────────────────────
+    function showToast(msg, type = 'success') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50 ${type === 'success' ? 'bg-green-600 text-white' : 'bg-red-500 text-white'}`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    function relativeTime(isoStr) {
+      const diff = Date.now() - new Date(isoStr).getTime();
+      const m = Math.floor(diff / 60000), h = Math.floor(diff / 3600000), d = Math.floor(diff / 86400000);
+      if (m < 1) return 'just now';
+      if (m < 60) return `${m}m ago`;
+      if (h < 24) return `${h}h ago`;
+      if (d < 7) return `${d}d ago`;
+      return new Date(isoStr).toLocaleDateString();
+    }
+
+    // ── Nav status ──────────────────────────────────────────────────────────────
+    async function loadNavStatus() {
+      try {
+        const r = await fetch('/api/settings/whatsapp/status');
+        const d = await r.json();
+        const dot = document.getElementById('nav-dot');
+        const name = document.getElementById('nav-name');
+        if (d.connected) {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0';
+          name.textContent = d.phone?.name || 'Connected';
+          document.getElementById('nav-status').className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-xs font-medium text-green-700';
+        } else {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0';
+          name.textContent = 'Disconnected';
+          document.getElementById('nav-status').className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 text-xs font-medium text-red-600';
+        }
+      } catch (_) {}
+    }
+
+    // ── Tab switching ────────────────────────────────────────────────────────────
+    const TABS = ['activity', 'kids', 'groups', 'configure'];
+    function showTab(tab) {
+      TABS.forEach(t => {
+        document.getElementById(`tab-${t}`).classList.toggle('hidden', t !== tab);
+        document.getElementById(`tab-btn-${t}`).classList.toggle('active', t === tab);
+      });
+      if (tab === 'activity') { loadStats(); loadActivity(); checkDigest(); }
+      if (tab === 'kids') loadKids();
+      if (tab === 'groups') { loadKids(); refreshGroups(); }
+      if (tab === 'configure') loadScoutSettings();
+      // Persist tab
+      sessionStorage.setItem('scout_tab', tab);
+    }
+
+    function toggleAccordion(id) {
+      const panel = document.getElementById(`${id}-panel`);
+      const chevron = document.getElementById(`${id}-chevron`);
+      const open = panel.classList.contains('hidden');
+      panel.classList.toggle('hidden', !open);
+      chevron.style.transform = open ? 'rotate(180deg)' : '';
+      if (id === 'test' && open && !watchedGroups.length) loadWatchedGroups();
+      if (id === 'hist' && open && !histWatchedGroups.length) loadHistGroups();
+    }
+
+    // ── Scout subtitle ───────────────────────────────────────────────────────────
+    async function loadScoutSubtitle() {
+      try {
+        const [sR, kR] = await Promise.all([fetch('/api/settings'), fetch('/api/enrollment/kids')]);
+        const s = await sR.json();
+        const k = await kR.json();
+        const wg = JSON.parse(s.watch_groups || '[]');
+        const kCount = (k.kids || []).length;
+        document.getElementById('scout-subtitle').textContent =
+          `Watching ${wg.length} group${wg.length !== 1 ? 's' : ''} for ${kCount} kid${kCount !== 1 ? 's' : ''}`;
+      } catch (_) {}
+    }
+
+    // ── Activity tab ─────────────────────────────────────────────────────────────
+    async function loadStats() {
+      try {
+        const r = await fetch('/api/dashboard/stats');
+        const d = await r.json();
+        document.getElementById('act-matched').textContent = d.today_matched ?? 0;
+        document.getElementById('act-scanned').textContent = (d.today_matched ?? 0) + (d.today_unmatched ?? 0);
+        const total = (d.today_matched ?? 0) + (d.today_unmatched ?? 0);
+        document.getElementById('act-rate').textContent = total > 0 ? Math.round(d.today_matched / total * 100) + '%' : '—';
+      } catch (_) {}
+    }
+
+    async function loadActivity() {
+      try {
+        const matched = document.getElementById('filter-matched')?.value;
+        const group = document.getElementById('filter-group')?.value || '';
+        const kid = document.getElementById('filter-kid')?.value || '';
+        let url = '/api/dashboard/activity?limit=30';
+        if (matched) url += `&matched=${matched}`;
+        if (group) url += `&group_name=${encodeURIComponent(group)}`;
+        if (kid) url += `&kid_name=${encodeURIComponent(kid)}`;
+        const r = await fetch(url);
+        const d = await r.json();
+        const tbody = document.getElementById('activity-body');
+        if (!d.activity.length) {
+          tbody.innerHTML = '<tr><td colspan="6" class="px-5 py-10 text-center text-gray-300">No activity yet. Waiting for photos from monitored groups…</td></tr>';
+          return;
+        }
+        tbody.innerHTML = d.activity.map(row => {
+          const t = relativeTime(row.timestamp);
+          const badge = row.matched
+            ? `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">Match</span>${row.kid_names ? `<span class="ml-1 text-xs text-gray-500">${row.kid_names}</span>` : ''}`
+            : '<span class="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-full text-xs">No match</span>';
+          const conf = row.matched ? `${(row.confidence * 100).toFixed(0)}%` : '-';
+          return `<tr class="border-t border-gray-50 hover:bg-gray-50/70 transition-colors">
+            <td class="px-5 py-3 text-gray-400 whitespace-nowrap text-xs" title="${new Date(row.timestamp).toLocaleString()}">${t}</td>
+            <td class="px-5 py-3 text-gray-700 font-medium">${row.sender}</td>
+            <td class="px-5 py-3 text-gray-400 text-xs">${row.group_name}</td>
+            <td class="px-5 py-3 text-gray-600">${row.faces_detected}</td>
+            <td class="px-5 py-3">${badge}</td>
+            <td class="px-5 py-3 text-gray-600">${conf}</td>
+          </tr>`;
+        }).join('');
+      } catch (_) {}
+    }
+
+    let filterTimer;
+    function debouncedFilter() { clearTimeout(filterTimer); filterTimer = setTimeout(loadActivity, 400); }
+    function clearFilters() {
+      document.getElementById('filter-matched').value = '';
+      document.getElementById('filter-group').value = '';
+      document.getElementById('filter-kid').value = '';
+      loadActivity();
+    }
+    async function clearActivity() {
+      if (!confirm('Clear all activity logs?')) return;
+      await fetch('/api/dashboard/activity', { method: 'DELETE' });
+      loadActivity(); loadStats();
+    }
+
+    // ── Digest ────────────────────────────────────────────────────────────────────
+    async function checkDigest() {
+      try {
+        const [sR, qR] = await Promise.all([fetch('/api/settings'), fetch('/api/digest/queue')]);
+        const s = await sR.json(), q = await qR.json();
+        const banner = document.getElementById('digest-banner');
+        if (s.digest_mode === 'true') {
+          banner.classList.remove('hidden');
+          document.getElementById('digest-count').textContent = q.count || 0;
+        } else {
+          banner.classList.add('hidden');
+        }
+      } catch (_) {}
+    }
+    async function sendDigestNow() {
+      const r = await fetch('/api/digest/send-now', { method: 'POST' });
+      const d = await r.json();
+      document.getElementById('digest-count').textContent = '0';
+      showToast(`Digest sent (${d.sent} item${d.sent !== 1 ? 's' : ''})`);
+    }
+
+    // ── Test recognition ──────────────────────────────────────────────────────────
+    let testFile = null;
+    let watchedGroups = [];
+
+    async function loadWatchedGroups() {
+      try {
+        const r = await fetch('/api/settings');
+        const d = await r.json();
+        watchedGroups = JSON.parse(d.watch_groups || '[]');
+        const sel = document.getElementById('test-group-select');
+        sel.innerHTML = '<option value="">-- pick a monitored group --</option>';
+        watchedGroups.forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g.id; opt.textContent = g.name;
+          sel.appendChild(opt);
+        });
+        if (watchedGroups.length === 1) sel.value = watchedGroups[0].id;
+      } catch (_) {}
+    }
+
+    const testDrop = document.getElementById('test-drop');
+    const testInput = document.getElementById('test-file-input');
+    testDrop.addEventListener('click', () => testInput.click());
+    testDrop.addEventListener('dragover', e => { e.preventDefault(); testDrop.classList.add('border-emerald-400'); });
+    testDrop.addEventListener('dragleave', () => testDrop.classList.remove('border-emerald-400'));
+    testDrop.addEventListener('drop', e => { e.preventDefault(); testDrop.classList.remove('border-emerald-400'); setTestFile(e.dataTransfer.files[0]); });
+    testInput.addEventListener('change', () => { setTestFile(testInput.files[0]); testInput.value = ''; });
+
+    function setTestFile(file) {
+      if (!file) return;
+      testFile = file;
+      const label = document.getElementById('test-drop-label');
+      label.className = 'text-xs font-medium text-gray-700';
+      label.textContent = file.name;
+      if (file.type.startsWith('video/')) {
+        testDrop.style.backgroundImage = '';
+        document.getElementById('test-drop-icon').textContent = '🎬';
+      } else {
+        const reader = new FileReader();
+        reader.onload = e => {
+          testDrop.style.backgroundImage = `url(${e.target.result})`;
+          testDrop.style.backgroundSize = 'cover';
+          testDrop.style.backgroundPosition = 'center';
+          document.getElementById('test-drop-icon').textContent = '';
+        };
+        reader.readAsDataURL(file);
+      }
+    }
+
+    async function runTest() {
+      const groupId = document.getElementById('test-group-select').value;
+      if (!groupId) { alert('Pick a group to simulate.'); return; }
+      if (!testFile) { alert('Select a photo or video to test.'); return; }
+      const isVideo = testFile.type.startsWith('video/');
+      document.getElementById('test-drop-icon').textContent = '⏳';
+      document.getElementById('test-drop-label').textContent = 'Analyzing…';
+      const form = new FormData();
+      form.append('file', testFile);
+      try {
+        const shouldForward = document.getElementById('test-forward').checked;
+        const endpoint = isVideo
+          ? `/api/analyze-video?group_id=${encodeURIComponent(groupId)}&sender=test`
+          : `/api/analyze?group_id=${encodeURIComponent(groupId)}&forward=${shouldForward}&is_test=true`;
+        const r = await fetch(endpoint, { method: 'POST', body: form });
+        const d = await r.json();
+        document.getElementById('test-drop-icon').textContent = isVideo ? '🎬' : '📷';
+        document.getElementById('test-drop-label').textContent = testFile.name;
+        document.getElementById('test-placeholder').classList.add('hidden');
+        document.getElementById('test-result').classList.remove('hidden');
+        showTestResult(d, isVideo);
+        loadStats(); loadActivity();
+      } catch (e) {
+        document.getElementById('test-drop-icon').textContent = '🔍';
+        document.getElementById('test-drop-label').textContent = 'Drop a photo or video, or click to select';
+        alert('Test failed — is the backend running?');
+      }
+    }
+
+    function showTestResult(d, isVideo = false) {
+      const banner = document.getElementById('test-banner');
+      const headline = document.getElementById('test-headline');
+      const sub = document.getElementById('test-sub');
+      if (d.error && !d.faces_detected) {
+        banner.className = 'rounded-xl p-4 mb-3 text-center bg-gray-100';
+        headline.textContent = 'Error'; headline.className = 'text-lg font-bold text-gray-500';
+        sub.textContent = d.error;
+        document.getElementById('test-kids').innerHTML = '';
+        document.getElementById('test-caption').textContent = '';
+        return;
+      }
+      if (d.faces_detected === 0) {
+        banner.className = 'rounded-xl p-4 mb-3 text-center bg-gray-100';
+        headline.textContent = 'No faces detected'; headline.className = 'text-lg font-bold text-gray-500';
+        sub.textContent = isVideo ? 'No faces in any sampled frame' : 'Try a clearer photo';
+        document.getElementById('test-kids').innerHTML = '';
+        document.getElementById('test-caption').textContent = '';
+        return;
+      }
+      if (d.matched) {
+        banner.className = 'rounded-xl p-4 mb-3 text-center bg-emerald-100';
+        headline.textContent = '✓ Match found!'; headline.className = 'text-lg font-bold text-emerald-800';
+        sub.className = 'text-sm mt-1 opacity-75 text-emerald-700';
+      } else {
+        banner.className = 'rounded-xl p-4 mb-3 text-center bg-gray-100';
+        headline.textContent = 'No match'; headline.className = 'text-lg font-bold text-gray-600';
+        sub.className = 'text-sm mt-1 opacity-75 text-gray-500';
+      }
+      const matchedKids = (d.matches || []).filter(m => m.matched);
+      const frameNote = isVideo && d.frames_sampled ? ` · ${d.frames_sampled} frames` : '';
+      sub.textContent = d.matched
+        ? `${d.faces_detected} face${d.faces_detected !== 1 ? 's' : ''} · ${matchedKids.length} matched · ${((d.threshold || 0.35) * 100).toFixed(0)}% threshold${frameNote}`
+        : `${d.faces_detected} face${d.faces_detected !== 1 ? 's' : ''} scanned · threshold ${((d.threshold || 0.35) * 100).toFixed(0)}%${frameNote}`;
+      document.getElementById('test-kids').innerHTML = (d.matches || []).map(m =>
+        `<div class="flex items-center justify-between px-3 py-2 rounded-xl ${m.matched ? 'bg-emerald-50 border border-emerald-200' : 'bg-gray-50 border border-gray-100'}">
+          <span class="text-sm font-medium ${m.matched ? 'text-emerald-800' : 'text-gray-500'}">${m.kid_name || m.kid_id}</span>
+          <span class="text-sm ${m.matched ? 'text-emerald-600 font-semibold' : 'text-gray-400'}">${(m.confidence * 100).toFixed(1)}% ${m.matched ? '✓' : ''}</span>
+        </div>`).join('');
+      const forwardedBadge = document.getElementById('test-forwarded-badge');
+      const forwardError = document.getElementById('test-forward-error');
+      forwardedBadge.classList.add('hidden'); forwardError.classList.add('hidden');
+      if (matchedKids.length) {
+        const names = matchedKids.map(m => m.kid_name || 'your kid').join(' & ');
+        const best = Math.max(...matchedKids.map(m => m.confidence));
+        document.getElementById('test-caption').textContent = `"${names} ${matchedKids.length > 1 ? 'are' : 'is'} in this ${isVideo ? 'video' : 'photo'}! (${(best * 100).toFixed(0)}%)"`;
+        if (d.forwarded) forwardedBadge.classList.remove('hidden');
+        if (d.forward_error) { forwardError.textContent = `Forward failed: ${d.forward_error}`; forwardError.classList.remove('hidden'); }
+      } else {
+        document.getElementById('test-caption').textContent = '(nothing would be sent)';
+      }
+    }
+
+    // ── Scan history ─────────────────────────────────────────────────────────────
+    let histWatchedGroups = [];
+    let uploadFilesList = [];
+    let waAbortCtrl = null;
+    let stopUploadRequested = false;
+
+    function switchHistTab(tab) {
+      const isWA = tab === 'whatsapp';
+      document.getElementById('hist-tab-whatsapp').classList.toggle('hidden', !isWA);
+      document.getElementById('hist-tab-upload').classList.toggle('hidden', isWA);
+      document.getElementById('tab-whatsapp').className = `px-6 py-3 text-sm font-medium border-b-2 ${isWA ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`;
+      document.getElementById('tab-upload').className = `px-6 py-3 text-sm font-medium border-b-2 ${!isWA ? 'border-purple-600 text-purple-600' : 'border-transparent text-gray-400 hover:text-gray-600'}`;
+      document.getElementById('hist-group-optional-hint').classList.toggle('hidden', isWA);
+      document.querySelector('#hist-group-select option[value=""]').textContent = isWA ? '-- pick a monitored group --' : '-- any group --';
+      onHistGroupChange();
+    }
+
+    const uploadDrop = document.getElementById('upload-drop');
+    const uploadInput = document.getElementById('upload-file-input');
+    uploadDrop.addEventListener('click', () => uploadInput.click());
+    uploadDrop.addEventListener('dragover', e => { e.preventDefault(); uploadDrop.classList.add('border-purple-400'); });
+    uploadDrop.addEventListener('dragleave', () => uploadDrop.classList.remove('border-purple-400'));
+    uploadDrop.addEventListener('drop', e => { e.preventDefault(); uploadDrop.classList.remove('border-purple-400'); setUploadFiles(Array.from(e.dataTransfer.files).filter(f => f.type.startsWith('image/') || f.type.startsWith('video/'))); });
+    uploadInput.addEventListener('change', () => { setUploadFiles(Array.from(uploadInput.files)); uploadInput.value = ''; });
+
+    function setUploadFiles(files) {
+      uploadFilesList = files;
+      const imgs = files.filter(f => f.type.startsWith('image/')).length;
+      const vids = files.filter(f => f.type.startsWith('video/')).length;
+      const parts = [];
+      if (imgs) parts.push(`${imgs} photo${imgs !== 1 ? 's' : ''}`);
+      if (vids) parts.push(`${vids} video${vids !== 1 ? 's' : ''}`);
+      document.getElementById('upload-drop-icon').textContent = vids && !imgs ? '🎬' : '📷';
+      document.getElementById('upload-drop-label').textContent = parts.length ? parts.join(' + ') + ' selected' : 'Drop photos or videos here, or click to select';
+    }
+
+    function onHistGroupChange() {
+      const groupId = document.getElementById('hist-group-select').value;
+      const isUploadTab = !document.getElementById('hist-tab-upload').classList.contains('hidden');
+      document.getElementById('hist-kids-picker').classList.toggle('hidden', !!groupId || !isUploadTab);
+    }
+
+    function stopUploadScan() { stopUploadRequested = true; }
+    function stopHistoricalScan() { waAbortCtrl?.abort(); }
+
+    async function runUploadScan() {
+      const groupId = document.getElementById('hist-group-select').value;
+      if (!uploadFilesList.length) { alert('Select at least one photo.'); return; }
+      let kidIds = '';
+      if (!groupId) {
+        const checked = [...document.querySelectorAll('#hist-kids-list input[type=checkbox]:checked')];
+        if (!checked.length) { alert('Select a group or at least one kid.'); return; }
+        kidIds = checked.map(cb => cb.value).join(',');
+      }
+      stopUploadRequested = false;
+      const shouldForward = document.getElementById('upload-forward').checked;
+      const resultsEl = document.getElementById('hist-results');
+      const summaryEl = document.getElementById('hist-summary');
+      const statusEl = document.getElementById('hist-status');
+      const statusLabel = document.getElementById('hist-status-label');
+      const noteEl = document.getElementById('hist-note');
+      const scanBtn = document.getElementById('upload-scan-btn');
+      const stopBtn = document.getElementById('upload-stop-btn');
+      resultsEl.innerHTML = ''; summaryEl.classList.add('hidden'); noteEl.classList.add('hidden');
+      scanBtn.classList.add('hidden'); stopBtn.classList.remove('hidden');
+      let matched = 0, forwarded = 0, errors = 0, i = 0;
+      for (; i < uploadFilesList.length; i++) {
+        if (stopUploadRequested) break;
+        const file = uploadFilesList[i];
+        statusEl.classList.remove('hidden');
+        statusLabel.textContent = `Scanning ${i + 1} of ${uploadFilesList.length}…`;
+        const form = new FormData();
+        form.append('file', file);
+        try {
+          const isVid = file.type.startsWith('video/');
+          let url = isVid ? `/api/analyze-video?sender=upload` : `/api/analyze?is_test=true&forward=${shouldForward}`;
+          if (groupId) url += `&group_id=${encodeURIComponent(groupId)}`;
+          if (kidIds) url += `&kid_ids=${encodeURIComponent(kidIds)}`;
+          const r = await fetch(url, { method: 'POST', body: form });
+          const d = await r.json();
+          if (d.matched) matched++;
+          if (d.forwarded) forwarded++;
+          const matchedKids = (d.matches || []).filter(m => m.matched);
+          const names = matchedKids.map(m => m.kid_name || m.kid_id).join(', ');
+          const bestConf = matchedKids.length ? Math.max(...matchedKids.map(m => m.confidence)) : 0;
+          const row = document.createElement('div');
+          row.className = `flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${d.matched ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-100'}`;
+          const frameNote = isVid && d.frames_sampled ? ` · ${d.frames_sampled}f` : '';
+          row.innerHTML = `<span class="text-xs">${isVid ? '🎬' : '🖼️'}</span><span class="text-gray-500 text-xs truncate flex-1" title="${file.name}">${file.name}</span><span class="${d.matched ? 'text-emerald-700 font-semibold' : 'text-gray-400'} text-xs whitespace-nowrap">${d.matched ? `✓ ${names} ${(bestConf * 100).toFixed(0)}%${frameNote}${d.forwarded ? ' · sent' : ''}` : d.faces_detected === 0 ? 'No faces' : 'No match'}</span>`;
+          resultsEl.appendChild(row);
+          resultsEl.scrollTop = resultsEl.scrollHeight;
+        } catch (e) {
+          errors++;
+          const row = document.createElement('div');
+          row.className = 'flex items-center gap-2 px-3 py-2 rounded-xl border bg-red-50 border-red-200 text-sm';
+          row.innerHTML = `<span class="text-gray-500 text-xs truncate flex-1">${file.name}</span><span class="text-red-500 text-xs">Error</span>`;
+          resultsEl.appendChild(row);
+        }
+      }
+      statusEl.classList.add('hidden'); scanBtn.classList.remove('hidden'); stopBtn.classList.add('hidden');
+      summaryEl.classList.remove('hidden');
+      let imgCount = 0, vidCount = 0;
+      for (let j = 0; j < i; j++) { if (uploadFilesList[j].type.startsWith('image/')) imgCount++; else vidCount++; }
+      const scanParts = [];
+      if (imgCount) scanParts.push(`${imgCount} photo${imgCount !== 1 ? 's' : ''}`);
+      if (vidCount) scanParts.push(`${vidCount} video${vidCount !== 1 ? 's' : ''}`);
+      summaryEl.textContent = `Scanned ${scanParts.join(' + ')} · ${matched} match${matched !== 1 ? 'es' : ''}${forwarded ? ` · ${forwarded} forwarded` : ''}${errors ? ` · ${errors} errors` : ''}${stopUploadRequested ? ' · stopped early' : ''}`;
+    }
+
+    async function loadHistGroups() {
+      try {
+        const [sR, kR] = await Promise.all([fetch('/api/settings'), fetch('/api/enrollment/kids')]);
+        const s = await sR.json(), k = await kR.json();
+        histWatchedGroups = JSON.parse(s.watch_groups || '[]');
+        const sel = document.getElementById('hist-group-select');
+        sel.innerHTML = '<option value="">-- any group --</option>';
+        histWatchedGroups.forEach(g => {
+          const opt = document.createElement('option');
+          opt.value = g.id; opt.textContent = g.name;
+          sel.appendChild(opt);
+        });
+        if (histWatchedGroups.length === 1) sel.value = histWatchedGroups[0].id;
+        const enrolledKids = (k.kids || []).filter(k => k.enrolled_count > 0);
+        const kidsList = document.getElementById('hist-kids-list');
+        kidsList.innerHTML = enrolledKids.length
+          ? enrolledKids.map(k => `<label class="flex items-center gap-2 cursor-pointer py-0.5 text-gray-700"><input type="checkbox" value="${k.id}" class="accent-purple-600" checked /><span class="text-sm">${k.name}</span></label>`).join('')
+          : '<span class="text-gray-400 italic text-sm">No kids enrolled yet</span>';
+        onHistGroupChange();
+      } catch (_) {}
+    }
+
+    async function loadMoreHistory() {
+      const groupId = document.getElementById('hist-group-select').value;
+      if (!groupId) { alert('Pick a group first.'); return; }
+      const btn = document.getElementById('hist-load-btn');
+      const msg = document.getElementById('hist-load-msg');
+      btn.disabled = true; btn.textContent = 'Requesting…';
+      msg.className = 'text-xs text-center text-purple-600'; msg.classList.remove('hidden'); msg.textContent = '';
+      try {
+        const r = await fetch(`/api/fetch-history?group_id=${encodeURIComponent(groupId)}`, { method: 'POST' });
+        const d = await r.json();
+        if (d.error) { msg.className = 'text-xs text-center text-red-500'; msg.textContent = d.error; btn.disabled = false; btn.textContent = 'Load more history'; return; }
+        const oldest = d.oldest_known ? ` (back to ${new Date(d.oldest_known).toLocaleDateString()})` : '';
+        let secs = 10; btn.textContent = `Waiting ${secs}s…`;
+        msg.textContent = `Request sent${oldest}. WhatsApp is delivering older messages…`;
+        const iv = setInterval(() => {
+          secs--;
+          if (secs <= 0) { clearInterval(iv); btn.disabled = false; btn.textContent = 'Load more history'; msg.textContent = 'Done! You can scan now, or load more to go further back.'; }
+          else btn.textContent = `Waiting ${secs}s…`;
+        }, 1000);
+      } catch (e) {
+        msg.className = 'text-xs text-center text-red-500'; msg.textContent = 'Failed — is the bot running?';
+        btn.disabled = false; btn.textContent = 'Load more history';
+      }
+    }
+
+    function onHistRangeChange() {
+      document.getElementById('hist-since-date').classList.toggle('hidden', document.getElementById('hist-days').value !== 'custom');
+    }
+
+    async function runHistoricalScan() {
+      const groupId = document.getElementById('hist-group-select').value;
+      if (!groupId) { alert('Pick a group to scan.'); return; }
+      const rangeVal = document.getElementById('hist-days').value;
+      const sinceDate = document.getElementById('hist-since-date').value;
+      if (rangeVal === 'custom' && !sinceDate) { alert('Please pick a date.'); return; }
+      const shouldForward = document.getElementById('hist-forward').checked;
+      let params = `group_id=${encodeURIComponent(groupId)}&forward_matches=${shouldForward}`;
+      if (rangeVal === 'custom') params += `&since_date=${sinceDate}`;
+      else params += `&days_back=${rangeVal}`;
+      const resultsEl = document.getElementById('hist-results');
+      const summaryEl = document.getElementById('hist-summary');
+      const statusEl = document.getElementById('hist-status');
+      const statusLabel = document.getElementById('hist-status-label');
+      const noteEl = document.getElementById('hist-note');
+      const scanBtn = document.getElementById('hist-scan-btn');
+      const stopBtn = document.getElementById('hist-stop-btn');
+      resultsEl.innerHTML = ''; summaryEl.classList.add('hidden'); noteEl.classList.add('hidden');
+      statusEl.classList.remove('hidden'); statusLabel.textContent = 'Fetching group history…';
+      scanBtn.classList.add('hidden'); stopBtn.classList.remove('hidden');
+      waAbortCtrl = new AbortController();
+      try {
+        const r = await fetch(`/api/scan-history?${params}`, { method: 'POST', signal: waAbortCtrl.signal });
+        const d = await r.json();
+        statusEl.classList.add('hidden');
+        if (d.error) { noteEl.textContent = d.error; noteEl.classList.remove('hidden'); return; }
+        if (d.note) { noteEl.textContent = d.note; noteEl.classList.remove('hidden'); }
+        if (!d.results || d.results.length === 0) {
+          resultsEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">No photos or videos found in this range.</p>';
+        } else {
+          resultsEl.innerHTML = d.results.map(row => {
+            if (row.error) return `<div class="flex items-center justify-between px-3 py-2 rounded-xl border bg-red-50 border-red-200 text-sm"><span class="text-gray-500">${new Date(row.timestamp).toLocaleString()}</span><span class="text-red-500 text-xs">${row.error}</span></div>`;
+            const t = new Date(row.timestamp).toLocaleString();
+            const names = (row.kids || []).join(', ');
+            const conf = row.confidence ? `${(row.confidence * 100).toFixed(0)}%` : '';
+            const icon = row.type === 'video' ? '🎬' : '🖼️';
+            const frameNote = row.type === 'video' && row.frames_sampled ? ` · ${row.frames_sampled}f` : '';
+            return `<div class="flex items-center gap-2 px-3 py-2 rounded-xl border text-sm ${row.matched ? 'bg-emerald-50 border-emerald-200' : 'bg-gray-50 border-gray-100'}"><span class="text-xs">${icon}</span><span class="text-gray-400 text-xs whitespace-nowrap">${t}</span><span class="text-gray-500 text-xs truncate flex-1">${row.sender}</span><span class="${row.matched ? 'text-emerald-700 font-semibold' : 'text-gray-400'} text-xs whitespace-nowrap">${row.matched ? `✓ ${names} ${conf}${frameNote}${row.forwarded ? ' · sent' : ''}` : row.faces_detected === 0 ? 'No faces' : 'No match'}</span></div>`;
+          }).join('');
+        }
+        const fwdCount = d.results.filter(r => r.forwarded).length;
+        const summaryParts = [];
+        if (d.total_images) summaryParts.push(`${d.total_images} photo${d.total_images !== 1 ? 's' : ''}`);
+        if (d.total_videos) summaryParts.push(`${d.total_videos} video${d.total_videos !== 1 ? 's' : ''}`);
+        summaryEl.classList.remove('hidden');
+        summaryEl.textContent = `Scanned ${summaryParts.join(' + ') || d.total + ' items'} · ${d.matched} match${d.matched !== 1 ? 'es' : ''}${fwdCount ? ` · ${fwdCount} forwarded` : ''}`;
+      } catch (e) {
+        statusEl.classList.add('hidden');
+        noteEl.textContent = e.name === 'AbortError' ? 'Scan stopped.' : 'Scan failed — is the backend running?';
+        noteEl.classList.remove('hidden');
+      } finally {
+        waAbortCtrl = null; scanBtn.classList.remove('hidden'); stopBtn.classList.add('hidden');
+      }
+    }
+
+    // ── Kids tab ──────────────────────────────────────────────────────────────────
+    let kids = [];
+    let selectedKid = null;
+    let pending = [];
+
+    async function loadKids() {
+      const r = await fetch('/api/enrollment/kids');
+      const d = await r.json();
+      kids = d.kids || [];
+      if (selectedKid) {
+        const still = kids.find(k => k.id === selectedKid.id);
+        if (still) { selectedKid = still; document.getElementById('kid-detail-count').textContent = `${still.enrolled_count} photo${still.enrolled_count !== 1 ? 's' : ''} enrolled`; }
+        else { closeKidDetail(); }
+      }
+      renderKidsGrid();
+      document.getElementById('kids-subtitle').textContent = `${kids.length} kid${kids.length !== 1 ? 's' : ''} · ${kids.reduce((s, k) => s + k.enrolled_count, 0)} photos enrolled`;
+    }
+
+    function renderKidsGrid() {
+      const grid = document.getElementById('kids-grid');
+      let html = kids.map(k => {
+        const active = selectedKid?.id === k.id;
+        const avatar = k.enrolled_count > 0
+          ? `<img src="/api/enrollment/kids/${k.id}/thumbnail" class="w-16 h-16 rounded-full object-cover mx-auto mb-2 ring-2 ring-white shadow-sm" onerror="this.outerHTML='<div class=\\'w-16 h-16 rounded-full bg-emerald-100 flex items-center justify-center mx-auto mb-2 text-2xl font-bold text-emerald-500\\'>${k.name.charAt(0).toUpperCase()}</div>'" />`
+          : `<div class="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mx-auto mb-2 text-2xl font-bold text-gray-300">${k.name.charAt(0).toUpperCase()}</div>`;
+        return `<div onclick="selectKid('${k.id}')" class="kid-card bg-white rounded-2xl p-4 shadow-sm border-2 ${active ? 'border-emerald-400' : 'border-gray-100'} text-center">
+          ${avatar}
+          <p class="text-sm font-semibold text-gray-900 truncate">${k.name}</p>
+          <p class="text-xs text-gray-400 mt-0.5">${k.enrolled_count} photo${k.enrolled_count !== 1 ? 's' : ''}</p>
+        </div>`;
+      }).join('');
+      html += `<div onclick="openModal()" class="kid-card bg-white rounded-2xl p-4 shadow-sm border-2 border-dashed border-gray-200 text-center flex flex-col items-center justify-center min-h-[120px] hover:border-emerald-400 hover:bg-emerald-50 transition-colors">
+        <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center mb-2">
+          <svg class="w-5 h-5 text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        </div>
+        <p class="text-sm font-medium text-gray-400">Add Kid</p>
+      </div>`;
+      grid.innerHTML = html;
+    }
+
+    function selectKid(kidId) {
+      const kid = kids.find(k => k.id === kidId);
+      if (!kid) return;
+      selectedKid = kid;
+      document.getElementById('kid-detail').classList.remove('hidden');
+      document.getElementById('kid-detail-name').textContent = kid.name;
+      document.getElementById('kid-detail-count').textContent = `${kid.enrolled_count} photo${kid.enrolled_count !== 1 ? 's' : ''} enrolled`;
+      document.getElementById('delete-kid-btn').onclick = () => deleteKid(kid.id, kid.name);
+      renderKidsGrid();
+      pending = [];
+      document.getElementById('pending-grid').innerHTML = '';
+      document.getElementById('pending-section').classList.add('hidden');
+      loadEnrolled();
+      document.getElementById('kid-detail').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+
+    function closeKidDetail() {
+      selectedKid = null;
+      document.getElementById('kid-detail').classList.add('hidden');
+      renderKidsGrid();
+    }
+
+    function openModal() { document.getElementById('new-kid-name').value = ''; document.getElementById('add-kid-modal').classList.remove('hidden'); setTimeout(() => document.getElementById('new-kid-name').focus(), 50); }
+    function closeModal() { document.getElementById('add-kid-modal').classList.add('hidden'); }
+
+    async function confirmAddKid() {
+      const name = document.getElementById('new-kid-name').value.trim();
+      if (!name) return;
+      const r = await fetch('/api/enrollment/kids', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name }) });
+      if (r.ok) {
+        const kid = await r.json();
+        closeModal(); await loadKids(); selectKid(kid.id);
+      } else { showToast('Failed to add kid', 'error'); }
+    }
+
+    async function deleteKid(kidId, name) {
+      if (!confirm(`Delete ${name} and all their enrolled photos?`)) return;
+      const r = await fetch(`/api/enrollment/kids/${kidId}`, { method: 'DELETE' });
+      if (r.ok) { showToast(`${name} deleted`); closeKidDetail(); loadKids(); }
+      else showToast('Failed to delete', 'error');
+    }
+
+    const dropZone = document.getElementById('drop-zone');
+    const fileInput = document.getElementById('file-input');
+    dropZone.addEventListener('click', () => fileInput.click());
+    dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('border-emerald-400'); });
+    dropZone.addEventListener('dragleave', () => dropZone.classList.remove('border-emerald-400'));
+    dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('border-emerald-400'); uploadPhotos([...e.dataTransfer.files]); });
+    fileInput.addEventListener('change', () => { uploadPhotos([...fileInput.files]); fileInput.value = ''; });
+
+    async function uploadPhotos(files) {
+      if (!selectedKid) return;
+      for (const file of files) {
+        const form = new FormData(); form.append('file', file);
+        const phId = `ph-${Date.now()}-${Math.random()}`;
+        addPendingPlaceholder(phId, file.name);
+        try {
+          const r = await fetch(`/api/enrollment/kids/${selectedKid.id}/upload`, { method: 'POST', body: form });
+          const d = await r.json();
+          removePlaceholder(phId);
+          if (!r.ok) { showToast(d.detail || 'No face detected', 'error'); continue; }
+          pending.push(d); addPendingCard(d);
+        } catch (e) { removePlaceholder(phId); showToast('Upload failed', 'error'); }
+      }
+    }
+
+    function addPendingPlaceholder(id, filename) {
+      document.getElementById('pending-section').classList.remove('hidden');
+      const div = document.createElement('div'); div.id = id;
+      div.className = 'bg-white rounded-2xl border border-gray-100 p-2 animate-pulse';
+      div.innerHTML = `<div class="w-full aspect-square bg-gray-100 rounded-xl mb-1"></div><p class="text-xs text-gray-400 truncate">${filename}</p>`;
+      document.getElementById('pending-grid').appendChild(div);
+    }
+
+    function removePlaceholder(id) {
+      document.getElementById(id)?.remove();
+      if (!document.getElementById('pending-grid').children.length) document.getElementById('pending-section').classList.add('hidden');
+    }
+
+    function addPendingCard(data) {
+      document.getElementById('pending-section').classList.remove('hidden');
+      const div = document.createElement('div'); div.id = `pending-${data.photo_id}`;
+      div.className = 'bg-white rounded-2xl border border-gray-100 shadow-sm p-2 flex flex-col gap-1';
+      const img = data.face_crop ? `<img src="data:image/jpeg;base64,${data.face_crop}" class="w-full aspect-square object-cover rounded-xl" />` : `<div class="w-full aspect-square bg-gray-100 rounded-xl"></div>`;
+      const faceCount = data.faces_found > 1 ? `<p class="text-xs text-amber-500 text-center">⚠ ${data.faces_found} faces</p>` : `<p class="text-xs text-emerald-500 text-center">1 face</p>`;
+      const quality = data.quality === 'small' ? `<span class="text-xs text-red-500 bg-red-50 rounded-lg px-1.5 py-0.5 text-center">Too small</span>` : data.quality === 'ok' ? `<span class="text-xs text-amber-500 bg-amber-50 rounded-lg px-1.5 py-0.5 text-center">Small</span>` : `<span class="text-xs text-emerald-600 bg-emerald-50 rounded-lg px-1.5 py-0.5 text-center">Good</span>`;
+      div.innerHTML = `${img}${faceCount}${quality}<button onclick="confirmOne('${data.photo_id}')" class="w-full py-1 bg-emerald-600 text-white text-xs rounded-xl hover:bg-emerald-700">Enroll</button><button onclick="discardOne('${data.photo_id}')" class="w-full py-1 bg-gray-100 text-gray-500 text-xs rounded-xl hover:bg-gray-200">Discard</button>`;
+      document.getElementById('pending-grid').appendChild(div);
+    }
+
+    async function confirmOne(photoId) {
+      if (!selectedKid) return;
+      const btn = document.querySelector(`#pending-${photoId} button`);
+      if (btn) { btn.disabled = true; btn.textContent = '…'; }
+      const r = await fetch(`/api/enrollment/kids/${selectedKid.id}/confirm/${photoId}`, { method: 'POST' });
+      const d = await r.json();
+      if (r.ok) {
+        document.getElementById(`pending-${photoId}`)?.remove();
+        pending = pending.filter(p => p.photo_id !== photoId);
+        if (!document.getElementById('pending-grid').children.length) document.getElementById('pending-section').classList.add('hidden');
+        showToast('Photo enrolled!');
+        document.getElementById('kid-detail-count').textContent = `${d.enrolled_count} photos enrolled`;
+        loadEnrolled(); loadKids();
+      } else showToast(d.detail || 'Enrollment failed', 'error');
+    }
+
+    function discardOne(photoId) {
+      document.getElementById(`pending-${photoId}`)?.remove();
+      pending = pending.filter(p => p.photo_id !== photoId);
+      if (!document.getElementById('pending-grid').children.length) document.getElementById('pending-section').classList.add('hidden');
+    }
+    async function confirmAll() { for (const p of [...pending]) await confirmOne(p.photo_id); }
+
+    async function loadEnrolled() {
+      if (!selectedKid) return;
+      const kidId = selectedKid.id;
+      const r = await fetch(`/api/enrollment/kids/${kidId}/photos`);
+      const d = await r.json();
+      if (selectedKid?.id !== kidId) return;
+      const grid = document.getElementById('enrolled-grid');
+      const empty = document.getElementById('enrolled-empty');
+      grid.querySelectorAll('[id^="enrolled-"]:not(#enrolled-empty)').forEach(el => el.remove());
+      document.getElementById('delete-originals-btn').classList.toggle('hidden', !d.photos.length);
+      if (!d.photos.length) { empty.classList.remove('hidden'); return; }
+      empty.classList.add('hidden');
+      d.photos.forEach(photo => {
+        const div = document.createElement('div'); div.id = `enrolled-${photo.photo_id}`;
+        div.className = 'bg-white rounded-2xl border border-emerald-200 shadow-sm p-2 flex flex-col gap-1 group relative';
+        div.innerHTML = `<div class="relative overflow-hidden rounded-xl"><img id="thumb-${photo.photo_id}" src="/api/enrollment/kids/${selectedKid.id}/photos/${photo.photo_id}/thumbnail" class="w-full aspect-square object-cover bg-gray-100" onerror="this.outerHTML='<div id=\\'thumb-${photo.photo_id}\\' class=\\'w-full aspect-square bg-emerald-50 flex items-center justify-center text-emerald-400 text-2xl\\'>✓</div>'" /></div><p class="text-xs text-gray-400 truncate text-center">${new Date(photo.enrolled_at).toLocaleDateString()}</p><button onclick="deleteOriginal('${photo.photo_id}')" id="del-orig-${photo.photo_id}" class="w-full py-1 bg-gray-50 text-gray-400 text-xs rounded-xl hover:bg-orange-50 hover:text-orange-500 transition-colors opacity-0 group-hover:opacity-100">Del. orig</button><button onclick="removePhoto('${photo.photo_id}')" class="w-full py-1 bg-red-50 text-red-400 text-xs rounded-xl hover:bg-red-100 opacity-0 group-hover:opacity-100">Remove</button>`;
+        grid.appendChild(div);
+      });
+    }
+
+    async function deleteOriginal(photoId) {
+      if (!selectedKid) return;
+      const r = await fetch(`/api/enrollment/kids/${selectedKid.id}/photos/${photoId}/original`, { method: 'DELETE' });
+      if (r.ok) {
+        const thumb = document.getElementById(`thumb-${photoId}`);
+        if (thumb) thumb.outerHTML = `<div id="thumb-${photoId}" class="w-full aspect-square bg-emerald-50 flex items-center justify-center text-emerald-400 text-2xl">✓</div>`;
+        const btn = document.getElementById(`del-orig-${photoId}`);
+        if (btn) { btn.disabled = true; btn.textContent = 'Deleted'; btn.className = 'w-full py-1 bg-gray-50 text-gray-300 text-xs rounded-xl cursor-default'; }
+        showToast('Original deleted — embedding kept');
+      } else showToast((await r.json()).detail || 'Already deleted', 'error');
+    }
+
+    async function deleteAllOriginals() {
+      if (!selectedKid) return;
+      if (!confirm(`Delete all original photos for ${selectedKid.name}? Embeddings are kept.`)) return;
+      let count = 0;
+      for (const btn of document.querySelectorAll('[id^="del-orig-"]')) {
+        const photoId = btn.id.replace('del-orig-', '');
+        const r = await fetch(`/api/enrollment/kids/${selectedKid.id}/photos/${photoId}/original`, { method: 'DELETE' });
+        if (r.ok) {
+          const thumb = document.getElementById(`thumb-${photoId}`);
+          if (thumb) thumb.outerHTML = `<div id="thumb-${photoId}" class="w-full aspect-square bg-emerald-50 flex items-center justify-center text-emerald-400 text-2xl">✓</div>`;
+          btn.disabled = true; btn.textContent = 'Deleted'; btn.className = 'w-full py-1 bg-gray-50 text-gray-300 text-xs rounded-xl cursor-default';
+          count++;
+        }
+      }
+      showToast(`${count} original${count !== 1 ? 's' : ''} deleted`);
+    }
+
+    async function removePhoto(photoId) {
+      if (!selectedKid) return;
+      const r = await fetch(`/api/enrollment/kids/${selectedKid.id}/photos/${photoId}`, { method: 'DELETE' });
+      if (r.ok) { document.getElementById(`enrolled-${photoId}`)?.remove(); showToast('Removed'); loadKids(); }
+      else showToast('Failed to remove', 'error');
+    }
+
+    // ── Groups tab ────────────────────────────────────────────────────────────────
+    let groups = [];
+    let watchedGroupsConfig = [];
+    let chats = [];
+
+    async function refreshGroups(force = false) {
+      try {
+        const [gR, sR] = await Promise.all([
+          fetch('/api/settings/whatsapp/groups' + (force ? '?refresh=true' : '')),
+          fetch('/api/settings'),
+        ]);
+        const gD = await gR.json(), sD = await sR.json();
+        groups = (gD.groups || []).sort((a, b) => a.name.localeCompare(b.name));
+        try { watchedGroupsConfig = JSON.parse(sD.watch_groups || '[]'); } catch (_) {}
+        if (!kids.length) await loadKids();
+        renderGroupList();
+        const wCount = watchedGroupsConfig.length;
+        document.getElementById('groups-subtitle').textContent = `${wCount} group${wCount !== 1 ? 's' : ''} monitored · search to add or remove`;
+      } catch (_) {}
+    }
+
+    function renderGroupList() {
+      const query = document.getElementById('group-search').value.trim().toLowerCase();
+      const listEl = document.getElementById('group-list');
+      const placeholder = document.getElementById('group-list-placeholder');
+      if (!groups.length) { listEl.classList.add('hidden'); placeholder.classList.remove('hidden'); return; }
+      placeholder.classList.add('hidden'); listEl.classList.remove('hidden');
+      const filtered = query ? groups.filter(g => g.name.toLowerCase().includes(query)) : groups.filter(g => watchedGroupsConfig.some(w => w.id === g.id));
+      if (!filtered.length) {
+        listEl.innerHTML = `<p class="px-4 py-3 text-sm text-gray-400">${query ? 'No groups match your search.' : 'Search to add groups to monitor.'}</p>`;
+        return;
+      }
+      listEl.innerHTML = '';
+      filtered.forEach(g => {
+        const watched = watchedGroupsConfig.find(w => w.id === g.id);
+        const isChecked = !!watched;
+        const assignedKidIds = watched ? watched.kid_ids : [];
+        const row = document.createElement('div');
+        row.className = 'px-4 py-3 ' + (isChecked ? 'bg-emerald-50' : 'bg-white hover:bg-gray-50');
+        row.dataset.groupId = g.id;
+        row.dataset.kbditem = '1';
+        const kidOptions = kids.length
+          ? kids.map(k => {
+              const checked = isChecked && (assignedKidIds.length === 0 || assignedKidIds.includes(k.id)) ? 'checked' : '';
+              return `<label class="flex items-center gap-1.5 cursor-pointer select-none"><input type="checkbox" value="${k.id}" class="kid-assign accent-emerald-600" ${checked} /><span class="text-xs text-gray-700">${k.name}</span></label>`;
+            }).join('')
+          : '<span class="text-xs text-gray-400">No kids enrolled yet</span>';
+        row.innerHTML = `<div class="flex items-center gap-3"><input type="checkbox" class="group-toggle accent-emerald-600 w-4 h-4 shrink-0 cursor-pointer" ${isChecked ? 'checked' : ''} /><span class="text-sm font-medium text-gray-800 flex-1 truncate">${g.name}</span>${isChecked ? `<span class="kid-count-badge text-xs text-emerald-600 shrink-0">${assignedKidIds.length || kids.length} kid${(assignedKidIds.length || kids.length) !== 1 ? 's' : ''}</span>` : ''}</div><div class="kid-row mt-2.5 ml-7 flex flex-wrap gap-x-4 gap-y-1.5 ${isChecked ? '' : 'hidden'}">${kidOptions}</div>`;
+        row.querySelector('.group-toggle').addEventListener('change', function () {
+          if (this.checked) watchedGroupsConfig.push({ id: g.id, name: g.name, kid_ids: kids.map(k => k.id) });
+          else watchedGroupsConfig = watchedGroupsConfig.filter(w => w.id !== g.id);
+          renderGroupList();
+        });
+        row.querySelectorAll('.kid-assign').forEach(cb => {
+          cb.addEventListener('change', () => {
+            const checkedIds = [...row.querySelectorAll('.kid-assign:checked')].map(el => el.value);
+            if (checkedIds.length === 0) { watchedGroupsConfig = watchedGroupsConfig.filter(w => w.id !== g.id); renderGroupList(); return; }
+            const entry = watchedGroupsConfig.find(w => w.id === g.id);
+            if (!entry) return;
+            entry.kid_ids = checkedIds;
+            const badge = row.querySelector('.kid-count-badge');
+            if (badge) { const n = checkedIds.length; badge.textContent = `${n} kid${n !== 1 ? 's' : ''}`; }
+          });
+        });
+        listEl.appendChild(row);
+      });
+    }
+
+    async function saveGroupsNow() {
+      try {
+        await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ watch_groups: JSON.stringify(watchedGroupsConfig) }),
+        });
+        showToast('Groups saved!');
+        loadScoutSubtitle();
+      } catch (_) { showToast('Failed to save', 'error'); }
+    }
+
+    // ── Configure tab ─────────────────────────────────────────────────────────────
+    async function loadScoutSettings() {
+      try {
+        const r = await fetch('/api/settings');
+        const d = await r.json();
+        if (d.confidence_threshold) {
+          const pct = Math.round(parseFloat(d.confidence_threshold) * 100);
+          document.getElementById('threshold-slider').value = pct;
+          document.getElementById('threshold-value').textContent = pct + '%';
+        }
+        if (d.forward_to_id) {
+          document.getElementById('forward-select').dataset.savedValue = d.forward_to_id;
+          document.getElementById('forward-enabled').checked = true;
+          document.getElementById('forward-section').classList.remove('hidden');
+          refreshChats();
+        }
+        if (d.save_photos_enabled === 'true') { document.getElementById('save-enabled').checked = true; document.getElementById('save-section').classList.remove('hidden'); }
+        if (d.save_photos_path) document.getElementById('save-path').value = d.save_photos_path;
+        if (d.save_photos_organize_by) { const radio = document.querySelector(`input[name="save-organize"][value="${d.save_photos_organize_by}"]`); if (radio) radio.checked = true; }
+        updateSaveExample();
+        if (d.digest_mode === 'true') { document.getElementById('digest-mode').checked = true; document.getElementById('digest-time-row').classList.remove('hidden'); }
+        if (d.digest_time) document.getElementById('digest-time').value = d.digest_time;
+        if (d.ai_captions_enabled === 'true') document.getElementById('ai-captions-enabled').checked = true;
+        const hasAnyAI = !!d.has_anthropic_key || !!d.ollama_url;
+        document.getElementById('ai-key-hint').classList.toggle('hidden', hasAnyAI);
+
+        // Google Photos
+        const gpConnected = await fetch('/api/settings/google-photos/status').then(r => r.json()).catch(() => ({ connected: false }));
+        document.getElementById('gp-hint').classList.toggle('hidden', gpConnected.connected);
+        if (d.google_photos_enabled === 'true') {
+          document.getElementById('gp-enabled').checked = true;
+          document.getElementById('gp-album-settings').classList.remove('hidden');
+        }
+        if (d.google_photos_album_organize_by) {
+          const radio = document.querySelector(`input[name="gp-organize"][value="${d.google_photos_album_organize_by}"]`);
+          if (radio) { radio.checked = true; updateGPAlbumNameRow(); }
+        }
+        if (d.google_photos_album_name) document.getElementById('gp-album-name').value = d.google_photos_album_name;
+      } catch (_) {}
+    }
+
+    async function refreshChats(force = false) {
+      try {
+        const r = await fetch('/api/settings/whatsapp/chats' + (force ? '?refresh=true' : ''));
+        const d = await r.json();
+        chats = d.chats || [];
+        const sel = document.getElementById('forward-select');
+        const current = sel.dataset.savedValue || sel.value;
+        sel.innerHTML = '<option value="">-- Select a chat --</option>';
+        chats.forEach(c => {
+          const opt = document.createElement('option');
+          opt.value = c.id; opt.textContent = c.isGroup ? `[Group] ${c.name}` : c.name;
+          if (c.id === current) opt.selected = true;
+          sel.appendChild(opt);
+        });
+      } catch (_) {}
+    }
+
+    function toggleForwardSection() { document.getElementById('forward-section').classList.toggle('hidden', !document.getElementById('forward-enabled').checked); }
+    function toggleSaveSection() { document.getElementById('save-section').classList.toggle('hidden', !document.getElementById('save-enabled').checked); }
+    function toggleDigestTime() { document.getElementById('digest-time-row').classList.toggle('hidden', !document.getElementById('digest-mode').checked); }
+    function toggleGPAlbumSettings() { document.getElementById('gp-album-settings').classList.toggle('hidden', !document.getElementById('gp-enabled').checked); }
+    function updateGPAlbumNameRow() {
+      const by = document.querySelector('input[name="gp-organize"]:checked')?.value;
+      document.getElementById('gp-album-name-row').classList.toggle('hidden', by !== 'single');
+    }
+    function updateSaveExample() {
+      const by = document.querySelector('input[name="save-organize"]:checked')?.value || 'group';
+      document.getElementById('save-example').textContent = by === 'kid' ? 'save_folder / Kid Name / 20260312_143000.jpg' : 'save_folder / Group Name / 20260312_143000.jpg';
+    }
+
+    async function browseSaveFolder() {
+      try {
+        const r = await fetch('/api/settings/browse-folder');
+        const d = await r.json();
+        if (d.path) document.getElementById('save-path').value = d.path;
+        else if (d.error) showToast('Folder picker unavailable — type the path manually', 'error');
+      } catch (_) { showToast('Could not open folder picker', 'error'); }
+    }
+
+    async function saveScoutSettings() {
+      try {
+        const forwardSel = document.getElementById('forward-select');
+        const forwardEnabled = document.getElementById('forward-enabled').checked;
+        const threshold = parseInt(document.getElementById('threshold-slider').value) / 100;
+        const saveEnabled = document.getElementById('save-enabled').checked;
+        const savePath = document.getElementById('save-path').value.trim();
+        if (saveEnabled && !savePath) { showToast('Enter a folder path to save photos', 'error'); return; }
+        const payload = {
+          confidence_threshold: String(threshold),
+          forward_to_id: forwardEnabled ? forwardSel.value : '',
+          forward_to_name: forwardEnabled ? (forwardSel.options[forwardSel.selectedIndex]?.text || '') : '',
+          save_photos_enabled: String(saveEnabled),
+          save_photos_path: savePath || null,
+          save_photos_organize_by: document.querySelector('input[name="save-organize"]:checked')?.value || 'group',
+          digest_mode: String(document.getElementById('digest-mode').checked),
+          digest_time: document.getElementById('digest-time').value || '20:00',
+          ai_captions_enabled: String(document.getElementById('ai-captions-enabled').checked),
+          google_photos_enabled: String(document.getElementById('gp-enabled').checked),
+          google_photos_album_organize_by: document.querySelector('input[name="gp-organize"]:checked')?.value || 'group',
+          google_photos_album_name: document.getElementById('gp-album-name').value.trim() || null,
+        };
+        await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
+        showToast('Settings saved!');
+      } catch (_) { showToast('Failed to save settings', 'error'); }
+    }
+
+    // ── Backup & Restore ──────────────────────────────────────────────────────────
+    function downloadBackup() {
+      const a = document.createElement('a');
+      a.href = '/api/scout/backup';
+      a.download = '';
+      a.click();
+    }
+
+    async function uploadBackup(input) {
+      const file = input.files[0];
+      if (!file) return;
+      const fd = new FormData();
+      fd.append('file', file);
+      try {
+        showToast('Restoring backup…');
+        const r = await fetch('/api/scout/restore', { method: 'POST', body: fd });
+        const d = await r.json();
+        if (!r.ok) { showToast(d.error || 'Restore failed', 'error'); return; }
+        showToast(`Restored: ${d.restored_kids} kid${d.restored_kids !== 1 ? 's' : ''}, ${d.restored_settings} settings`);
+        loadScoutSettings();
+        loadKids();
+      } catch (_) {
+        showToast('Restore failed', 'error');
+      } finally {
+        input.value = '';
+      }
+    }
+
+    // ── Init ───────────────────────────────────────────────────────────────────────
+    loadNavStatus();
+    loadScoutSubtitle();
+    fetch('/api/dm-inbox').then(r => r.json()).then(d => {
+      const b = document.getElementById('inbox-badge');
+      if (d.total > 0) { b.textContent = d.total; b.classList.remove('hidden'); }
+    }).catch(() => {});
+
+    // Restore last active tab
+    const savedTab = sessionStorage.getItem('scout_tab') || 'activity';
+    showTab(savedTab);
+
+    setInterval(() => { if (!document.getElementById('tab-activity').classList.contains('hidden')) { loadStats(); loadActivity(); } }, 30000);
+  </script>
+  <script src="/static/dark.js"></script>
+  <script src="/static/pin_lock.js"></script>
+  <script src="/static/kbd-nav.js"></script>
+  <script>
+    initKbdNav(
+      document.getElementById('group-search'),
+      () => document.querySelectorAll('#group-list [data-kbditem]'),
+      el => el.querySelector('.group-toggle').click(),
+      null
+    );
+  </script>
+</body>
+</html>

@@ -5,11 +5,16 @@ from typing import Optional
 from datetime import datetime
 from collections import defaultdict, Counter
 import os
+import httpx
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env")
 
-from database import get_stats, get_activity_log, clear_activity_log, SessionLocal, ActivityLog
+from database import get_stats, get_activity_log, clear_activity_log, ActivityLog
+import database as _db
+
+def SessionLocal():
+    return _db.SessionLocal()
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
 
@@ -17,6 +22,34 @@ router = APIRouter(tags=["dashboard"])
 
 MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
+
+
+BOT_API_URL = os.getenv("BOT_API_URL", "http://localhost:3001")
+
+
+@router.get("/home-stats")
+async def home_stats():
+    """Combined WA message stats + Scout today stats for the Home page."""
+    wa = {"today": {"received": 0, "sent": 0, "media": 0}, "groups": [], "hourly": [], "total_groups": 0, "active_today": 0}
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.get(f"{BOT_API_URL}/message-stats")
+            wa = r.json()
+    except Exception:
+        pass
+
+    db = SessionLocal()
+    try:
+        today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
+        rows = db.query(ActivityLog).filter(ActivityLog.timestamp >= today_start).all()
+        scout = {
+            "scanned_today": len(rows),
+            "matched_today": sum(1 for r in rows if r.matched),
+        }
+    finally:
+        db.close()
+
+    return {"wa": wa, "scout": scout}
 
 
 @router.get("/stats")

@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse
+from fastapi.responses import RedirectResponse, StreamingResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 from datetime import datetime
@@ -19,11 +19,12 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 from database import init_db, get_settings, log_activity, save_setting
 from face_service import FaceService
 from google_photos import GooglePhotosService
-from ai_service import get_moment_caption, summarize_messages
+from ai_service import get_moment_caption, summarize_messages, stream_summarize_ollama, test_ollama
 from routers.enrollment import router as enrollment_router, load_kids
 from routers.settings import router as settings_router
 from routers.dashboard import router as dashboard_router
 from routers.auth import router as auth_router
+from routers.backup import router as backup_router
 
 # ── Digest queue ───────────────────────────────────────────────────────────────
 _digest_queue: list[dict] = []  # items buffered when digest_mode is on
@@ -253,6 +254,7 @@ app.include_router(enrollment_router, prefix="/api/enrollment")
 app.include_router(settings_router, prefix="/api/settings")
 app.include_router(dashboard_router, prefix="/api/dashboard")
 app.include_router(auth_router, prefix="/api/auth")
+app.include_router(backup_router, prefix="/api/scout")
 
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 
@@ -314,8 +316,11 @@ async def analyze_photo(request: Request, file: UploadFile,
             elif forward and forward_to:
                 caption_suffix = " [test]" if is_test else ""
                 if _is_enabled(db_settings, "ai_captions_enabled"):
+                    ai_key = db_settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "")
+                    ollama_url = db_settings.get("ollama_url", "").strip()
+                    ollama_vision_model = db_settings.get("ollama_vision_model", "llava").strip() or "llava"
                     caption_text = await asyncio.get_event_loop().run_in_executor(
-                        None, get_moment_caption, file_bytes, kid_name_list
+                        None, get_moment_caption, file_bytes, kid_name_list, ai_key, ollama_url, ollama_vision_model
                     )
                     if caption_text:
                         caption_suffix = f"\n💬 {caption_text}" + caption_suffix
@@ -561,28 +566,107 @@ async def scan_history(request: Request, group_id: str = "", days_back: int = 7,
 # ── Summarize group ─────────────────────────────────────────────────────────────
 
 @app.post("/api/summarize-group")
-async def summarize_group(group_id: str = "", limit: int = 100):
-    """Fetch recent text messages from a group and summarize with Claude."""
+async def summarize_group(group_id: str = "", since_minutes: int = 60):
+    """Fetch recent messages and stream summary via SSE."""
     db_settings = get_settings()
     _, _, group_name = _resolve_group(group_id, db_settings)
+    since_ts = int((time.time() - since_minutes * 60) * 1000)
+
     try:
         async with httpx.AsyncClient(timeout=10.0) as hx:
-            r = await hx.get(f"{BOT_API_URL}/history-text", params={"groupId": group_id})
+            if group_name == group_id:
+                try:
+                    gr = await hx.get(f"{BOT_API_URL}/groups")
+                    for g in gr.json().get("groups", []):
+                        if g.get("id") == group_id:
+                            group_name = g.get("name", group_id)
+                            break
+                except Exception:
+                    pass
+            r = await hx.get(f"{BOT_API_URL}/history-text",
+                             params={"groupId": group_id, "since": since_ts})
             messages = r.json().get("messages", [])
     except Exception as e:
         return {"error": f"Could not reach bot: {e}"}
 
     if not messages:
         return {"summary": "", "message_count": 0, "group_name": group_name,
-                "note": "No text messages stored for this group yet"}
+                "note": "No messages found in the selected time window"}
 
-    recent = messages[-limit:]
-    transcript = "\n".join(f"{m['sender']}: {m['text']}" for m in recent)
-    summary = await asyncio.get_event_loop().run_in_executor(
-        None, summarize_messages, transcript, group_name
-    )
-    return {"summary": summary, "message_count": len(recent), "group_name": group_name}
+    api_key = db_settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "").strip()
+    ollama_url = db_settings.get("ollama_url", "").strip()
+    ollama_model = db_settings.get("ollama_model", "aya").strip() or "aya"
 
+    if not api_key and not ollama_url:
+        return {"error": "No AI configured. Add an Anthropic API key or set up Ollama in Settings → Integrations."}
+
+    transcript = "\n".join(f"{m['sender']}: {m['text']}" for m in messages)
+
+    # Anthropic: fast enough to return in one shot
+    if api_key:
+        summary = await asyncio.get_event_loop().run_in_executor(
+            None, summarize_messages, transcript, group_name, api_key, "", ""
+        )
+        return {"summary": summary, "message_count": len(messages), "group_name": group_name}
+
+    # Ollama: stream via SSE so the UI updates in real-time
+    meta = json.dumps({"group_name": group_name, "message_count": len(messages)})
+
+    async def generate():
+        yield f"data: {meta}\n\n"
+        try:
+            async for chunk in stream_summarize_ollama(transcript, group_name, ollama_url, ollama_model):
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield 'data: {"done":true}\n\n'
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
+
+# ── Ollama test endpoint ─────────────────────────────────────────────────────────
+
+@app.post("/api/settings/ollama/test")
+async def ollama_test(request: Request):
+    body = await request.json()
+    url = body.get("url", "").strip()
+    model = body.get("model", "aya").strip() or "aya"
+    if not url:
+        return {"ok": False, "error": "No URL provided"}
+    result = await asyncio.get_event_loop().run_in_executor(None, test_ollama, url, model)
+    return result
+
+# ── DM Inbox endpoints (proxy to bot) ────────────────────────────────────────────
+
+@app.get("/api/dm-inbox")
+async def dm_inbox_get():
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.get(f"{BOT_API_URL}/dm-inbox")
+            return r.json()
+    except Exception:
+        return {"items": [], "total": 0}
+
+@app.post("/api/dm-inbox/ignore")
+async def dm_inbox_ignore(request: Request):
+    body = await request.json()
+    async with httpx.AsyncClient(timeout=5.0) as hx:
+        r = await hx.post(f"{BOT_API_URL}/dm-inbox/ignore", json=body)
+        return r.json()
+
+@app.post("/api/dm-inbox/snooze")
+async def dm_inbox_snooze(request: Request):
+    body = await request.json()
+    async with httpx.AsyncClient(timeout=5.0) as hx:
+        r = await hx.post(f"{BOT_API_URL}/dm-inbox/snooze", json=body)
+        return r.json()
+
+@app.post("/api/dm-inbox/remind")
+async def dm_inbox_remind(request: Request):
+    body = await request.json()
+    async with httpx.AsyncClient(timeout=10.0) as hx:
+        r = await hx.post(f"{BOT_API_URL}/dm-inbox/remind", json=body)
+        return r.json()
 
 # ── Digest endpoints ─────────────────────────────────────────────────────────────
 

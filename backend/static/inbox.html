@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WA Assistant – Inbox</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/dark.css" />
+  <style>
+    .dm-card { transition: box-shadow 0.15s, transform 0.15s; }
+    .dm-card:hover { box-shadow: 0 4px 16px rgba(0,0,0,0.07); transform: translateY(-1px); }
+    .snooze-menu { display: none; }
+    .snooze-menu.open { display: block; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+
+  <div id="toast" class="hidden fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50"></div>
+
+  <!-- Nav -->
+  <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="/static/index.html" class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
+        <span class="text-base font-bold text-gray-900">WA Assistant</span>
+      </a>
+      <div class="flex gap-1">
+        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Home</a>
+        <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-indigo-600 bg-indigo-50 flex items-center gap-1.5">
+          Inbox
+          <span id="nav-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
+        </a>
+        <a href="/static/scout.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Scout</a>
+        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="nav-status" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-400">
+          <span id="nav-dot" class="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0"></span>
+          <span id="nav-name">Connecting…</span>
+        </div>
+        <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors">
+          <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg id="dark-icon-sun" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-2xl mx-auto px-6 py-8">
+
+    <!-- Header -->
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Inbox</h1>
+        <p class="text-sm text-gray-400 mt-0.5">Unanswered direct messages</p>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="remindAll()" title="Send yourself a WA summary of all pending"
+                class="flex items-center gap-1.5 px-3 py-2 bg-white border border-gray-200 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/></svg>
+          Remind me on WA
+        </button>
+        <button onclick="loadInbox()" class="p-2 bg-white border border-gray-200 text-gray-400 rounded-xl hover:bg-gray-50 transition-colors" title="Refresh">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+        </button>
+      </div>
+    </div>
+
+    <!-- Scheduled reminder banner -->
+    <div id="reminder-banner" class="hidden mb-5 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div class="flex items-center justify-between">
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span class="text-sm font-medium text-gray-700">Daily WA reminder</span>
+          <span id="reminder-time-label" class="text-xs text-gray-400"></span>
+        </div>
+        <div class="flex items-center gap-2">
+          <input type="time" id="reminder-time" value="20:00" class="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
+          <button onclick="saveReminder()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors">Save</button>
+          <button onclick="disableReminder()" class="px-3 py-1.5 bg-gray-100 text-gray-500 text-xs font-medium rounded-lg hover:bg-gray-200 transition-colors">Disable</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Enable scheduled reminder -->
+    <div id="enable-reminder-row" class="flex items-center gap-2 mb-5 text-sm text-gray-400">
+      <button onclick="showReminderSetup()" class="flex items-center gap-1.5 hover:text-indigo-500 transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
+        Set up daily reminder
+      </button>
+    </div>
+
+    <!-- List -->
+    <div id="inbox-list" class="space-y-3">
+      <p class="text-sm text-gray-400 py-8 text-center">Loading…</p>
+    </div>
+
+  </main>
+
+  <script>
+    function showToast(msg, type = 'success') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50 ${type === 'success' ? 'bg-green-600 text-white' : 'bg-red-500 text-white'}`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    function timeAgo(ts) {
+      const diff = Date.now() - ts;
+      const m = Math.floor(diff / 60000);
+      if (m < 1) return 'just now';
+      if (m < 60) return `${m}m ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h}h ago`;
+      const d = Math.floor(h / 24);
+      return `${d}d ago`;
+    }
+
+    function initials(name) {
+      return name.split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    }
+
+    // Deterministic avatar color from name
+    const COLORS = ['bg-violet-500','bg-indigo-500','bg-blue-500','bg-teal-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-pink-500'];
+    function avatarColor(name) {
+      let h = 0;
+      for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
+      return COLORS[Math.abs(h) % COLORS.length];
+    }
+
+    let items = [];
+
+    async function loadInbox() {
+      try {
+        const r = await fetch('/api/dm-inbox');
+        const d = await r.json();
+        items = d.items || [];
+        renderInbox();
+        updateBadge(items.length);
+      } catch (_) {
+        document.getElementById('inbox-list').innerHTML = '<p class="text-sm text-red-400 text-center py-8">Could not reach the bot. Is it running?</p>';
+      }
+    }
+
+    function renderInbox() {
+      const el = document.getElementById('inbox-list');
+      if (!items.length) {
+        el.innerHTML = `
+          <div class="text-center py-16">
+            <div class="w-16 h-16 rounded-2xl bg-green-50 flex items-center justify-center mx-auto mb-3">
+              <svg class="w-8 h-8 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/>
+              </svg>
+            </div>
+            <p class="font-semibold text-gray-700">All clear!</p>
+            <p class="text-sm text-gray-400 mt-1">No unanswered messages.</p>
+          </div>`;
+        return;
+      }
+
+      el.innerHTML = '';
+      for (const item of items) {
+        const card = document.createElement('div');
+        card.className = 'dm-card bg-white rounded-2xl border border-gray-100 shadow-sm p-4';
+        card.dataset.jid = item.jid;
+
+        const urgency = Date.now() - item.timestamp;
+        const isUrgent = urgency > 4 * 60 * 60 * 1000; // >4h
+        const urgencyDot = isUrgent
+          ? '<span class="w-2 h-2 rounded-full bg-red-400 flex-shrink-0 mt-1.5" title="Waiting >4 hours"></span>'
+          : '<span class="w-2 h-2 rounded-full bg-amber-300 flex-shrink-0 mt-1.5"></span>';
+
+        // Build whatsapp link
+        const phone = item.jid.split('@')[0];
+        const waLink = `https://wa.me/${phone}`;
+
+        card.innerHTML = `
+          <div class="flex items-start gap-3">
+            ${urgencyDot}
+            <div class="w-10 h-10 rounded-full ${avatarColor(item.name)} flex items-center justify-center text-white text-sm font-bold flex-shrink-0">
+              ${initials(item.name)}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-0.5">
+                <span class="font-semibold text-gray-900 text-sm truncate">${item.name}</span>
+                <span class="text-xs text-gray-400 flex-shrink-0">${timeAgo(item.timestamp)}</span>
+              </div>
+              <p class="text-sm text-gray-500 truncate">${item.text}</p>
+            </div>
+          </div>
+          <div class="flex items-center gap-2 mt-3 ml-5">
+            <a href="${waLink}" target="_blank"
+               class="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white text-xs font-medium rounded-xl hover:bg-green-600 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+              Open in WA
+            </a>
+            <button onclick="remindOne('${item.jid}')"
+                    class="px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-medium rounded-xl hover:bg-indigo-100 transition-colors">
+              Remind me
+            </button>
+            <div class="relative">
+              <button onclick="toggleSnoozeMenu('${item.jid}')"
+                      class="px-3 py-1.5 bg-gray-100 text-gray-600 text-xs font-medium rounded-xl hover:bg-gray-200 transition-colors">
+                Snooze ▾
+              </button>
+              <div id="snooze-${CSS.escape(item.jid)}" class="snooze-menu absolute left-0 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 overflow-hidden w-32">
+                ${[['1 hour', 1], ['4 hours', 4], ['Tomorrow', 24]].map(([label, h]) =>
+                  `<button onclick="snooze('${item.jid}', ${h})" class="block w-full text-left px-3 py-2 text-xs text-gray-700 hover:bg-gray-50">${label}</button>`
+                ).join('')}
+              </div>
+            </div>
+            <button onclick="ignore('${item.jid}')"
+                    class="ml-auto px-3 py-1.5 text-gray-400 text-xs font-medium rounded-xl hover:bg-gray-100 hover:text-gray-600 transition-colors">
+              Ignore
+            </button>
+          </div>`;
+        el.appendChild(card);
+      }
+    }
+
+    function updateBadge(count) {
+      const badge = document.getElementById('nav-badge');
+      if (count > 0) {
+        badge.textContent = count;
+        badge.classList.remove('hidden');
+      } else {
+        badge.classList.add('hidden');
+      }
+    }
+
+    function toggleSnoozeMenu(jid) {
+      const id = `snooze-${CSS.escape(jid)}`;
+      const el = document.getElementById(id);
+      el.classList.toggle('open');
+      // Close on outside click
+      setTimeout(() => {
+        document.addEventListener('click', function handler(e) {
+          if (!el.contains(e.target)) { el.classList.remove('open'); document.removeEventListener('click', handler); }
+        });
+      }, 0);
+    }
+
+    async function ignore(jid) {
+      await fetch('/api/dm-inbox/ignore', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ jid }) });
+      items = items.filter(i => i.jid !== jid);
+      renderInbox();
+      updateBadge(items.length);
+      showToast('Ignored');
+    }
+
+    async function snooze(jid, hours) {
+      await fetch('/api/dm-inbox/snooze', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ jid, hours }) });
+      items = items.filter(i => i.jid !== jid);
+      renderInbox();
+      updateBadge(items.length);
+      const label = hours === 1 ? '1 hour' : hours === 24 ? 'tomorrow' : `${hours} hours`;
+      showToast(`Snoozed for ${label}`);
+    }
+
+    async function remindOne(jid) {
+      const r = await fetch('/api/dm-inbox/remind', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({ jid }) });
+      const d = await r.json();
+      d.ok ? showToast('Reminder sent to your WA') : showToast(d.error || 'Failed', 'error');
+    }
+
+    async function remindAll() {
+      if (!items.length) { showToast('Nothing to remind you about'); return; }
+      const r = await fetch('/api/dm-inbox/remind', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) });
+      const d = await r.json();
+      d.ok ? showToast('Summary sent to your WA') : showToast(d.error || 'Failed', 'error');
+    }
+
+    // ── Scheduled daily reminder ──────────────────────────────────────────────
+    function loadReminderSettings() {
+      const time = localStorage.getItem('inbox_reminder_time');
+      if (time) {
+        document.getElementById('enable-reminder-row').classList.add('hidden');
+        document.getElementById('reminder-banner').classList.remove('hidden');
+        document.getElementById('reminder-time').value = time;
+        document.getElementById('reminder-time-label').textContent = `· every day at ${time}`;
+      }
+    }
+
+    function showReminderSetup() {
+      document.getElementById('enable-reminder-row').classList.add('hidden');
+      document.getElementById('reminder-banner').classList.remove('hidden');
+    }
+
+    function saveReminder() {
+      const time = document.getElementById('reminder-time').value;
+      localStorage.setItem('inbox_reminder_time', time);
+      document.getElementById('reminder-time-label').textContent = `· every day at ${time}`;
+      showToast(`Daily reminder set for ${time}`);
+    }
+
+    function disableReminder() {
+      localStorage.removeItem('inbox_reminder_time');
+      document.getElementById('reminder-banner').classList.add('hidden');
+      document.getElementById('enable-reminder-row').classList.remove('hidden');
+      showToast('Daily reminder disabled');
+    }
+
+    // Check if we should fire the daily reminder
+    async function checkScheduledReminder() {
+      const time = localStorage.getItem('inbox_reminder_time');
+      if (!time) return;
+      const lastFired = localStorage.getItem('inbox_reminder_last_fired');
+      const now = new Date();
+      const [rH, rM] = time.split(':').map(Number);
+      const today = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+      if (lastFired === today) return; // already fired today
+      if (now.getHours() === rH && now.getMinutes() >= rM) {
+        // Fire it
+        await fetch('/api/dm-inbox/remind', { method: 'POST', headers: {'Content-Type':'application/json'}, body: JSON.stringify({}) });
+        localStorage.setItem('inbox_reminder_last_fired', today);
+      }
+    }
+
+    async function loadNavStatus() {
+      try {
+        const r = await fetch('/api/settings/whatsapp/status');
+        const d = await r.json();
+        const dot = document.getElementById('nav-dot');
+        const name = document.getElementById('nav-name');
+        if (d.connected) {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0';
+          name.textContent = d.phone?.name || 'Connected';
+          document.getElementById('nav-status').className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-xs font-medium text-green-700';
+        } else {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0';
+          name.textContent = 'Disconnected';
+          document.getElementById('nav-status').className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 text-xs font-medium text-red-600';
+        }
+      } catch (_) {}
+    }
+
+    loadNavStatus();
+    loadInbox();
+    loadReminderSettings();
+    checkScheduledReminder();
+    setInterval(() => { loadInbox(); checkScheduledReminder(); }, 60000);
+  </script>
+  <script src="/static/dark.js"></script>
+  <script src="/static/pin_lock.js"></script>
+</body>
+</html>

@@ -53,7 +53,69 @@ const MAX_VIDEOS_PER_GROUP = 500;
 
 // --- Text history: groupId -> Array<{id, timestamp, sender, text}> ---
 const textHistory = new Map();
-const MAX_TEXT_PER_GROUP = 200;
+const MAX_TEXT_PER_GROUP = 1000;
+
+// --- Stat log: all messages (not just text) for accurate counts ---
+// groupId -> Array<{ts, fromMe}> — in-memory, today + recent
+const statLog = new Map();
+
+// --- DM Inbox: unanswered direct messages ---
+// jid -> { jid, name, text, timestamp, status: 'pending'|'snoozed'|'ignored', snoozeUntil }
+const DM_INBOX_FILE = path.join(__dirname, '..', 'data', 'dm-inbox.json');
+let dmInbox = {};
+
+function loadDmInbox() {
+  try { dmInbox = JSON.parse(fs.readFileSync(DM_INBOX_FILE, 'utf8')); } catch (_) {}
+}
+function saveDmInbox() {
+  try { fs.writeFileSync(DM_INBOX_FILE, JSON.stringify(dmInbox, null, 2)); } catch (_) {}
+}
+loadDmInbox();
+
+function formatAgo(ts) {
+  const diff = Date.now() - ts;
+  const m = Math.floor(diff / 60000);
+  if (m < 60) return `${m}m ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h}h ago`;
+  return `${Math.floor(h / 24)}d ago`;
+}
+const TEXT_LOG_DIR = path.join(__dirname, '..', 'data', 'text-history');
+fs.mkdirSync(TEXT_LOG_DIR, { recursive: true });
+
+function textLogPath(jid) {
+  return path.join(TEXT_LOG_DIR, jid.replace(/[^a-zA-Z0-9_-]/g, '_') + '.jsonl');
+}
+
+function loadTextHistory() {
+  const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000; // keep 7 days
+  for (const file of fs.readdirSync(TEXT_LOG_DIR)) {
+    if (!file.endsWith('.jsonl')) continue;
+    const jid = file.slice(0, -6).replace(/_/g, match => {
+      // rough reverse: can't perfectly reverse but we read groupId from the stored entry
+      return match;
+    });
+    try {
+      const lines = fs.readFileSync(path.join(TEXT_LOG_DIR, file), 'utf8').trim().split('\n').filter(Boolean);
+      const msgs = lines.map(l => JSON.parse(l)).filter(m => m.timestamp >= cutoff);
+      if (msgs.length) {
+        // use the groupId stored in the entry itself
+        const gid = msgs[0].groupId;
+        textHistory.set(gid, msgs.slice(-MAX_TEXT_PER_GROUP));
+      }
+    } catch (_) {}
+  }
+}
+loadTextHistory();
+
+// Seed statLog from persisted textHistory so today's counts survive bot restarts
+for (const [jid, messages] of textHistory) {
+  if (!statLog.has(jid)) statLog.set(jid, []);
+  const entries = statLog.get(jid);
+  for (const msg of messages) {
+    entries.push({ ts: msg.timestamp, fromMe: msg.sender === 'Me' });
+  }
+}
 
 // Oldest message cursor per group (used for fetchMessageHistory requests)
 const groupCursors = new Map(); // groupId -> { key, timestampMs }
@@ -102,6 +164,16 @@ function storeMediaMsg(msg) {
   }
 }
 
+function storeStatEntry(msg) {
+  const jid = msg.key?.remoteJid;
+  if (!jid) return;
+  if (!statLog.has(jid)) statLog.set(jid, []);
+  statLog.get(jid).push({
+    ts: (msg.messageTimestamp || 0) * 1000,
+    fromMe: !!msg.key.fromMe,
+  });
+}
+
 function storeTextMsg(msg) {
   const jid = msg.key?.remoteJid;
   if (!jid?.endsWith('@g.us')) return;
@@ -115,13 +187,16 @@ function storeTextMsg(msg) {
   if (!text) return;
   if (!textHistory.has(jid)) textHistory.set(jid, []);
   const arr = textHistory.get(jid);
-  arr.push({
+  const entry = {
+    groupId: jid,
     id: msg.key.id,
     timestamp: (msg.messageTimestamp || 0) * 1000,
-    sender: getSender(msg),
+    sender: msg.key.fromMe ? 'Me' : getSender(msg),
     text,
-  });
+  };
+  arr.push(entry);
   if (arr.length > MAX_TEXT_PER_GROUP) arr.splice(0, arr.length - MAX_TEXT_PER_GROUP);
+  try { fs.appendFileSync(textLogPath(jid), JSON.stringify(entry) + '\n'); } catch (_) {}
 }
 
 // --- WhatsApp connection ---
@@ -183,14 +258,70 @@ async function connect() {
     }
   });
 
+  // Clear inbox when a DM chat is read (unreadCount drops to 0 or undefined)
+  sock.ev.on('chats.update', (updates) => {
+    let changed = false;
+    for (const chat of updates) {
+      const jid = chat.id;
+      if (!jid?.endsWith('@s.whatsapp.net')) continue;
+      if (dmInbox[jid] && (chat.unreadCount === 0 || chat.unreadCount === null)) {
+        delete dmInbox[jid];
+        changed = true;
+      }
+    }
+    if (changed) saveDmInbox();
+  });
+
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
-    if (type !== 'notify') return;
+    // 'notify' = new live message; 'append' = historical sync from device
+    const isHistory = type === 'append';
 
     for (const msg of messages) {
       updateCursor(msg);
+      storeStatEntry(msg);
+      storeTextMsg(msg);
+      // Track unanswered DMs — only real person-to-person chats
+      const DM_SKIP_TYPES = new Set([
+        'protocolMessage', 'reactionMessage', 'senderKeyDistributionMessage',
+        'messageContextInfo', 'pollUpdateMessage', 'pollCreationMessage',
+        'callLogMesssage', 'peerDataOperationRequestMessage',
+      ]);
+      const dmJid = msg.key?.remoteJid;
+      const isDM = dmJid && dmJid.endsWith('@s.whatsapp.net');
+      const dmPhone = isDM ? dmJid.split('@')[0] : '';
+      // Valid phone: 7–15 digits, not our own number
+      const isValidDM = isDM && dmPhone.length >= 7 && dmPhone.length <= 15
+        && dmPhone !== (phoneInfo?.number || '');
+      if (!isHistory && isValidDM) {
+        const msgType = Object.keys(msg.message || {})[0];
+        if (msg.key.fromMe) {
+          // Sent a reply → clear from inbox
+          if (dmInbox[dmJid]) { delete dmInbox[dmJid]; saveDmInbox(); }
+        } else if (msg.message && msgType && !DM_SKIP_TYPES.has(msgType)) {
+          // Received real DM → track as unanswered
+          let text = '[message]';
+          if (msgType === 'conversation') text = msg.message.conversation;
+          else if (msgType === 'extendedTextMessage') text = msg.message.extendedTextMessage?.text || '[message]';
+          else if (msgType === 'imageMessage') text = '[photo]';
+          else if (msgType === 'videoMessage') text = '[video]';
+          else if (msgType === 'audioMessage') text = '[voice message]';
+          else if (msgType === 'documentMessage') text = '[file]';
+          else if (msgType === 'stickerMessage') text = '[sticker]';
+          dmInbox[dmJid] = {
+            jid: dmJid,
+            name: msg.pushName || dmPhone,
+            text: text.slice(0, 120),
+            timestamp: (msg.messageTimestamp || 0) * 1000,
+            status: dmInbox[dmJid]?.status === 'ignored' ? 'ignored' : 'pending',
+            snoozeUntil: dmInbox[dmJid]?.snoozeUntil || null,
+          };
+          saveDmInbox();
+        }
+      }
+
+      if (isHistory) continue; // don't re-process old media/actions for history
       if (!msg.key.fromMe) {
         storeMediaMsg(msg);
-        storeTextMsg(msg);
       }
 
       // ── Enroll-from-DM: image in a direct chat with caption "enroll <name>" ──
@@ -406,6 +537,54 @@ app.post('/send-video', express.json({ limit: '200mb' }), async (req, res) => {
   }
 });
 
+app.get('/message-stats', (req, res) => {
+  const todayStart = new Date();
+  todayStart.setHours(0, 0, 0, 0);
+  const todayTs = todayStart.getTime();
+  const weekTs = Date.now() - 7 * 24 * 60 * 60 * 1000;
+
+  let todayReceived = 0, todaySent = 0;
+  const groupMap = {};
+  const hourly = new Array(24).fill(0);
+
+  for (const [groupId, entries] of statLog) {
+    const group = allGroups.find(g => g.id === groupId);
+    let todayCount = 0, weekCount = 0;
+    for (const e of entries) {
+      if (e.ts >= todayTs) {
+        if (e.fromMe) todaySent++; else todayReceived++;
+        todayCount++;
+        hourly[new Date(e.ts).getHours()]++;
+      }
+      if (e.ts >= weekTs) weekCount++;
+    }
+    if (weekCount > 0 && groupId.endsWith('@g.us')) {
+      groupMap[groupId] = { id: groupId, name: group?.name || groupId, today: todayCount, week: weekCount };
+    }
+  }
+
+  let todayMedia = 0;
+  for (const [, msgs] of imageHistory) {
+    for (const [, msg] of msgs) {
+      if ((msg.messageTimestamp || 0) * 1000 >= todayTs) todayMedia++;
+    }
+  }
+  for (const [, msgs] of videoHistory) {
+    for (const [, msg] of msgs) {
+      if ((msg.messageTimestamp || 0) * 1000 >= todayTs) todayMedia++;
+    }
+  }
+
+  const groups = Object.values(groupMap).sort((a, b) => b.today - a.today || b.week - a.week).slice(0, 15);
+  res.json({
+    today: { received: todayReceived, sent: todaySent, media: todayMedia },
+    groups,
+    hourly,
+    total_groups: allGroups.length,
+    active_today: groups.filter(g => g.today > 0).length,
+  });
+});
+
 app.get('/groups', async (req, res) => {
   if (isConnected && (allGroups.length === 0 || req.query.refresh)) await refreshGroupsAndChats();
   res.json({ groups: allGroups });
@@ -498,6 +677,62 @@ app.get('/download-video/:msgId', async (req, res) => {
   try {
     const buffer = await downloadMediaMessage(msg, 'buffer', {});
     res.json({ video_b64: buffer.toString('base64') });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── DM Inbox endpoints ──────────────────────────────────────────────────────
+
+app.get('/dm-inbox', (req, res) => {
+  const now = Date.now();
+  const items = Object.values(dmInbox).filter(item => {
+    if (item.status === 'ignored') return false;
+    if (item.status === 'snoozed' && item.snoozeUntil && now < item.snoozeUntil) return false;
+    if (item.status === 'snoozed' && (!item.snoozeUntil || now >= item.snoozeUntil)) {
+      item.status = 'pending'; // snooze expired
+    }
+    return true;
+  });
+  items.sort((a, b) => a.timestamp - b.timestamp); // oldest first = most urgent
+  res.json({ items, total: items.length });
+});
+
+app.post('/dm-inbox/ignore', express.json(), (req, res) => {
+  const { jid } = req.body;
+  if (dmInbox[jid]) { dmInbox[jid].status = 'ignored'; saveDmInbox(); }
+  res.json({ ok: true });
+});
+
+app.post('/dm-inbox/snooze', express.json(), (req, res) => {
+  const { jid, hours = 2 } = req.body;
+  if (dmInbox[jid]) {
+    dmInbox[jid].status = 'snoozed';
+    dmInbox[jid].snoozeUntil = Date.now() + hours * 60 * 60 * 1000;
+    saveDmInbox();
+  }
+  res.json({ ok: true });
+});
+
+app.post('/dm-inbox/remind', express.json(), async (req, res) => {
+  const { jid } = req.body;
+  if (!isConnected) return res.status(503).json({ error: 'Not connected' });
+  const item = jid ? dmInbox[jid] : null;
+  const myJid = phoneInfo?.number + '@s.whatsapp.net';
+  if (!myJid) return res.status(503).json({ error: 'Not connected' });
+  try {
+    if (item) {
+      await sock.sendMessage(myJid, {
+        text: `📬 Reminder: unanswered message from *${item.name}* (${formatAgo(item.timestamp)})\n\n"${item.text}"`
+      });
+    } else {
+      // Remind about all pending
+      const pending = Object.values(dmInbox).filter(i => i.status === 'pending');
+      if (!pending.length) return res.json({ ok: true, sent: 0 });
+      const lines = pending.map(i => `• *${i.name}* — ${formatAgo(i.timestamp)}: "${i.text}"`).join('\n');
+      await sock.sendMessage(myJid, { text: `📬 You have ${pending.length} unanswered DM${pending.length !== 1 ? 's' : ''}:\n\n${lines}` });
+    }
+    res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }

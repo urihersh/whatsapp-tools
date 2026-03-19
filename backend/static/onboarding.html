@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Parent Tool – Setup</title>
+  <title>WA Assistant – Setup</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
@@ -22,7 +23,7 @@
           <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
         </svg>
       </div>
-      <span class="text-xl font-bold text-gray-900">Parent Tool</span>
+      <span class="text-xl font-bold text-gray-900">WA Assistant</span>
     </div>
 
     <!-- Progress steps -->
@@ -41,7 +42,7 @@
           </svg>
         </div>
         <h2 class="text-xl font-bold text-gray-900 mb-1">Connect WhatsApp</h2>
-        <p class="text-sm text-gray-500 mb-6">Scan the QR code with your phone to link WhatsApp to Parent Tool.</p>
+        <p class="text-sm text-gray-500 mb-6">Scan the QR code with your phone to link WhatsApp to WA Assistant.</p>
 
         <div id="wa-connected-banner" class="hidden mb-4 flex items-center gap-3 p-4 bg-green-50 rounded-xl border border-green-100">
           <span class="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></span>
@@ -75,15 +76,15 @@
           </svg>
         </div>
         <h2 class="text-xl font-bold text-gray-900 mb-1">Enroll your kid</h2>
-        <p class="text-sm text-gray-500 mb-6">Add your child and upload a few clear face photos so Parent Tool can recognise them.</p>
+        <p class="text-sm text-gray-500 mb-6">Add your child and upload a few clear face photos so Scout can recognise them.</p>
 
         <div id="kids-status" class="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm text-gray-500">
           Checking enrolled kids…
         </div>
 
-        <a href="/static/enrollment.html" target="_blank"
+        <a href="/static/scout.html" target="_blank"
            class="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm transition-all">
-          Open Enrollment
+          Open Scout → Kids
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
@@ -106,15 +107,15 @@
           </svg>
         </div>
         <h2 class="text-xl font-bold text-gray-900 mb-1">Add a group to monitor</h2>
-        <p class="text-sm text-gray-500 mb-6">Choose the WhatsApp group (e.g. your child's class) that Parent Tool should watch for photos and videos.</p>
+        <p class="text-sm text-gray-500 mb-6">Choose the WhatsApp group (e.g. your child's class) that Scout should watch for photos and videos.</p>
 
         <div id="groups-status" class="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm text-gray-500">
           Checking configured groups…
         </div>
 
-        <a href="/static/settings.html" target="_blank"
+        <a href="/static/scout.html" target="_blank"
            class="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm transition-all">
-          Open Settings
+          Open Scout → Groups
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
@@ -137,7 +138,7 @@
           </svg>
         </div>
         <h2 class="text-2xl font-bold text-gray-900 mb-2">You're all set!</h2>
-        <p class="text-sm text-gray-500 mb-8">Parent Tool is ready. As soon as a photo or video arrives in your monitored group, it will be scanned and you'll be notified when your kid is spotted.</p>
+        <p class="text-sm text-gray-500 mb-8">WA Assistant is ready. As soon as a photo or video arrives in your monitored group, Scout will scan it and notify you when your kid is spotted.</p>
         <button onclick="finishOnboarding()"
                 class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm transition-all">
           Go to Dashboard

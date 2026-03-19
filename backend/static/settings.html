@@ -2,8 +2,9 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Parent Tool – Settings</title>
+  <title>WA Assistant – Settings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
@@ -18,18 +19,18 @@
       <a href="/static/index.html" class="flex items-center gap-2.5 group">
         <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm group-hover:bg-blue-700 transition-colors">
           <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         </div>
-        <span class="text-base font-bold text-gray-900">Parent Tool</span>
+        <span class="text-base font-bold text-gray-900">WA Assistant</span>
       </a>
       <div class="flex gap-1">
-        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Dashboard</a>
-        <a href="/static/enrollment.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Enrollment</a>
+        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Home</a>
+        <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+          Inbox<span id="inbox-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
+        </a>
+        <a href="/static/scout.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Scout</a>
         <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-blue-600 bg-blue-50">Settings</a>
-        <a href="/static/memory_book.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Memory Book</a>
-        <a href="/static/wrapped.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Wrapped</a>
       </div>
       <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors" title="Toggle dark mode">
         <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -43,7 +44,8 @@
   </nav>
 
   <main class="max-w-2xl mx-auto px-6 py-8">
-    <h1 class="text-2xl font-bold text-gray-900 mb-8">Settings</h1>
+    <h1 class="text-2xl font-bold text-gray-900 mb-2">Settings</h1>
+    <p class="text-sm text-gray-400 mb-8">Platform configuration — connections, API keys, and security.</p>
 
     <!-- Toast -->
     <div id="toast" class="hidden fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50"></div>
@@ -77,141 +79,63 @@
           <p class="text-amber-800 text-sm">Not connected. Start the bot then scan the QR code below.</p>
         </div>
         <div id="qr-section" class="text-center">
-          <div id="qr-loading" class="py-8 text-gray-400 text-sm">Waiting for QR code...</div>
+          <div id="qr-loading" class="py-8 text-gray-400 text-sm">Waiting for QR code…</div>
           <img id="qr-image" class="hidden mx-auto w-52 h-52 rounded-xl border border-gray-200 shadow-sm" />
           <p class="text-xs text-gray-400 mt-3">Open WhatsApp on your phone → Linked Devices → Link a Device</p>
         </div>
       </div>
     </div>
 
-    <!-- Monitor Groups -->
-    <div id="group-settings" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-      <div class="flex items-center gap-2.5 mb-1">
-        <div class="w-8 h-8 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0">
-          <svg class="w-4 h-4 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </div>
-        <h2 class="font-semibold text-gray-900">Monitor Groups</h2>
-      </div>
-      <p class="text-sm text-gray-400 mb-4 ml-10">Check every group to monitor. Assign which kids to look for — defaults to all enrolled kids.</p>
-
-      <div class="flex gap-2 mb-3">
-        <input id="group-search" type="text" placeholder="Search groups…"
-               class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-               oninput="renderGroupList()" />
-        <button onclick="refreshGroups(true)" class="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors" title="Refresh from WhatsApp">↻</button>
-      </div>
-
-      <div id="group-list-wrap">
-        <p id="group-list-placeholder" class="text-sm text-gray-400 py-2">
-          Connect WhatsApp first to load groups.
-        </p>
-        <!-- group rows injected here -->
-        <div id="group-list" class="border border-gray-200 rounded-xl overflow-hidden divide-y divide-gray-100 hidden"></div>
-      </div>
-    </div>
-
-    <!-- Actions -->
+    <!-- Integrations -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
       <div class="flex items-center gap-2.5 mb-1">
-        <div class="w-8 h-8 rounded-xl bg-purple-50 flex items-center justify-center flex-shrink-0">
-          <svg class="w-4 h-4 text-purple-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M13 10V3L4 14h7v7l9-11h-7z" />
+        <div class="w-8 h-8 rounded-xl bg-indigo-50 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-indigo-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
           </svg>
         </div>
-        <h2 class="font-semibold text-gray-900">Actions</h2>
+        <h2 class="font-semibold text-gray-900">Integrations</h2>
       </div>
-      <p class="text-sm text-gray-400 mb-5 ml-10">What should happen when a kid is spotted? Enable any combination below.</p>
+      <p class="text-sm text-gray-400 mb-5 ml-10">Connect external services. Once configured here, each feature can be enabled per-app.</p>
 
-      <!-- WhatsApp forward -->
-      <div class="border border-gray-100 rounded-xl p-4 mb-3">
-        <div class="flex items-center justify-between mb-1">
-          <div class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-green-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-            </svg>
-            <span class="text-sm font-medium text-gray-800">WhatsApp</span>
-          </div>
-          <label class="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" id="forward-enabled" class="accent-blue-600" onchange="toggleForwardSection()" />
-            <span class="text-sm text-gray-500">Enabled</span>
-          </label>
-        </div>
-        <p class="text-xs text-gray-400 mb-3">Forward to a WhatsApp chat (e.g. your private chat with your spouse).</p>
-        <div id="forward-section" class="hidden flex gap-2">
-          <select id="forward-select" class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 bg-white">
-            <option value="">-- Select a chat --</option>
-          </select>
-          <button onclick="refreshChats(true)" class="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors" title="Refresh from WhatsApp">↻</button>
-        </div>
-      </div>
+      <div class="space-y-4">
 
-      <!-- Save to local folder -->
-      <div class="border border-gray-100 rounded-xl p-4 mb-3">
-        <div class="flex items-center justify-between mb-1">
-          <div class="flex items-center gap-2">
-            <svg class="w-4 h-4 text-gray-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M8 7H5a2 2 0 00-2 2v9a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-3m-1 4l-3 3m0 0l-3-3m3 3V4" />
-            </svg>
-            <span class="text-sm font-medium text-gray-800">Save to folder</span>
-          </div>
-          <label class="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" id="save-enabled" class="accent-blue-600" onchange="toggleSaveSection()" />
-            <span class="text-sm text-gray-500">Enabled</span>
-          </label>
-        </div>
-        <p class="text-xs text-gray-400 mb-3">Save every matched photo to a local folder on this computer.</p>
-        <div id="save-section" class="hidden space-y-3">
-          <div class="flex gap-2">
-            <input type="text" id="save-path" placeholder="/Users/you/Parent Tool photos"
-                   class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <button onclick="browseSaveFolder()"
-                    class="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors whitespace-nowrap">
-              Browse…
-            </button>
-          </div>
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-2">Organise subfolders by</label>
-            <div class="flex gap-4">
-              <label class="flex items-center gap-2 cursor-pointer select-none">
-                <input type="radio" name="save-organize" value="group" checked class="accent-blue-600" />
-                <span class="text-sm text-gray-700">Group name</span>
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer select-none">
-                <input type="radio" name="save-organize" value="kid" class="accent-blue-600" />
-                <span class="text-sm text-gray-700">Kid name</span>
-              </label>
+        <!-- Anthropic -->
+        <div class="border border-gray-100 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-6 h-6 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
+              <svg class="w-3.5 h-3.5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"/>
+              </svg>
             </div>
-            <p class="text-xs text-gray-400 mt-1">
-              Example — <span id="save-example" class="italic">save_folder / Group Name / 20260312_143000.jpg</span>
-            </p>
+            <span class="text-sm font-medium text-gray-800">Anthropic (Claude)</span>
+            <span id="api-key-status" class="text-xs ml-auto"></span>
           </div>
+          <div class="flex gap-2 items-center">
+            <input type="password" id="anthropic-api-key" placeholder="sk-ant-…"
+                   class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500" />
+          </div>
+          <p class="text-xs text-gray-400 mt-1.5">Get yours at <span class="text-violet-600">console.anthropic.com</span></p>
         </div>
-      </div>
 
-      <!-- Google Photos -->
-      <div class="border border-gray-100 rounded-xl p-4">
-        <div class="flex items-center justify-between mb-1">
-          <div class="flex items-center gap-2">
-            <svg class="w-4 h-4" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-              <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" fill="#4285F4"/>
-              <path d="M12 7a5 5 0 1 0 0 10A5 5 0 0 0 12 7z" fill="white"/>
-              <path d="M12 9.5a2.5 2.5 0 1 0 0 5 2.5 2.5 0 0 0 0-5z" fill="#4285F4"/>
-            </svg>
+        <!-- Google Photos -->
+        <div class="border border-gray-100 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-6 h-6 rounded-lg bg-blue-50 flex items-center justify-center flex-shrink-0">
+              <svg class="w-3.5 h-3.5 text-blue-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+              </svg>
+            </div>
             <span class="text-sm font-medium text-gray-800">Google Photos</span>
+            <div id="gp-not-connected" class="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
+              <span class="w-1.5 h-1.5 rounded-full bg-gray-300 inline-block"></span>Not connected
+            </div>
+            <div id="gp-connected-badge" class="hidden ml-auto flex items-center gap-1.5 text-xs text-green-600">
+              <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>Connected
+            </div>
           </div>
-          <label class="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" id="gp-enabled" class="accent-blue-600" onchange="toggleGPSection()" />
-            <span class="text-sm text-gray-500">Enabled</span>
-          </label>
-        </div>
-        <p class="text-xs text-gray-400 mb-3">Automatically upload every matched photo to Google Photos.</p>
 
-        <div id="gp-section" class="hidden space-y-3">
-          <!-- Credentials -->
-          <div class="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2.5">
-            <p class="text-xs font-medium text-gray-600">Step 1 — Google Cloud credentials</p>
+          <div class="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2.5 mb-3">
             <details class="text-xs text-gray-500">
               <summary class="text-blue-600 cursor-pointer font-medium">How to get credentials ▸</summary>
               <ol class="mt-2 space-y-1 list-decimal pl-4">
@@ -219,7 +143,7 @@
                 <li>Enable the <strong>Photos Library API</strong>.</li>
                 <li>Go to <strong>Credentials → Create Credentials → OAuth Client ID</strong>.</li>
                 <li>Application type: <strong>Web application</strong>.</li>
-                <li>Add authorized redirect URI: <code id="gp-redirect-uri" class="bg-white border border-gray-200 px-1 rounded break-all">http://localhost:8000/api/settings/google-photos/callback</code></li>
+                <li>Add authorized redirect URI: <code class="bg-white border border-gray-200 px-1 rounded break-all">http://localhost:8000/api/settings/google-photos/callback</code></li>
                 <li>Copy Client ID and Client Secret below, then click <strong>Save Settings</strong>.</li>
               </ol>
             </details>
@@ -229,131 +153,64 @@
                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
-          <!-- Connect -->
-          <div class="p-3 bg-gray-50 rounded-xl border border-gray-100">
-            <p class="text-xs font-medium text-gray-600 mb-2">Step 2 — Authorise Parent Tool</p>
-            <div class="flex items-center justify-between">
-              <div id="gp-not-connected" class="flex items-center gap-2 text-sm text-gray-500">
-                <span class="w-2 h-2 rounded-full bg-gray-300 inline-block"></span>
-                Not connected
+          <div class="flex gap-2">
+            <button id="gp-connect-btn" onclick="connectGooglePhotos()"
+                    class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm">
+              Connect with Google
+            </button>
+            <button id="gp-disconnect-btn" onclick="disconnectGooglePhotos()"
+                    class="hidden px-3 py-1.5 bg-gray-200 text-gray-600 text-xs font-medium rounded-xl hover:bg-gray-300 transition-colors">
+              Disconnect
+            </button>
+          </div>
+        </div>
+
+        <!-- Ollama (local AI) -->
+        <div class="border border-gray-100 rounded-xl p-4">
+          <div class="flex items-center gap-2 mb-3">
+            <div class="w-6 h-6 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
+              <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
+              </svg>
+            </div>
+            <span class="text-sm font-medium text-gray-800">Ollama <span class="text-gray-400 font-normal">(free, local AI)</span></span>
+            <span id="ollama-status" class="text-xs ml-auto"></span>
+          </div>
+          <p class="text-xs text-gray-400 mb-3">Run AI summarization locally — no API key needed. Used as fallback when no Anthropic key is set.</p>
+          <div class="space-y-2 mb-3">
+            <input type="text" id="ollama-url" placeholder="http://localhost:11434"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
+            <div class="flex gap-2">
+              <div class="flex-1">
+                <label class="text-xs text-gray-400 mb-1 block">Text model</label>
+                <input type="text" id="ollama-model" placeholder="aya"
+                       class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
-              <div id="gp-connected-badge" class="hidden flex items-center gap-2 text-sm text-green-700">
-                <span class="w-2 h-2 rounded-full bg-green-500 inline-block"></span>
-                Connected
-              </div>
-              <div class="flex gap-2">
-                <button id="gp-connect-btn" onclick="connectGooglePhotos()"
-                        class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm">
-                  Connect with Google
-                </button>
-                <button id="gp-disconnect-btn" onclick="disconnectGooglePhotos()"
-                        class="hidden px-3 py-1.5 bg-gray-200 text-gray-600 text-xs font-medium rounded-xl hover:bg-gray-300 transition-colors">
-                  Disconnect
-                </button>
+              <div class="flex-1">
+                <label class="text-xs text-gray-400 mb-1 block">Vision model <span class="text-gray-300">(for captions)</span></label>
+                <input type="text" id="ollama-vision-model" placeholder="llava"
+                       class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
               </div>
             </div>
           </div>
-
-          <!-- Album settings -->
-          <div>
-            <label class="block text-xs font-medium text-gray-600 mb-2">Organise albums by</label>
-            <div class="flex flex-wrap gap-4">
-              <label class="flex items-center gap-2 cursor-pointer select-none">
-                <input type="radio" name="gp-organize" value="group" checked class="accent-blue-600" onchange="toggleGPAlbumName()" />
-                <span class="text-sm text-gray-700">Group name</span>
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer select-none">
-                <input type="radio" name="gp-organize" value="kid" class="accent-blue-600" onchange="toggleGPAlbumName()" />
-                <span class="text-sm text-gray-700">Kid name</span>
-              </label>
-              <label class="flex items-center gap-2 cursor-pointer select-none">
-                <input type="radio" name="gp-organize" value="single" class="accent-blue-600" onchange="toggleGPAlbumName()" />
-                <span class="text-sm text-gray-700">Single album</span>
-              </label>
-            </div>
-            <div id="gp-album-name-row" class="hidden mt-2">
-              <input type="text" id="gp-album-name" placeholder="Album name (e.g. Parent Tool)"
-                     class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            </div>
+          <div class="flex gap-2 items-center">
+            <button onclick="testOllama()"
+                    class="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-xl hover:bg-emerald-700 transition-colors shadow-sm">
+              Test Connection
+            </button>
+            <span id="ollama-test-result" class="text-xs"></span>
           </div>
+          <details class="mt-3">
+            <summary class="text-xs text-blue-600 cursor-pointer font-medium">Setup instructions ▸</summary>
+            <div class="mt-2 text-xs text-gray-500 space-y-1.5">
+              <p><strong>Linux / Raspberry Pi:</strong> run <code class="bg-gray-100 px-1 rounded">scripts/setup-ollama-rpi.sh</code></p>
+              <p><strong>Windows:</strong> run <code class="bg-gray-100 px-1 rounded">scripts\setup-ollama-windows.ps1</code> in PowerShell as Administrator</p>
+              <p><strong>Manual:</strong> install from <span class="text-blue-600">ollama.com</span>, then <code class="bg-gray-100 px-1 rounded">ollama pull llama3.2</code></p>
+              <p class="text-gray-400">If Ollama runs on a different machine, replace <code class="bg-gray-100 px-1 rounded">localhost</code> with that machine's IP.</p>
+            </div>
+          </details>
         </div>
-      </div>
-    </div>
 
-    <!-- Confidence threshold -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-      <div class="flex items-center gap-2.5 mb-1">
-        <div class="w-8 h-8 rounded-xl bg-amber-50 flex items-center justify-center flex-shrink-0">
-          <svg class="w-4 h-4 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-          </svg>
-        </div>
-        <h2 class="font-semibold text-gray-900">Match Confidence Threshold</h2>
-      </div>
-      <p class="text-sm text-gray-400 mb-4 ml-10">
-        Higher = fewer false positives but might miss some matches. Lower = catches more but may include other kids.
-      </p>
-      <div class="flex items-center gap-4">
-        <input type="range" id="threshold-slider" min="40" max="90" value="60" step="5"
-               class="flex-1 accent-blue-600"
-               oninput="document.getElementById('threshold-value').textContent = this.value + '%'" />
-        <span id="threshold-value" class="text-lg font-semibold text-blue-600 w-14 text-right">60%</span>
-      </div>
-      <div class="flex justify-between text-xs text-gray-400 mt-1">
-        <span>More matches</span>
-        <span>Fewer false positives</span>
-      </div>
-    </div>
-
-    <!-- AI Features -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-      <div class="flex items-center gap-2.5 mb-1">
-        <div class="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
-          <svg class="w-4 h-4 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"/>
-          </svg>
-        </div>
-        <h2 class="font-semibold text-gray-900">AI Features</h2>
-      </div>
-      <p class="text-sm text-gray-400 mb-4 ml-10">Powered by Claude. Requires <code class="bg-gray-100 px-1 rounded text-xs">ANTHROPIC_API_KEY</code> in your <code class="bg-gray-100 px-1 rounded text-xs">.env</code> file.</p>
-      <div class="border border-gray-100 rounded-xl p-4">
-        <div class="flex items-center justify-between">
-          <div>
-            <p class="text-sm font-medium text-gray-800">AI Moment Captions</p>
-            <p class="text-xs text-gray-400 mt-0.5">Describe what's happening in each matched photo</p>
-          </div>
-          <label class="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" id="ai-captions-enabled" class="accent-violet-600" />
-            <span class="text-sm text-gray-500">Enabled</span>
-          </label>
-        </div>
-      </div>
-    </div>
-
-    <!-- Digest Mode -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-      <div class="flex items-center gap-2.5 mb-1">
-        <div class="w-8 h-8 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0">
-          <svg class="w-4 h-4 text-orange-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6.002 6.002 0 00-4-5.659V5a2 2 0 10-4 0v.341C7.67 6.165 6 8.388 6 11v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-          </svg>
-        </div>
-        <h2 class="font-semibold text-gray-900">Daily Digest</h2>
-      </div>
-      <p class="text-sm text-gray-400 mb-4 ml-10">Instead of a ping per photo, get one daily summary of all matches.</p>
-      <div class="border border-gray-100 rounded-xl p-4 space-y-3">
-        <div class="flex items-center justify-between">
-          <span class="text-sm font-medium text-gray-800">Digest mode</span>
-          <label class="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" id="digest-mode" class="accent-orange-500" onchange="toggleDigestTime()" />
-            <span class="text-sm text-gray-500">Enabled</span>
-          </label>
-        </div>
-        <div id="digest-time-row" class="hidden flex items-center gap-3">
-          <label class="text-sm text-gray-600">Send at</label>
-          <input type="time" id="digest-time" value="20:00"
-                 class="border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-400" />
-        </div>
       </div>
     </div>
 
@@ -394,11 +251,6 @@
   </main>
 
   <script>
-    let groups = [];
-    let chats = [];
-    let kids = [];
-    let watchedGroups = []; // [{id, name, kid_ids:[]}]
-
     function showToast(msg, type = 'success') {
       const el = document.getElementById('toast');
       el.textContent = msg;
@@ -418,8 +270,6 @@
           document.getElementById('wa-disconnected').classList.add('hidden');
           document.getElementById('wa-name').textContent = d.phone?.name || 'Connected';
           document.getElementById('wa-number').textContent = d.phone?.number ? `+${d.phone.number}` : '';
-          await refreshGroups();
-          await refreshChats();
         } else {
           document.getElementById('wa-connected').classList.add('hidden');
           document.getElementById('wa-disconnected').classList.remove('hidden');
@@ -446,204 +296,38 @@
       }
     }
 
-    async function loadKids() {
-      try {
-        const r = await fetch('/api/enrollment/kids');
-        const d = await r.json();
-        kids = d.kids || [];
-      } catch (_) {}
-    }
-
-    async function refreshGroups(force = false) {
-      try {
-        const url = '/api/settings/whatsapp/groups' + (force ? '?refresh=true' : '');
-        const r = await fetch(url);
-        const d = await r.json();
-        groups = (d.groups || []).sort((a, b) => a.name.localeCompare(b.name));
-        renderGroupList();
-      } catch (_) {}
-    }
-
-    function renderGroupList() {
-      const query = document.getElementById('group-search').value.trim().toLowerCase();
-      const listEl = document.getElementById('group-list');
-      const placeholder = document.getElementById('group-list-placeholder');
-
-      if (!groups.length) {
-        listEl.classList.add('hidden');
-        placeholder.classList.remove('hidden');
-        return;
-      }
-      placeholder.classList.add('hidden');
-      listEl.classList.remove('hidden');
-
-      const filtered = query ? groups.filter(g => g.name.toLowerCase().includes(query)) : groups;
-
-      if (!filtered.length) {
-        listEl.innerHTML = '<p class="px-4 py-3 text-sm text-gray-400">No groups match your search.</p>';
-        return;
-      }
-
-      listEl.innerHTML = '';
-      filtered.forEach((g, idx) => {
-        const watched = watchedGroups.find(w => w.id === g.id);
-        const isChecked = !!watched;
-        const assignedKidIds = watched ? watched.kid_ids : [];
-
-        const row = document.createElement('div');
-        row.className = 'px-4 py-3 ' + (isChecked ? 'bg-blue-50' : 'bg-white hover:bg-gray-50');
-        row.dataset.groupId = g.id;
-
-        const kidOptions = kids.length
-          ? kids.map(k => {
-              const checked = isChecked && (assignedKidIds.length === 0 || assignedKidIds.includes(k.id)) ? 'checked' : '';
-              return `<label class="flex items-center gap-1.5 cursor-pointer select-none">
-                <input type="checkbox" value="${k.id}" class="kid-assign accent-blue-600" ${checked} />
-                <span class="text-xs text-gray-700">${k.name}</span>
-              </label>`;
-            }).join('')
-          : '<span class="text-xs text-gray-400">No kids enrolled yet</span>';
-
-        row.innerHTML = `
-          <div class="flex items-center gap-3">
-            <input type="checkbox" class="group-toggle accent-blue-600 w-4 h-4 shrink-0 cursor-pointer" ${isChecked ? 'checked' : ''} />
-            <span class="text-sm font-medium text-gray-800 flex-1 truncate">${g.name}</span>
-            ${isChecked ? `<span class="text-xs text-blue-500 shrink-0">${assignedKidIds.length || kids.length} kid${(assignedKidIds.length || kids.length) !== 1 ? 's' : ''}</span>` : ''}
-          </div>
-          <div class="kid-row mt-2.5 ml-7 flex flex-wrap gap-x-4 gap-y-1.5 ${isChecked ? '' : 'hidden'}">
-            ${kidOptions}
-          </div>`;
-
-        // Toggle group monitoring on checkbox click
-        row.querySelector('.group-toggle').addEventListener('change', function () {
-          if (this.checked) {
-            const defaultKids = kids.map(k => k.id);
-            watchedGroups.push({ id: g.id, name: g.name, kid_ids: defaultKids });
-          } else {
-            watchedGroups = watchedGroups.filter(w => w.id !== g.id);
-          }
-          renderGroupList();
-        });
-
-        // Update kid_ids in watchedGroups when kid checkboxes change
-        row.querySelectorAll('.kid-assign').forEach(cb => {
-          cb.addEventListener('change', () => {
-            const entry = watchedGroups.find(w => w.id === g.id);
-            if (!entry) return;
-            entry.kid_ids = [...row.querySelectorAll('.kid-assign:checked')].map(el => el.value);
-          });
-        });
-
-        listEl.appendChild(row);
-      });
-    }
-
-    async function refreshChats(force = false) {
-      try {
-        const url = '/api/settings/whatsapp/chats' + (force ? '?refresh=true' : '');
-        const r = await fetch(url);
-        const d = await r.json();
-        chats = d.chats || [];
-        const sel = document.getElementById('forward-select');
-        const current = sel.dataset.savedValue || sel.value;
-        sel.innerHTML = '<option value="">-- Select a chat --</option>';
-        chats.forEach(c => {
-          const opt = document.createElement('option');
-          opt.value = c.id;
-          opt.textContent = c.isGroup ? `[Group] ${c.name}` : c.name;
-          if (c.id === current) opt.selected = true;
-          sel.appendChild(opt);
-        });
-      } catch (_) {}
-    }
-
-
-    function toggleForwardSection() {
-      const enabled = document.getElementById('forward-enabled').checked;
-      document.getElementById('forward-section').classList.toggle('hidden', !enabled);
-    }
-
-    function toggleSaveSection() {
-      const enabled = document.getElementById('save-enabled').checked;
-      document.getElementById('save-section').classList.toggle('hidden', !enabled);
-    }
-
-    function updateSaveExample() {
-      const by = document.querySelector('input[name="save-organize"]:checked')?.value || 'group';
-      document.getElementById('save-example').textContent = by === 'kid'
-        ? 'save_folder / Kid Name / 20260312_143000.jpg'
-        : 'save_folder / Group Name / 20260312_143000.jpg';
-    }
-
-    document.querySelectorAll('input[name="save-organize"]').forEach(r => r.addEventListener('change', updateSaveExample));
-
-    async function browseSaveFolder() {
-      try {
-        const r = await fetch('/api/settings/browse-folder');
-        const d = await r.json();
-        if (d.path) document.getElementById('save-path').value = d.path;
-        else if (d.error) showToast('Folder picker unavailable — type the path manually', 'error');
-      } catch (_) {
-        showToast('Could not open folder picker', 'error');
-      }
-    }
-
     async function loadCurrentSettings() {
       try {
         const r = await fetch('/api/settings');
         const d = await r.json();
 
-        if (d.watch_groups) {
-          try { watchedGroups = JSON.parse(d.watch_groups); } catch (_) {}
+        const keyStatus = document.getElementById('api-key-status');
+        if (d.has_anthropic_key) {
+          keyStatus.textContent = '✓ Key configured';
+          keyStatus.className = 'text-xs shrink-0 text-green-600';
+        } else {
+          keyStatus.textContent = 'Not set';
+          keyStatus.className = 'text-xs shrink-0 text-red-400';
         }
-        if (d.forward_to_id) {
-          document.getElementById('forward-select').dataset.savedValue = d.forward_to_id;
-          document.getElementById('forward-enabled').checked = true;
-          document.getElementById('forward-section').classList.remove('hidden');
-        }
-        if (d.confidence_threshold) {
-          const pct = Math.round(parseFloat(d.confidence_threshold) * 100);
-          document.getElementById('threshold-slider').value = pct;
-          document.getElementById('threshold-value').textContent = pct + '%';
-        }
-        if (d.save_photos_enabled === 'true') {
-          document.getElementById('save-enabled').checked = true;
-          document.getElementById('save-section').classList.remove('hidden');
-        }
-        if (d.save_photos_path) {
-          document.getElementById('save-path').value = d.save_photos_path;
-        }
-        if (d.save_photos_organize_by) {
-          const radio = document.querySelector(`input[name="save-organize"][value="${d.save_photos_organize_by}"]`);
-          if (radio) radio.checked = true;
-        }
-        updateSaveExample();
 
-        if (d.google_photos_enabled === 'true') {
-          document.getElementById('gp-enabled').checked = true;
-          document.getElementById('gp-section').classList.remove('hidden');
-          checkGPStatus();
-        }
+        checkGPStatus();
         if (d.google_photos_client_id)
           document.getElementById('gp-client-id').value = d.google_photos_client_id;
         if (d.google_photos_client_secret)
           document.getElementById('gp-client-secret').value = '••••••••';
-        if (d.google_photos_album_organize_by) {
-          const radio = document.querySelector(`input[name="gp-organize"][value="${d.google_photos_album_organize_by}"]`);
-          if (radio) { radio.checked = true; toggleGPAlbumName(); }
-        }
-        if (d.google_photos_album_name)
-          document.getElementById('gp-album-name').value = d.google_photos_album_name;
 
-        // AI / Digest / Security
-        if (d.ai_captions_enabled === 'true')
-          document.getElementById('ai-captions-enabled').checked = true;
-        if (d.digest_mode === 'true') {
-          document.getElementById('digest-mode').checked = true;
-          document.getElementById('digest-time-row').classList.remove('hidden');
+        if (d.ollama_url) document.getElementById('ollama-url').value = d.ollama_url;
+        if (d.ollama_model) document.getElementById('ollama-model').value = d.ollama_model;
+        if (d.ollama_vision_model) document.getElementById('ollama-vision-model').value = d.ollama_vision_model;
+        const ollamaStatus = document.getElementById('ollama-status');
+        if (d.ollama_url) {
+          ollamaStatus.textContent = '✓ Configured';
+          ollamaStatus.className = 'text-xs ml-auto text-green-600';
+        } else {
+          ollamaStatus.textContent = 'Not set';
+          ollamaStatus.className = 'text-xs ml-auto text-gray-400';
         }
-        if (d.digest_time)
-          document.getElementById('digest-time').value = d.digest_time;
+
         if (d.pin_enabled === 'true') {
           document.getElementById('pin-enabled').checked = true;
           document.getElementById('pin-field-row').classList.remove('hidden');
@@ -652,48 +336,27 @@
     }
 
     async function saveSettings() {
-      const forwardSel = document.getElementById('forward-select');
-      const forwardEnabled = document.getElementById('forward-enabled').checked;
-      const threshold = parseInt(document.getElementById('threshold-slider').value) / 100;
-      const forwardId = forwardEnabled ? forwardSel.value : '';
-      const forwardName = forwardEnabled ? (forwardSel.options[forwardSel.selectedIndex]?.text || '') : '';
-      const saveEnabled = document.getElementById('save-enabled').checked;
-      const savePath = document.getElementById('save-path').value.trim();
-      const saveOrganizeBy = document.querySelector('input[name="save-organize"]:checked')?.value || 'group';
-
-      if (saveEnabled && !savePath) {
-        showToast('Enter a folder path to save photos', 'error');
-        return;
-      }
-
-      const gpEnabled = document.getElementById('gp-enabled').checked;
       const gpClientId = document.getElementById('gp-client-id').value.trim();
       const gpClientSecret = document.getElementById('gp-client-secret').value.trim();
-      const gpOrganizeBy = document.querySelector('input[name="gp-organize"]:checked')?.value || 'group';
-      const gpAlbumName = document.getElementById('gp-album-name').value.trim();
 
       try {
         const payload = {
-          watch_groups: JSON.stringify(watchedGroups),
-          forward_to_id: forwardId || null,
-          forward_to_name: forwardName || null,
-          confidence_threshold: String(threshold),
-          save_photos_enabled: String(saveEnabled),
-          save_photos_path: savePath || null,
-          save_photos_organize_by: saveOrganizeBy,
-          google_photos_enabled: String(gpEnabled),
-          google_photos_album_organize_by: gpOrganizeBy,
-          google_photos_album_name: gpAlbumName || null,
+          pin_enabled: String(document.getElementById('pin-enabled').checked),
         };
-        // Only update client_id/secret if user typed a real value (not the placeholder)
+
         if (gpClientId) payload.google_photos_client_id = gpClientId;
         if (gpClientSecret && gpClientSecret !== '••••••••') payload.google_photos_client_secret = gpClientSecret;
 
-        // AI / Digest / Security
-        payload.ai_captions_enabled = String(document.getElementById('ai-captions-enabled').checked);
-        payload.digest_mode = String(document.getElementById('digest-mode').checked);
-        payload.digest_time = document.getElementById('digest-time').value || '20:00';
-        payload.pin_enabled = String(document.getElementById('pin-enabled').checked);
+        const anthropicKey = document.getElementById('anthropic-api-key').value.trim();
+        if (anthropicKey) payload.anthropic_api_key = anthropicKey;
+
+        const ollamaUrl = document.getElementById('ollama-url').value.trim();
+        const ollamaModel = document.getElementById('ollama-model').value.trim();
+        const ollamaVisionModel = document.getElementById('ollama-vision-model').value.trim();
+        if (ollamaUrl !== undefined) payload.ollama_url = ollamaUrl;
+        if (ollamaModel) payload.ollama_model = ollamaModel;
+        if (ollamaVisionModel) payload.ollama_vision_model = ollamaVisionModel;
+
         const pinVal = document.getElementById('app-pin').value.trim();
         if (pinVal) payload.app_pin = pinVal;
 
@@ -704,6 +367,7 @@
         });
         if (r.ok) {
           showToast('Settings saved!');
+          await loadCurrentSettings();
         } else {
           showToast('Failed to save settings', 'error');
         }
@@ -712,27 +376,8 @@
       }
     }
 
-    function toggleDigestTime() {
-      const on = document.getElementById('digest-mode').checked;
-      document.getElementById('digest-time-row').classList.toggle('hidden', !on);
-    }
-
     function togglePinField() {
-      const on = document.getElementById('pin-enabled').checked;
-      document.getElementById('pin-field-row').classList.toggle('hidden', !on);
-    }
-
-    // ── Google Photos ───────────────────────────────────────────────────────────
-
-    function toggleGPSection() {
-      const enabled = document.getElementById('gp-enabled').checked;
-      document.getElementById('gp-section').classList.toggle('hidden', !enabled);
-      if (enabled) checkGPStatus();
-    }
-
-    function toggleGPAlbumName() {
-      const by = document.querySelector('input[name="gp-organize"]:checked')?.value;
-      document.getElementById('gp-album-name-row').classList.toggle('hidden', by !== 'single');
+      document.getElementById('pin-field-row').classList.toggle('hidden', !document.getElementById('pin-enabled').checked);
     }
 
     async function checkGPStatus() {
@@ -753,7 +398,6 @@
         showToast('Enter Client ID and Client Secret first, then save', 'error');
         return;
       }
-      // Persist credentials before redirecting
       await fetch('/api/settings', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -774,15 +418,36 @@
       showToast('Disconnected from Google Photos');
     }
 
-    // ── Init ────────────────────────────────────────────────────────────────────
+    async function testOllama() {
+      const url = document.getElementById('ollama-url').value.trim() || 'http://localhost:11434';
+      const model = document.getElementById('ollama-model').value.trim() || 'llama3.2';
+      const resultEl = document.getElementById('ollama-test-result');
+      resultEl.textContent = 'Testing…';
+      resultEl.className = 'text-xs text-gray-400';
+      try {
+        const r = await fetch('/api/settings/ollama/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, model }),
+        });
+        const d = await r.json();
+        if (d.ok) {
+          resultEl.textContent = '✓ Connected';
+          resultEl.className = 'text-xs text-green-600';
+        } else {
+          resultEl.textContent = `✗ ${d.error}`;
+          resultEl.className = 'text-xs text-red-500';
+        }
+      } catch (e) {
+        resultEl.textContent = '✗ Request failed';
+        resultEl.className = 'text-xs text-red-500';
+      }
+    }
 
     async function init() {
       await loadCurrentSettings();
-      await loadKids();
       await checkStatus();
-      renderGroupList();
 
-      // Handle OAuth redirect back to this page
       const params = new URLSearchParams(window.location.search);
       if (params.get('gp_connected') === '1') {
         showToast('Google Photos connected!');
@@ -795,6 +460,10 @@
     }
 
     init();
+    fetch('/api/dm-inbox').then(r => r.json()).then(d => {
+      const b = document.getElementById('inbox-badge');
+      if (d.total > 0) { b.textContent = d.total; b.classList.remove('hidden'); }
+    }).catch(() => {});
   </script>
   <script src="/static/dark.js"></script>
   <script src="/static/pin_lock.js"></script>

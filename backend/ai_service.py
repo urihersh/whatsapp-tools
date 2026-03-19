@@ -1,77 +1,184 @@
-# Requires ANTHROPIC_API_KEY in your .env file
 import anthropic
 import base64
+import json
 import os
+import requests
+import httpx
 
-_client: anthropic.Anthropic | None = None
-
-
-def _get_client() -> anthropic.Anthropic | None:
-    global _client
-    if _client is None:
-        api_key = os.getenv("ANTHROPIC_API_KEY", "")
-        if not api_key:
-            return None
-        _client = anthropic.Anthropic(api_key=api_key)
-    return _client
+_clients: dict[str, anthropic.Anthropic] = {}
 
 
-def get_moment_caption(image_bytes: bytes, kid_names: list[str]) -> str:
-    """Call Claude Haiku with the matched photo and return a short warm caption."""
-    client = _get_client()
-    if not client:
-        return ""
-    try:
-        names = " and ".join(kid_names)
-        msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=80,
-            messages=[{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "image",
-                        "source": {
-                            "type": "base64",
-                            "media_type": "image/jpeg",
-                            "data": base64.b64encode(image_bytes).decode(),
+def _get_client(api_key: str) -> anthropic.Anthropic:
+    if api_key not in _clients:
+        _clients[api_key] = anthropic.Anthropic(api_key=api_key)
+    return _clients[api_key]
+
+
+def _dominant_language(text: str) -> str:
+    """Return the dominant non-Latin language name, or 'English' if none detected."""
+    counts = {
+        "Hebrew":   sum(1 for c in text if '\u0590' <= c <= '\u05FF' or '\uFB1D' <= c <= '\uFB4F'),
+        "Arabic":   sum(1 for c in text if '\u0600' <= c <= '\u06FF'),
+        "Russian":  sum(1 for c in text if '\u0400' <= c <= '\u04FF'),
+        "Chinese":  sum(1 for c in text if '\u4E00' <= c <= '\u9FFF'),
+        "Japanese": sum(1 for c in text if '\u3040' <= c <= '\u30FF'),
+        "Korean":   sum(1 for c in text if '\uAC00' <= c <= '\uD7A3'),
+    }
+    best, n = max(counts.items(), key=lambda x: x[1])
+    return best if n >= 10 else "English"
+
+
+def _ollama_chat(prompt: str, ollama_url: str, model: str, system: str = "") -> str:
+    url = ollama_url.rstrip("/") + "/api/chat"
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    r = requests.post(url, json={
+        "model": model,
+        "messages": messages,
+        "stream": False,
+    }, timeout=180)
+    r.raise_for_status()
+    return r.json()["message"]["content"].strip()
+
+
+def get_moment_caption(
+    image_bytes: bytes,
+    kid_names: list[str],
+    api_key: str = "",
+    ollama_url: str = "",
+    ollama_vision_model: str = "llava",
+) -> str:
+    """Return a short warm caption for a matched photo. Uses Anthropic first, falls back to Ollama vision."""
+    names = " and ".join(kid_names)
+    prompt = (
+        f"{names} appear in this photo. "
+        "In one short sentence (max 15 words), describe what activity or moment is shown. "
+        "Be specific and warm."
+    )
+
+    # Anthropic
+    key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+    if key:
+        try:
+            client = _get_client(key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=80,
+                messages=[{
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "image",
+                            "source": {
+                                "type": "base64",
+                                "media_type": "image/jpeg",
+                                "data": base64.b64encode(image_bytes).decode(),
+                            },
                         },
-                    },
-                    {
-                        "type": "text",
-                        "text": (
-                            f"{names} appear in this photo. "
-                            "In one short sentence (max 15 words), describe what activity or moment is shown. "
-                            "Be specific and warm."
-                        ),
-                    },
-                ],
-            }],
-        )
-        return msg.content[0].text.strip()
-    except Exception:
-        return ""
+                        {"type": "text", "text": prompt},
+                    ],
+                }],
+            )
+            return msg.content[0].text.strip()
+        except Exception:
+            return ""
+
+    # Ollama vision fallback
+    if ollama_url and ollama_vision_model:
+        try:
+            url = ollama_url.rstrip("/") + "/api/chat"
+            r = requests.post(url, json={
+                "model": ollama_vision_model,
+                "messages": [{
+                    "role": "user",
+                    "content": prompt,
+                    "images": [base64.b64encode(image_bytes).decode()],
+                }],
+                "stream": False,
+            }, timeout=120)
+            r.raise_for_status()
+            return r.json()["message"]["content"].strip()
+        except Exception:
+            return ""
+
+    return ""
 
 
-def summarize_messages(transcript: str, group_name: str) -> str:
-    """Summarize a WhatsApp group transcript into bullet points."""
-    client = _get_client()
-    if not client:
-        return "ANTHROPIC_API_KEY not set in .env"
+async def stream_summarize_ollama(transcript: str, group_name: str, ollama_url: str, ollama_model: str = "aya"):
+    """Async generator that streams summary chunks from Ollama."""
+    lang = _dominant_language(transcript)
+    prompt = (
+        f'Summarize this WhatsApp group conversation from "{group_name}" '
+        f"in 3–5 bullet points in {lang}. "
+        "Focus on key topics, decisions, and action items. "
+        "Be concise. Format each bullet starting with •\n\n"
+        f"{transcript}"
+    )
+    system = f"You are a summarization assistant. You must write all output in {lang} only. Do not use any other language."
+    async with httpx.AsyncClient(timeout=180) as client:
+        async with client.stream("POST", ollama_url.rstrip("/") + "/api/chat", json={
+            "model": ollama_model,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            "stream": True,
+        }) as r:
+            r.raise_for_status()
+            async for line in r.aiter_lines():
+                if line:
+                    data = json.loads(line)
+                    if chunk := data.get("message", {}).get("content", ""):
+                        yield chunk
+
+
+def summarize_messages(
+    transcript: str,
+    group_name: str,
+    api_key: str = "",
+    ollama_url: str = "",
+    ollama_model: str = "aya",
+) -> str:
+    """Summarize a WhatsApp group transcript. Uses Anthropic if key set, otherwise falls back to Ollama."""
+    lang = _dominant_language(transcript)
+    prompt = (
+        f'Summarize this WhatsApp group conversation from "{group_name}" '
+        f"in 3–5 bullet points in {lang}. "
+        "Focus on key topics, decisions, and action items. "
+        "Be concise. Format each bullet starting with •\n\n"
+        f"{transcript}"
+    )
+
+    # Anthropic first
+    key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+    if key:
+        try:
+            client = _get_client(key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=400,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return msg.content[0].text.strip()
+        except Exception as e:
+            return f"Summary failed: {e}"
+
+    # Ollama fallback
+    if ollama_url:
+        try:
+            system = f"You are a summarization assistant. You must write all output in {lang} only. Do not use any other language."
+            return _ollama_chat(prompt, ollama_url, ollama_model or "llama3.2", system=system)
+        except Exception as e:
+            return f"Ollama error: {e}"
+
+    return ""
+
+
+def test_ollama(ollama_url: str, model: str) -> dict:
+    """Test connectivity and model availability."""
     try:
-        msg = client.messages.create(
-            model="claude-haiku-4-5-20251001",
-            max_tokens=400,
-            messages=[{
-                "role": "user",
-                "content": (
-                    f"Summarize this WhatsApp group conversation from \"{group_name}\" "
-                    "in 3–5 bullet points. Focus on key topics, decisions, and action items. "
-                    "Be concise. Format each bullet starting with • \n\n"
-                    f"{transcript}"
-                ),
-            }],
-        )
-        return msg.content[0].text.strip()
+        result = _ollama_chat("Reply with exactly: ok", ollama_url, model)
+        return {"ok": True, "response": result}
+    except requests.exceptions.ConnectionError:
+        return {"ok": False, "error": f"Cannot connect to {ollama_url} — is Ollama running?"}
     except Exception as e:
-        return f"Summary failed: {e}"
+        return {"ok": False, "error": str(e)}
