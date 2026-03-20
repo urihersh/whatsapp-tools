@@ -19,7 +19,7 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 from database import init_db, get_settings, log_activity, save_setting
 from face_service import FaceService
 from google_photos import GooglePhotosService
-from ai_service import get_moment_caption, summarize_messages, stream_summarize_ollama, test_ollama
+from ai_service import get_moment_caption, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama
 from routers.enrollment import router as enrollment_router, load_kids
 from routers.settings import router as settings_router
 from routers.dashboard import router as dashboard_router
@@ -667,6 +667,59 @@ async def dm_inbox_remind(request: Request):
     async with httpx.AsyncClient(timeout=10.0) as hx:
         r = await hx.post(f"{BOT_API_URL}/dm-inbox/remind", json=body)
         return r.json()
+
+# ── Inbox: suggest & send reply ──────────────────────────────────────────────────
+
+@app.post("/api/inbox/suggest-reply")
+async def inbox_suggest_reply(request: Request):
+    body = await request.json()
+    jid = body.get("jid", "")
+    name = body.get("name", "Unknown")
+    text = body.get("text", "")
+    if not text:
+        return {"error": "No message text"}
+    db_settings = get_settings()
+    api_key = db_settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "").strip()
+    ollama_url = db_settings.get("ollama_url", "").strip()
+    ollama_model = db_settings.get("ollama_model", "aya").strip() or "aya"
+    if not api_key and not ollama_url:
+        return {"error": "No AI configured — set up Anthropic or Ollama in Settings → Integrations"}
+    suggestion = await asyncio.get_event_loop().run_in_executor(
+        None, suggest_reply, text, name, api_key, ollama_url, ollama_model
+    )
+    return {"suggestion": suggestion}
+
+@app.post("/api/inbox/send-reply")
+async def inbox_send_reply(request: Request):
+    body = await request.json()
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/inbox/send-reply", json=body)
+            return r.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+# ── Activity heatmap ──────────────────────────────────────────────────────────────
+
+@app.get("/api/dashboard/activity-heatmap")
+async def activity_heatmap(days: int = 30):
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.get(f"{BOT_API_URL}/activity-heatmap", params={"days": days})
+            return r.json()
+    except Exception:
+        return {"grid": [[0] * 24 for _ in range(7)], "days": days}
+
+# ── MazalTover endpoints ──────────────────────────────────────────────────────────
+
+@app.get("/api/mazaltover/log")
+async def mazaltover_log():
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.get(f"{BOT_API_URL}/mazaltover-log")
+            return r.json()
+    except Exception:
+        return {"log": [], "pending": {}}
 
 # ── Digest endpoints ─────────────────────────────────────────────────────────────
 

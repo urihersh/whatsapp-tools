@@ -41,6 +41,8 @@ class SettingsUpdate(BaseModel):
     ollama_url: str | None = None
     ollama_model: str | None = None
     ollama_vision_model: str | None = None
+    mazaltov_groups: str | None = None
+    my_birthday: str | None = None
 
 
 async def _bot_get(path: str, params: dict | None = None, timeout: float = 5.0):

@@ -1,6 +1,6 @@
 # WhatsApp Tools — Ideas & Product Roadmap
 
-> Living document. Last updated: 2026-03-19
+> Living document. Last updated: 2026-03-20
 > Impact: 1–5 (5 = most impactful). Complexity: 1–5 (5 = hardest).
 
 ---
@@ -52,7 +52,6 @@ The best answer is the **1Password / Obsidian model**:
 
 | # | Idea | Description | Impact | Complexity |
 |---|------|-------------|--------|------------|
-| 14 | AI-drafted reply suggestion | When a DM is pending in inbox, suggest a reply based on the message using local AI — sent to you for approval before sending | 4 | 3 |
 | 15 | Scheduled messages | Schedule WA messages to be sent at a specific time (reminders, birthday messages) | 4 | 2 |
 | 16 | WA reminders to self | "Remind me about this in 2 hours" — forwards the message back to you via DM at the right time | 4 | 1 |
 | 17 | Smart auto-replies | Configurable away messages or keyword-triggered auto-responses for specific contacts or groups | 3 | 2 |
@@ -63,9 +62,7 @@ The best answer is the **1Password / Obsidian model**:
 
 | # | Idea | Description | Impact | Complexity |
 |---|------|-------------|--------|------------|
-| 18 | Contact activity heatmap | Who you message most by hour of day / day of week | 4 | 2 |
 | 19 | Relationship health score | Tracks response time trends to specific contacts — "You've been slower to reply to X lately" | 4 | 3 |
-| 20 | Message balance | Are you sending more than receiving in each chat? Healthy conversation balance tracker | 3 | 2 |
 | 21 | Media volume tracker | How much media is being shared per group per month | 3 | 2 |
 | 22 | "Wrapped" annual report | Spotify Wrapped-style: your WA year in review — top contacts, most active group, etc. | 5 | 3 |
 | 23 | Ghost contacts finder | People who stopped responding — surface faded relationships | 3 | 2 |
@@ -108,10 +105,9 @@ The best answer is the **1Password / Obsidian model**:
 | 🥇 1 | 29 | **School document auto-filer** | Solves a daily pain point for every parent — PDFs and schedules buried in group chats |
 | 🥈 2 | 31 | **Voice message transcription** | Whisper runs locally via Ollama; very practical for noisy group chats |
 | 🥉 3 | 27 | **Action item extractor** | Natural extension of the summarizer — same infra, high daily value |
-| 4 | 14 | **AI-drafted reply suggestion** | Completes the Inbox feature — not just track but help respond |
-| 5 | 22 | **"Wrapped" annual report** | Viral, shareable, fun — marketing flywheel for open-source growth |
-| 6 | 6 | **Memory Book** | High emotional value; parents will share it |
-| 7 | 7 | **Desktop app packaging** | Removes terminal friction, unlocks non-technical users, enables commercial path |
+| 4 | 22 | **"Wrapped" annual report** | Viral, shareable, fun — marketing flywheel for open-source growth |
+| 5 | 6 | **Memory Book** | High emotional value; parents will share it |
+| 6 | 7 | **Desktop app packaging** | Removes terminal friction, unlocks non-technical users, enables commercial path |
 
 ---
 

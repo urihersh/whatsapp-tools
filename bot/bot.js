@@ -63,6 +63,8 @@ const statLog = new Map();
 // jid -> { jid, name, text, timestamp, status: 'pending'|'snoozed'|'ignored', snoozeUntil }
 const DM_INBOX_FILE = path.join(__dirname, '..', 'data', 'dm-inbox.json');
 let dmInbox = {};
+// Live unread counts from Baileys chat events — jid -> unreadCount
+const dmUnreadCounts = new Map();
 
 function loadDmInbox() {
   try { dmInbox = JSON.parse(fs.readFileSync(DM_INBOX_FILE, 'utf8')); } catch (_) {}
@@ -71,6 +73,30 @@ function saveDmInbox() {
   try { fs.writeFileSync(DM_INBOX_FILE, JSON.stringify(dmInbox, null, 2)); } catch (_) {}
 }
 loadDmInbox();
+
+// --- MazalTover: auto congratulations sender ---
+const MAZALTOVER_LOG_FILE = path.join(__dirname, '..', 'data', 'mazaltover-log.json');
+let mazaltoverLog = [];
+function loadMazaltoverLog() {
+  try { mazaltoverLog = JSON.parse(fs.readFileSync(MAZALTOVER_LOG_FILE, 'utf8')); } catch (_) { mazaltoverLog = []; }
+}
+function saveMazaltoverLog() {
+  try { fs.writeFileSync(MAZALTOVER_LOG_FILE, JSON.stringify(mazaltoverLog.slice(0, 200), null, 2)); } catch (_) {}
+}
+loadMazaltoverLog();
+
+// groupId → { senders: Set<string>, windowStart: number, lastSent: number }
+const mazaltoverTracker = new Map();
+const MAZALTOV_RE = /מזל[\s]*טוב|mazel[\s]*tov|mazal[\s]*tov|congrat|ברכות/i;
+const DM_SKIP_TYPES = new Set([
+  'protocolMessage', 'reactionMessage', 'senderKeyDistributionMessage',
+  'messageContextInfo', 'pollUpdateMessage', 'pollCreationMessage',
+  'callLogMessage', 'peerDataOperationRequestMessage',
+]);
+const MAZALTOV_EMOJI_RE = /🎊|🎉|🥳/;
+function isMazaltovMsg(text) {
+  return !!text && (MAZALTOV_RE.test(text) || MAZALTOV_EMOJI_RE.test(text));
+}
 
 function formatAgo(ts) {
   const diff = Date.now() - ts;
@@ -116,6 +142,19 @@ for (const [jid, messages] of textHistory) {
     entries.push({ ts: msg.timestamp, fromMe: msg.sender === 'Me' });
   }
 }
+
+// Clear inbox entries where statLog shows a reply was sent after the last received message
+// (runs after statLog is seeded — catches replies made while bot was offline)
+function cleanInboxFromStatLog() {
+  let changed = false;
+  for (const [jid, entry] of Object.entries(dmInbox)) {
+    const entries = statLog.get(jid) || [];
+    const repliedAfter = entries.some(e => e.fromMe && e.ts > entry.timestamp);
+    if (repliedAfter) { delete dmInbox[jid]; changed = true; }
+  }
+  if (changed) saveDmInbox();
+}
+cleanInboxFromStatLog();
 
 // Oldest message cursor per group (used for fetchMessageHistory requests)
 const groupCursors = new Map(); // groupId -> { key, timestampMs }
@@ -258,19 +297,24 @@ async function connect() {
     }
   });
 
-  // Clear inbox when a DM chat is read (unreadCount drops to 0 or undefined)
-  sock.ev.on('chats.update', (updates) => {
+  // Track unread counts and clear inbox when a DM chat is read
+  function syncChatCounts(chats) {
     let changed = false;
-    for (const chat of updates) {
+    for (const chat of chats) {
       const jid = chat.id;
       if (!jid?.endsWith('@s.whatsapp.net')) continue;
-      if (dmInbox[jid] && (chat.unreadCount === 0 || chat.unreadCount === null)) {
-        delete dmInbox[jid];
-        changed = true;
+      if (typeof chat.unreadCount === 'number') {
+        dmUnreadCounts.set(jid, chat.unreadCount);
+        if (dmInbox[jid] && chat.unreadCount <= 0) {
+          delete dmInbox[jid];
+          changed = true;
+        }
       }
     }
     if (changed) saveDmInbox();
-  });
+  }
+  sock.ev.on('chats.update', syncChatCounts);
+  sock.ev.on('chats.upsert', syncChatCounts);
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     // 'notify' = new live message; 'append' = historical sync from device
@@ -281,23 +325,19 @@ async function connect() {
       storeStatEntry(msg);
       storeTextMsg(msg);
       // Track unanswered DMs — only real person-to-person chats
-      const DM_SKIP_TYPES = new Set([
-        'protocolMessage', 'reactionMessage', 'senderKeyDistributionMessage',
-        'messageContextInfo', 'pollUpdateMessage', 'pollCreationMessage',
-        'callLogMesssage', 'peerDataOperationRequestMessage',
-      ]);
       const dmJid = msg.key?.remoteJid;
       const isDM = dmJid && dmJid.endsWith('@s.whatsapp.net');
       const dmPhone = isDM ? dmJid.split('@')[0] : '';
       // Valid phone: 7–15 digits, not our own number
       const isValidDM = isDM && dmPhone.length >= 7 && dmPhone.length <= 15
         && dmPhone !== (phoneInfo?.number || '');
-      if (!isHistory && isValidDM) {
+      if (isValidDM && msg.key.fromMe && dmInbox[dmJid]) {
+        // Sent a reply → clear from inbox (applies to live events and history replay)
+        delete dmInbox[dmJid]; saveDmInbox();
+      }
+      if (!isHistory && isValidDM && !msg.key.fromMe) {
         const msgType = Object.keys(msg.message || {})[0];
-        if (msg.key.fromMe) {
-          // Sent a reply → clear from inbox
-          if (dmInbox[dmJid]) { delete dmInbox[dmJid]; saveDmInbox(); }
-        } else if (msg.message && msgType && !DM_SKIP_TYPES.has(msgType)) {
+        if (msg.message && msgType && !DM_SKIP_TYPES.has(msgType)) {
           // Received real DM → track as unanswered
           let text = '[message]';
           if (msgType === 'conversation') text = msg.message.conversation;
@@ -316,6 +356,54 @@ async function connect() {
             snoozeUntil: dmInbox[dmJid]?.snoozeUntil || null,
           };
           saveDmInbox();
+        }
+      }
+
+      // ── MazalTover: auto-congrats for group messages ──
+      if (!isHistory && !msg.key.fromMe && msg.key.remoteJid?.endsWith('@g.us')) {
+        const groupJid = msg.key.remoteJid;
+        try {
+          const settings = await getSettings();
+          const mazaltovGroups = JSON.parse(settings.mazaltov_groups || '[]');
+          const config = mazaltovGroups.find(g => g.id === groupJid);
+          if (config) {
+            const msgType = Object.keys(msg.message || {})[0];
+            let text = '';
+            if (msgType === 'conversation') text = msg.message.conversation || '';
+            else if (msgType === 'extendedTextMessage') text = msg.message.extendedTextMessage?.text || '';
+            if (isMazaltovMsg(text)) {
+              const sender = msg.key.participant || groupJid;
+              const now = Date.now();
+              const windowMs = 30 * 60 * 1000;
+              if (!mazaltoverTracker.has(groupJid)) {
+                mazaltoverTracker.set(groupJid, { senders: new Set(), windowStart: now, lastSent: 0 });
+              }
+              const tracker = mazaltoverTracker.get(groupJid);
+              if (now - tracker.windowStart > windowMs) {
+                tracker.senders.clear();
+                tracker.windowStart = now;
+              }
+              tracker.senders.add(sender);
+              // Skip if today is user's birthday (avoid congratulating yourself)
+              const birthday = settings.my_birthday || '';
+              const today = new Date();
+              const todayMD = `${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+              const isBirthday = birthday && birthday === todayMD;
+              const threshold = parseInt(config.threshold) || 3;
+              const cooldownMs = (parseInt(config.cooldown_hours) || 24) * 3600000;
+              if (!isBirthday && tracker.senders.size >= threshold && (now - tracker.lastSent) > cooldownMs) {
+                tracker.lastSent = now;
+                tracker.senders.clear();
+                const message = config.message || 'מזל טוב! 🎉';
+                await sock.sendMessage(groupJid, { text: message });
+                mazaltoverLog.unshift({ groupId: groupJid, groupName: config.name || groupJid, message, sentAt: now });
+                saveMazaltoverLog();
+                console.log(`[mazaltover] Sent to ${config.name || groupJid}`);
+              }
+            }
+          }
+        } catch (e) {
+          console.error('[mazaltover] Error:', e.message);
         }
       }
 
@@ -454,6 +542,8 @@ async function connect() {
         console.error('[bot] Analysis/forward failed:', e.message);
       }
     }
+    // After history sync batches, clear any inbox entries the user already replied to
+    if (isHistory) cleanInboxFromStatLog();
   });
 }
 
@@ -546,6 +636,7 @@ app.get('/message-stats', (req, res) => {
   let todayReceived = 0, todaySent = 0;
   const groupMap = {};
   const hourly = new Array(24).fill(0);
+  const last24Ts = Date.now() - 24 * 60 * 60 * 1000;
 
   for (const [groupId, entries] of statLog) {
     const group = allGroups.find(g => g.id === groupId);
@@ -554,7 +645,11 @@ app.get('/message-stats', (req, res) => {
       if (e.ts >= todayTs) {
         if (e.fromMe) todaySent++; else todayReceived++;
         todayCount++;
-        hourly[new Date(e.ts).getHours()]++;
+      }
+      if (e.ts >= last24Ts) {
+        // slot 0 = oldest hour, slot 23 = most recent hour
+        const slotIndex = 23 - Math.floor((Date.now() - e.ts) / (60 * 60 * 1000));
+        if (slotIndex >= 0 && slotIndex < 24) hourly[slotIndex]++;
       }
       if (e.ts >= weekTs) weekCount++;
     }
@@ -692,6 +787,9 @@ app.get('/dm-inbox', (req, res) => {
     if (item.status === 'snoozed' && (!item.snoozeUntil || now >= item.snoozeUntil)) {
       item.status = 'pending'; // snooze expired
     }
+    // Hide if Baileys reports this chat as read
+    const unread = dmUnreadCounts.get(item.jid);
+    if (typeof unread === 'number' && unread <= 0) return false;
     return true;
   });
   items.sort((a, b) => a.timestamp - b.timestamp); // oldest first = most urgent
@@ -732,6 +830,56 @@ app.post('/dm-inbox/remind', express.json(), async (req, res) => {
       const lines = pending.map(i => `• *${i.name}* — ${formatAgo(i.timestamp)}: "${i.text}"`).join('\n');
       await sock.sendMessage(myJid, { text: `📬 You have ${pending.length} unanswered DM${pending.length !== 1 ? 's' : ''}:\n\n${lines}` });
     }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+/// Top conversations: ranked by sent messages, with today counts
+app.get('/activity-heatmap', (req, res) => {
+  const days = parseInt(req.query.days || '30');
+  const since = Date.now() - days * 24 * 60 * 60 * 1000;
+  const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
+  const contacts = [];
+  for (const [jid, entries] of statLog) {
+    const hourBucket = new Array(24).fill(0);
+    let sent = 0, received = 0, today = 0;
+    for (const { ts, fromMe } of entries) {
+      if (ts >= todayStart.getTime()) today++;
+      if (ts < since) continue;
+      if (fromMe) { sent++; hourBucket[new Date(ts).getHours()]++; }
+      else received++;
+    }
+    if (sent + received === 0) continue;
+    const peakHour = hourBucket.indexOf(Math.max(...hourBucket));
+    const group = allGroups.find(g => g.id === jid);
+    const chat = allChats.find(c => c.id === jid);
+    const name = group?.name || chat?.name || jid.split('@')[0];
+    const isGroup = jid.endsWith('@g.us');
+    contacts.push({ jid, name, sent, received, today, peakHour, isGroup });
+  }
+  contacts.sort((a, b) => b.sent - a.sent);
+  res.json({ contacts: contacts.slice(0, 12), days });
+});
+
+// MazalTover log + pending counts
+app.get('/mazaltover-log', (req, res) => {
+  const pending = {};
+  for (const [jid, t] of mazaltoverTracker) {
+    if (t.senders.size > 0) pending[jid] = t.senders.size;
+  }
+  res.json({ log: mazaltoverLog, pending });
+});
+
+// Send a reply directly to a JID (used by Inbox suggest-reply feature)
+app.post('/inbox/send-reply', express.json(), async (req, res) => {
+  if (!isConnected) return res.status(503).json({ error: 'Not connected' });
+  const { jid, text } = req.body;
+  if (!jid || !text) return res.status(400).json({ error: 'Missing jid or text' });
+  try {
+    await sock.sendMessage(jid, { text });
+    if (dmInbox[jid]) { delete dmInbox[jid]; saveDmInbox(); }
     res.json({ ok: true });
   } catch (e) {
     res.status(500).json({ error: e.message });

@@ -173,6 +173,35 @@ def summarize_messages(
     return ""
 
 
+def suggest_reply(message_text: str, sender_name: str, api_key: str = "", ollama_url: str = "", ollama_model: str = "aya") -> str:
+    """Suggest a short reply for an unanswered DM."""
+    lang = _dominant_language(message_text)
+    prompt = (
+        f'You received this WhatsApp message from {sender_name}:\n"{message_text}"\n\n'
+        f'Write a short, friendly, natural reply in {lang}. '
+        'Just the reply text — no preamble, no quotes, no explanation.'
+    )
+    key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+    if key:
+        try:
+            client = _get_client(key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=150,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return msg.content[0].text.strip()
+        except Exception as e:
+            return f"Error: {e}"
+    if ollama_url:
+        try:
+            system = f"You are a helpful WhatsApp assistant. Always reply in {lang}."
+            return _ollama_chat(prompt, ollama_url, ollama_model or "aya", system=system)
+        except Exception as e:
+            return f"Ollama error: {e}"
+    return ""
+
+
 def test_ollama(ollama_url: str, model: str) -> dict:
     """Test connectivity and model availability."""
     try:

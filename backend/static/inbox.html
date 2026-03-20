@@ -39,6 +39,7 @@
           <span id="nav-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
         </a>
         <a href="/static/scout.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Scout</a>
+        <a href="/static/mazaltover.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">MazalTover</a>
         <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
       </div>
       <div class="flex items-center gap-3">
@@ -218,10 +219,31 @@
                 ).join('')}
               </div>
             </div>
+            <button onclick="suggestReply('${item.jid}', '${item.name.replace(/'/g,"\\'")}', '${item.text.replace(/'/g,"\\'").replace(/\n/g,' ')}')"
+                    class="flex items-center gap-1 px-3 py-1.5 bg-violet-50 text-violet-600 text-xs font-medium rounded-xl hover:bg-violet-100 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg>
+              Suggest
+            </button>
             <button onclick="ignore('${item.jid}')"
                     class="ml-auto px-3 py-1.5 text-gray-400 text-xs font-medium rounded-xl hover:bg-gray-100 hover:text-gray-600 transition-colors">
-              Ignore
+              Done
             </button>
+          </div>
+          <div id="reply-panel-${item.jid.replace(/[^a-zA-Z0-9]/g, '_')}" class="hidden mt-3 ml-5 space-y-2">
+            <textarea id="reply-text-${item.jid.replace(/[^a-zA-Z0-9]/g, '_')}" rows="2"
+                      class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-violet-400 bg-gray-50"
+                      placeholder="AI suggestion will appear here…"></textarea>
+            <div class="flex gap-2">
+              <button onclick="sendReply('${item.jid}')"
+                      class="flex items-center gap-1.5 px-3 py-1.5 bg-green-500 text-white text-xs font-medium rounded-xl hover:bg-green-600 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                Send via WA
+              </button>
+              <button onclick="document.getElementById('reply-panel-${item.jid.replace(/[^a-zA-Z0-9]/g, '_')}').classList.add('hidden')"
+                      class="px-3 py-1.5 bg-gray-100 text-gray-500 text-xs font-medium rounded-xl hover:bg-gray-200 transition-colors">
+                Cancel
+              </button>
+            </div>
           </div>`;
         el.appendChild(card);
       }
@@ -316,7 +338,7 @@
       const lastFired = localStorage.getItem('inbox_reminder_last_fired');
       const now = new Date();
       const [rH, rM] = time.split(':').map(Number);
-      const today = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+      const today = `${now.getFullYear()}-${now.getMonth() + 1}-${now.getDate()}`;
       if (lastFired === today) return; // already fired today
       if (now.getHours() === rH && now.getMinutes() >= rM) {
         // Fire it
@@ -341,6 +363,56 @@
           document.getElementById('nav-status').className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 text-xs font-medium text-red-600';
         }
       } catch (_) {}
+    }
+
+    async function suggestReply(jid, name, text) {
+      const panelId = jid.replace(/[^a-zA-Z0-9]/g, '_');
+      const panel = document.getElementById('reply-panel-' + panelId);
+      const textarea = document.getElementById('reply-text-' + panelId);
+      panel.classList.remove('hidden');
+      textarea.value = 'Generating…';
+      textarea.disabled = true;
+      try {
+        const r = await fetch('/api/inbox/suggest-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jid, name, text }),
+        });
+        const d = await r.json();
+        if (d.error) { showToast(d.error, 'error'); panel.classList.add('hidden'); return; }
+        textarea.value = d.suggestion || '';
+      } catch (e) {
+        showToast('Failed to get suggestion', 'error');
+        panel.classList.add('hidden');
+      } finally {
+        textarea.disabled = false;
+        textarea.focus();
+      }
+    }
+
+    async function sendReply(jid) {
+      const panelId = jid.replace(/[^a-zA-Z0-9]/g, '_');
+      const textarea = document.getElementById('reply-text-' + panelId);
+      const text = textarea.value.trim();
+      if (!text) { showToast('Reply is empty', 'error'); return; }
+      try {
+        const r = await fetch('/api/inbox/send-reply', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jid, text }),
+        });
+        const d = await r.json();
+        if (d.ok) {
+          showToast('Reply sent!');
+          items = items.filter(i => i.jid !== jid);
+          renderInbox();
+          updateBadge(items.length);
+        } else {
+          showToast(d.error || 'Failed to send', 'error');
+        }
+      } catch (e) {
+        showToast('Failed to send reply', 'error');
+      }
     }
 
     loadNavStatus();

@@ -1,0 +1,483 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WA Assistant – MazalTover</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/dark.css" />
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+
+  <div id="toast" class="hidden fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50"></div>
+
+  <!-- Nav -->
+  <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="/static/index.html" class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
+        <span class="text-base font-bold text-gray-900">WA Assistant</span>
+      </a>
+      <div class="flex gap-1">
+        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Home</a>
+        <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Inbox</a>
+        <a href="/static/scout.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Scout</a>
+        <a href="/static/mazaltover.html" class="px-4 py-2 rounded-xl text-sm font-medium text-amber-600 bg-amber-50">MazalTover</a>
+        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="nav-status" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-400">
+          <span id="nav-dot" class="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0"></span>
+          <span id="nav-name">Connecting…</span>
+        </div>
+        <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors">
+          <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg id="dark-icon-sun" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-3xl mx-auto px-6 py-8">
+
+    <!-- Header -->
+    <div class="mb-6">
+      <div class="flex items-center gap-3 mb-1">
+        <div class="w-10 h-10 rounded-2xl bg-amber-100 flex items-center justify-center text-2xl">🎉</div>
+        <h1 class="text-2xl font-bold text-gray-900">MazalTover</h1>
+      </div>
+      <p class="text-sm text-gray-400 ml-12">Auto-send congratulations when your groups celebrate — without lifting a finger.</p>
+    </div>
+
+    <!-- Birthday guard -->
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+      <div class="flex items-center justify-between gap-4">
+        <div>
+          <p class="text-sm font-semibold text-gray-800">My birthday</p>
+          <p class="text-xs text-gray-400 mt-0.5">Skip auto-send when the group is celebrating <em>you</em></p>
+        </div>
+        <div class="flex items-center gap-3">
+          <input type="text" id="my-birthday" placeholder="MM-DD" maxlength="5"
+                 class="border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 w-24 text-center focus:outline-none focus:ring-2 focus:ring-amber-400" />
+          <button onclick="saveBirthday()"
+                  class="px-4 py-2 bg-amber-500 text-white text-sm font-medium rounded-xl hover:bg-amber-600 transition-colors">
+            Save
+          </button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs -->
+    <div class="flex gap-1 mb-5 bg-gray-100 rounded-xl p-1 w-fit">
+      <button onclick="setTab('groups')" id="tab-groups"
+              class="px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm">
+        Groups
+      </button>
+      <button onclick="setTab('log')" id="tab-log"
+              class="px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-500 hover:text-gray-800">
+        Log
+      </button>
+    </div>
+
+    <!-- Groups tab -->
+    <div id="panel-groups">
+
+      <!-- Add group -->
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
+        <h2 class="text-sm font-semibold text-gray-700 mb-3">Add a group</h2>
+        <div class="relative mb-3" id="group-search-wrap">
+          <input id="group-search" type="text" placeholder="Search groups…" autocomplete="off"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                 oninput="filterGroups()" onfocus="showDropdown()" />
+          <div id="group-dropdown" class="hidden absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-48 overflow-y-auto"></div>
+        </div>
+        <div id="add-group-config" class="hidden space-y-3">
+          <input type="hidden" id="selected-group-id" />
+          <div>
+            <label class="text-xs text-gray-500 font-medium">Message to send</label>
+            <input type="text" id="new-message" value="מזל טוב! 🎉" dir="auto"
+                   class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+          </div>
+          <div class="flex gap-4">
+            <div class="flex-1">
+              <label class="text-xs text-gray-500 font-medium">Trigger after N people say mazal tov</label>
+              <input type="number" id="new-threshold" value="3" min="1" max="20"
+                     class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+            </div>
+            <div class="flex-1">
+              <label class="text-xs text-gray-500 font-medium">Cooldown (hours)</label>
+              <input type="number" id="new-cooldown" value="24" min="1" max="168"
+                     class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+            </div>
+          </div>
+          <button onclick="addGroup()"
+                  class="w-full py-2 bg-amber-500 text-white text-sm font-medium rounded-xl hover:bg-amber-600 transition-colors">
+            Add group
+          </button>
+        </div>
+      </div>
+
+      <!-- Configured groups -->
+      <div id="groups-list" class="space-y-3">
+        <p class="text-sm text-gray-400 text-center py-8">Loading…</p>
+      </div>
+
+    </div>
+
+    <!-- Log tab -->
+    <div id="panel-log" class="hidden">
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-gray-700">Recent auto-sends</h2>
+          <button onclick="loadLog()" class="p-1.5 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors" title="Refresh">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          </button>
+        </div>
+        <div id="log-list">
+          <p class="text-sm text-gray-400 text-center py-8">Loading…</p>
+        </div>
+      </div>
+    </div>
+
+  </main>
+
+  <!-- Edit group modal -->
+  <div id="edit-modal" class="hidden fixed inset-0 bg-black/40 z-50 flex items-center justify-center p-4">
+    <div class="bg-white rounded-2xl shadow-xl p-6 w-full max-w-md">
+      <h2 class="text-base font-semibold text-gray-900 mb-4">Edit group</h2>
+      <input type="hidden" id="edit-group-id" />
+      <div class="space-y-3">
+        <div>
+          <label class="text-xs text-gray-500 font-medium">Message to send</label>
+          <input type="text" id="edit-message" dir="auto"
+                 class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+        </div>
+        <div class="flex gap-4">
+          <div class="flex-1">
+            <label class="text-xs text-gray-500 font-medium">Trigger threshold</label>
+            <input type="number" id="edit-threshold" min="1" max="20"
+                   class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+          </div>
+          <div class="flex-1">
+            <label class="text-xs text-gray-500 font-medium">Cooldown (hours)</label>
+            <input type="number" id="edit-cooldown" min="1" max="168"
+                   class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400" />
+          </div>
+        </div>
+      </div>
+      <div class="flex gap-2 mt-5">
+        <button onclick="saveEdit()"
+                class="flex-1 py-2 bg-amber-500 text-white text-sm font-medium rounded-xl hover:bg-amber-600 transition-colors">
+          Save
+        </button>
+        <button onclick="closeEdit()"
+                class="flex-1 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors">
+          Cancel
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    function showToast(msg, type = 'success') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50 ${type === 'success' ? 'bg-green-600 text-white' : 'bg-red-500 text-white'}`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    // ── Tab ───────────────────────────────────────────────────────────────────
+    function setTab(tab) {
+      document.getElementById('panel-groups').classList.toggle('hidden', tab !== 'groups');
+      document.getElementById('panel-log').classList.toggle('hidden', tab !== 'log');
+      document.getElementById('tab-groups').className = tab === 'groups'
+        ? 'px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm'
+        : 'px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-500 hover:text-gray-800';
+      document.getElementById('tab-log').className = tab === 'log'
+        ? 'px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm'
+        : 'px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-500 hover:text-gray-800';
+      if (tab === 'log') loadLog();
+    }
+
+    // ── Settings storage ──────────────────────────────────────────────────────
+    let groups = [];   // array of { id, name, message, threshold, cooldown_hours }
+    let allWaGroups = [];
+
+    async function loadSettings() {
+      try {
+        const r = await fetch('/api/settings');
+        const s = await r.json();
+        try { groups = JSON.parse(s.mazaltov_groups || '[]'); } catch (_) { groups = []; }
+        document.getElementById('my-birthday').value = s.my_birthday || '';
+        renderGroupsList();
+      } catch (_) {}
+    }
+
+    async function saveGroups() {
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ mazaltov_groups: JSON.stringify(groups) }),
+      });
+    }
+
+    async function saveBirthday() {
+      const val = document.getElementById('my-birthday').value.trim();
+      if (val && !/^\d{2}-\d{2}$/.test(val)) {
+        showToast('Use MM-DD format (e.g. 07-15)', 'error'); return;
+      }
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ my_birthday: val }),
+      });
+      showToast(val ? `Birthday saved: ${val}` : 'Birthday cleared');
+    }
+
+    // ── WA groups search ──────────────────────────────────────────────────────
+    let selectedGroup = null;
+
+    async function loadWaGroups() {
+      try {
+        const r = await fetch('/api/settings/whatsapp/groups');
+        const d = await r.json();
+        allWaGroups = d.groups || [];
+      } catch (_) {}
+    }
+
+    function filterGroups() {
+      const q = document.getElementById('group-search').value.trim().toLowerCase();
+      const dropdown = document.getElementById('group-dropdown');
+      // exclude already-added groups
+      const addedIds = new Set(groups.map(g => g.id));
+      const filtered = (q ? allWaGroups.filter(g => g.name.toLowerCase().includes(q)) : allWaGroups)
+        .filter(g => !addedIds.has(g.id))
+        .slice(0, 8);
+      if (!filtered.length) {
+        dropdown.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">No groups found.</p>';
+      } else {
+        dropdown.innerHTML = '';
+        filtered.forEach(g => {
+          const item = document.createElement('div');
+          item.className = 'px-3 py-2 text-sm text-gray-700 cursor-pointer hover:bg-amber-50 rounded-lg';
+          item.textContent = g.name;
+          item.addEventListener('mousedown', () => selectGroup(g));
+          dropdown.appendChild(item);
+        });
+      }
+      dropdown.classList.remove('hidden');
+    }
+
+    function showDropdown() {
+      filterGroups();
+    }
+
+    function selectGroup(g) {
+      selectedGroup = g;
+      document.getElementById('group-search').value = g.name;
+      document.getElementById('selected-group-id').value = g.id;
+      document.getElementById('group-dropdown').classList.add('hidden');
+      document.getElementById('add-group-config').classList.remove('hidden');
+    }
+
+    document.addEventListener('click', e => {
+      if (!document.getElementById('group-search-wrap').contains(e.target))
+        document.getElementById('group-dropdown').classList.add('hidden');
+    });
+
+    // ── Groups list ───────────────────────────────────────────────────────────
+    function renderGroupsList() {
+      const el = document.getElementById('groups-list');
+      if (!groups.length) {
+        el.innerHTML = `
+          <div class="text-center py-12">
+            <div class="text-4xl mb-3">🎊</div>
+            <p class="text-sm font-medium text-gray-600">No groups configured yet</p>
+            <p class="text-xs text-gray-400 mt-1">Add a group above to get started</p>
+          </div>`;
+        return;
+      }
+      el.innerHTML = '';
+      groups.forEach((g, i) => {
+        const card = document.createElement('div');
+        card.className = 'bg-white rounded-2xl border border-gray-100 shadow-sm p-4';
+        card.innerHTML = `
+          <div class="flex items-start justify-between gap-3">
+            <div class="flex items-center gap-3 min-w-0">
+              <div class="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center text-lg flex-shrink-0">🎉</div>
+              <div class="min-w-0">
+                <p class="text-sm font-semibold text-gray-900 truncate">${g.name}</p>
+                <p class="text-xs text-gray-400 mt-0.5" dir="auto">${g.message}</p>
+              </div>
+            </div>
+            <div class="flex gap-1.5 flex-shrink-0">
+              <button onclick="openEdit(${i})" class="p-2 text-gray-400 hover:bg-gray-100 rounded-lg transition-colors" title="Edit">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+              </button>
+              <button onclick="removeGroup(${i})" class="p-2 text-gray-400 hover:bg-red-50 hover:text-red-500 rounded-lg transition-colors" title="Remove">
+                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+              </button>
+            </div>
+          </div>
+          <div class="flex gap-4 mt-3 ml-12">
+            <span class="text-xs text-gray-500">Trigger after <strong>${g.threshold}</strong> people</span>
+            <span class="text-xs text-gray-500">Cooldown: <strong>${g.cooldown_hours}h</strong></span>
+          </div>`;
+        el.appendChild(card);
+      });
+    }
+
+    async function addGroup() {
+      if (!selectedGroup) { showToast('Select a group first', 'error'); return; }
+      const message = document.getElementById('new-message').value.trim();
+      const threshold = parseInt(document.getElementById('new-threshold').value) || 3;
+      const cooldown_hours = parseInt(document.getElementById('new-cooldown').value) || 24;
+      if (!message) { showToast('Enter a message', 'error'); return; }
+      if (groups.find(g => g.id === selectedGroup.id)) { showToast('Group already added', 'error'); return; }
+      groups.push({ id: selectedGroup.id, name: selectedGroup.name, message, threshold, cooldown_hours });
+      await saveGroups();
+      renderGroupsList();
+      // reset add form
+      selectedGroup = null;
+      document.getElementById('group-search').value = '';
+      document.getElementById('selected-group-id').value = '';
+      document.getElementById('add-group-config').classList.add('hidden');
+      document.getElementById('new-message').value = 'מזל טוב! 🎉';
+      document.getElementById('new-threshold').value = '3';
+      document.getElementById('new-cooldown').value = '24';
+      showToast('Group added!');
+    }
+
+    async function removeGroup(i) {
+      groups.splice(i, 1);
+      await saveGroups();
+      renderGroupsList();
+      showToast('Group removed');
+    }
+
+    // ── Edit modal ────────────────────────────────────────────────────────────
+    let editIndex = -1;
+
+    function openEdit(i) {
+      editIndex = i;
+      const g = groups[i];
+      document.getElementById('edit-group-id').value = g.id;
+      document.getElementById('edit-message').value = g.message;
+      document.getElementById('edit-threshold').value = g.threshold;
+      document.getElementById('edit-cooldown').value = g.cooldown_hours;
+      document.getElementById('edit-modal').classList.remove('hidden');
+    }
+
+    function closeEdit() {
+      document.getElementById('edit-modal').classList.add('hidden');
+      editIndex = -1;
+    }
+
+    async function saveEdit() {
+      if (editIndex < 0) return;
+      groups[editIndex].message = document.getElementById('edit-message').value.trim() || groups[editIndex].message;
+      groups[editIndex].threshold = parseInt(document.getElementById('edit-threshold').value) || 3;
+      groups[editIndex].cooldown_hours = parseInt(document.getElementById('edit-cooldown').value) || 24;
+      await saveGroups();
+      renderGroupsList();
+      closeEdit();
+      showToast('Saved!');
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('edit-modal').addEventListener('click', e => {
+      if (e.target === document.getElementById('edit-modal')) closeEdit();
+    });
+
+    // ── Log ───────────────────────────────────────────────────────────────────
+    function timeStr(ts) {
+      return new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
+    }
+
+    async function loadLog() {
+      const el = document.getElementById('log-list');
+      el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">Loading…</p>';
+      try {
+        const r = await fetch('/api/mazaltover/log');
+        const d = await r.json();
+        const log = d.log || [];
+        const pending = d.pending || {};
+        if (!log.length && !Object.keys(pending).length) {
+          el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No mazal tovs sent yet.</p>';
+          return;
+        }
+        let html = '';
+        // Pending trackers
+        const pendingGroups = Object.entries(pending);
+        if (pendingGroups.length) {
+          html += '<div class="mb-4">';
+          html += '<p class="text-xs font-semibold text-amber-600 uppercase tracking-wide mb-2">Building up…</p>';
+          pendingGroups.forEach(([jid, count]) => {
+            const g = groups.find(g => g.id === jid);
+            const name = g?.name || jid;
+            const threshold = g?.threshold || 3;
+            html += `<div class="flex items-center gap-3 py-2 px-3 bg-amber-50 rounded-xl mb-2">
+              <span class="text-lg">🔄</span>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-800 truncate">${name}</p>
+                <p class="text-xs text-gray-500">${count} of ${threshold} people — waiting for more</p>
+              </div>
+            </div>`;
+          });
+          html += '</div>';
+        }
+        if (log.length) {
+          html += '<p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Sent</p>';
+          log.forEach(entry => {
+            html += `<div class="flex items-center gap-3 py-3 border-b border-gray-50 last:border-0">
+              <span class="text-xl">🎉</span>
+              <div class="flex-1 min-w-0">
+                <p class="text-sm font-medium text-gray-800 truncate">${entry.groupName}</p>
+                <p class="text-xs text-gray-400 mt-0.5" dir="auto">${entry.message}</p>
+              </div>
+              <span class="text-xs text-gray-400 flex-shrink-0">${timeStr(entry.sentAt)}</span>
+            </div>`;
+          });
+        }
+        el.innerHTML = html;
+      } catch (_) {
+        el.innerHTML = '<p class="text-sm text-red-400 text-center py-8">Could not load log. Is the bot running?</p>';
+      }
+    }
+
+    // ── Nav status ────────────────────────────────────────────────────────────
+    async function loadNavStatus() {
+      try {
+        const r = await fetch('/api/settings/whatsapp/status');
+        const d = await r.json();
+        const dot = document.getElementById('nav-dot');
+        const name = document.getElementById('nav-name');
+        if (d.connected) {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0';
+          name.textContent = d.phone?.name || 'Connected';
+          document.getElementById('nav-status').className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-xs font-medium text-green-700';
+        } else {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0';
+          name.textContent = 'Disconnected';
+          document.getElementById('nav-status').className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 text-xs font-medium text-red-600';
+        }
+      } catch (_) {}
+    }
+
+    loadNavStatus();
+    loadSettings();
+    loadWaGroups();
+  </script>
+  <script src="/static/dark.js"></script>
+  <script src="/static/pin_lock.js"></script>
+</body>
+</html>
