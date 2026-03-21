@@ -19,7 +19,7 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 from database import init_db, get_settings, log_activity, save_setting
 from face_service import FaceService
 from google_photos import GooglePhotosService
-from ai_service import get_moment_caption, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama, analyze_group_topics, stream_analyze_ollama
+from ai_service import get_moment_caption, caption_image, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama, analyze_group_topics, stream_analyze_ollama
 from routers.enrollment import router as enrollment_router, load_kids
 from routers.settings import router as settings_router
 from routers.dashboard import router as dashboard_router
@@ -767,11 +767,13 @@ async def group_analysis_topics(request: Request):
     body = await request.json()
     group_id = body.get("group_id", "")
     days = int(body.get("days", 30))
+    include_images = bool(body.get("include_images", False))
     if not group_id:
         return {"error": "group_id required"}
 
     db_settings = get_settings()
     api_key, ollama_url, ollama_model = await _resolve_ai(db_settings)
+    ollama_vision_model = db_settings.get("ollama_vision_model", "llava").strip() or "llava"
 
     if not api_key and not ollama_url:
         return {"error": "No AI configured — set up Anthropic or Ollama in Settings → Integrations"}
@@ -781,7 +783,6 @@ async def group_analysis_topics(request: Request):
     messages = []
     try:
         async with httpx.AsyncClient(timeout=10.0) as hx:
-            # Resolve group name
             try:
                 gr = await hx.get(f"{BOT_API_URL}/groups")
                 for g in gr.json().get("groups", []):
@@ -799,16 +800,54 @@ async def group_analysis_topics(request: Request):
         return {"topics": "", "group_name": group_name,
                 "note": "No messages found in this time window"}
 
-    transcript = "\n".join(f"{m['sender']}: {m['text']}" for m in messages[-500:])
+    transcript_lines = [f"{m['sender']}: {m['text']}" for m in messages[-500:]]
+
+    # Fetch and caption images, weave into transcript by timestamp
+    image_count = 0
+    if include_images and (api_key or ollama_vision_model):
+        try:
+            async with httpx.AsyncClient(timeout=10.0) as hx:
+                ir = await hx.get(f"{BOT_API_URL}/history-images",
+                                  params={"groupId": group_id, "since": since_ms})
+                image_list = ir.json().get("images", [])[:10]  # cap at 10
+            async def _caption_one(img_meta: dict) -> str | None:
+                try:
+                    async with httpx.AsyncClient(timeout=30.0) as hx:
+                        dr = await hx.get(f"{BOT_API_URL}/download-image/{img_meta['id']}",
+                                          params={"groupId": group_id})
+                        b64 = dr.json().get("image_b64", "")
+                        if not b64:
+                            return None
+                        image_bytes = base64.b64decode(b64)
+                    caption = await asyncio.get_event_loop().run_in_executor(
+                        None, caption_image, image_bytes,
+                        img_meta.get("sender", ""), api_key, ollama_url, ollama_vision_model
+                    )
+                    if caption:
+                        return f"{img_meta.get('sender', 'Someone')} shared an image: {caption}"
+                except Exception:
+                    pass
+                return None
+            captions = await asyncio.gather(*[_caption_one(img) for img in image_list])
+            for cap in captions:
+                if cap:
+                    transcript_lines.append(cap)
+                    image_count += 1
+        except Exception:
+            pass
+
+    transcript = "\n".join(transcript_lines)
 
     if api_key:
         result = await asyncio.get_event_loop().run_in_executor(
             None, analyze_group_topics, transcript, group_name, api_key, "", ""
         )
-        return {"topics": result, "group_name": group_name, "message_count": len(messages)}
+        return {"topics": result, "group_name": group_name, "message_count": len(messages),
+                "image_count": image_count}
 
     # Ollama streaming
-    meta = json.dumps({"group_name": group_name, "message_count": len(messages)})
+    meta = json.dumps({"group_name": group_name, "message_count": len(messages),
+                       "image_count": image_count})
 
     async def generate():
         yield f"data: {meta}\n\n"

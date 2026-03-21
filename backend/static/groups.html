@@ -156,6 +156,10 @@
           <h2 class="font-semibold text-gray-900">AI Topic Analysis</h2>
           <p class="text-xs text-gray-400 mt-0.5">What are people actually talking about?</p>
         </div>
+        <label class="flex items-center gap-2 text-sm text-gray-500 cursor-pointer select-none" title="Caption images using vision AI and include them in the analysis">
+          <input type="checkbox" id="include-images-cb" class="accent-indigo-600" />
+          Include images
+        </label>
         <button id="run-topics-btn" onclick="runTopicAnalysis()"
                 class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -412,17 +416,25 @@
       const textEl = document.getElementById('topics-text');
       const metaEl = document.getElementById('topics-meta');
       const noteEl = document.getElementById('topics-note');
+      const includeImages = document.getElementById('include-images-cb').checked;
+      const btnOrigHTML = btn.innerHTML;
       btn.disabled = true;
-      btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> Analyzing…`;
+      btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> ${includeImages ? 'Captioning images…' : 'Analyzing…'}`;
       noteEl.classList.add('hidden');
       resultEl.classList.add('hidden');
       textEl.textContent = '';
+
+      function fmtMeta(d) {
+        let s = `${d.group_name} · ${d.message_count} msgs`;
+        if (d.image_count) s += ` + ${d.image_count} images`;
+        return s + ' analyzed';
+      }
 
       try {
         const r = await fetch('/api/group-analysis/topics', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ group_id: selectedGroupId, days: selectedDays }),
+          body: JSON.stringify({ group_id: selectedGroupId, days: selectedDays, include_images: includeImages }),
         });
         const contentType = r.headers.get('content-type') || '';
 
@@ -440,7 +452,7 @@
               if (!line.startsWith('data: ')) continue;
               const data = JSON.parse(line.slice(6));
               if (data.error) { noteEl.textContent = data.error; noteEl.classList.remove('hidden'); }
-              if (data.group_name) metaEl.textContent = `${data.group_name} · ${data.message_count} msgs analyzed`;
+              if (data.group_name) metaEl.textContent = fmtMeta(data);
               if (data.chunk) {
                 textEl.textContent += data.chunk;
                 textEl.dir = isRTL(textEl.textContent) ? 'rtl' : 'ltr';
@@ -452,8 +464,8 @@
           const d = await r.json();
           if (d.error) { noteEl.textContent = d.error; noteEl.classList.remove('hidden'); }
           else if (d.note) { noteEl.textContent = d.note; noteEl.classList.remove('hidden'); }
-          else {
-            metaEl.textContent = `${d.group_name} · ${d.message_count} msgs analyzed`;
+          else if (d.topics) {
+            metaEl.textContent = fmtMeta(d);
             textEl.textContent = d.topics;
             textEl.dir = isRTL(d.topics) ? 'rtl' : 'ltr';
             resultEl.classList.remove('hidden');
@@ -464,7 +476,7 @@
         noteEl.classList.remove('hidden');
       } finally {
         btn.disabled = false;
-        btn.innerHTML = `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/></svg> Analyze Topics`;
+        btn.innerHTML = btnOrigHTML;
       }
     }
 

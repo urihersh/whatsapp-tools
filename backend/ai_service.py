@@ -43,6 +43,53 @@ def _ollama_chat(prompt: str, ollama_url: str, model: str, system: str = "") -> 
     return r.json()["message"]["content"].strip()
 
 
+def caption_image(
+    image_bytes: bytes,
+    sender: str = "",
+    api_key: str = "",
+    ollama_url: str = "",
+    ollama_vision_model: str = "llava",
+) -> str:
+    """Return a short caption describing what's in a group image."""
+    who = f"{sender} shared this image. " if sender else ""
+    prompt = (
+        f"{who}In one short sentence (max 15 words), describe what is shown in this image. "
+        "Be specific and factual."
+    )
+    key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+    if key:
+        try:
+            client = _get_client(key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=80,
+                messages=[{"role": "user", "content": [
+                    {"type": "image", "source": {
+                        "type": "base64", "media_type": "image/jpeg",
+                        "data": base64.b64encode(image_bytes).decode(),
+                    }},
+                    {"type": "text", "text": prompt},
+                ]}],
+            )
+            return msg.content[0].text.strip()
+        except Exception:
+            return ""
+    if ollama_url and ollama_vision_model:
+        try:
+            url = ollama_url.rstrip("/") + "/api/chat"
+            r = requests.post(url, json={
+                "model": ollama_vision_model,
+                "messages": [{"role": "user", "content": prompt,
+                               "images": [base64.b64encode(image_bytes).decode()]}],
+                "stream": False,
+            }, timeout=60)
+            r.raise_for_status()
+            return r.json()["message"]["content"].strip()
+        except Exception:
+            return ""
+    return ""
+
+
 def get_moment_caption(
     image_bytes: bytes,
     kid_names: list[str],
