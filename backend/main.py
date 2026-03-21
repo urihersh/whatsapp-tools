@@ -19,7 +19,7 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 from database import init_db, get_settings, log_activity, save_setting
 from face_service import FaceService
 from google_photos import GooglePhotosService
-from ai_service import get_moment_caption, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama
+from ai_service import get_moment_caption, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama, analyze_group_topics, stream_analyze_ollama
 from routers.enrollment import router as enrollment_router, load_kids
 from routers.settings import router as settings_router
 from routers.dashboard import router as dashboard_router
@@ -41,6 +41,28 @@ BOT_API_URL = os.getenv("BOT_API_URL", "http://localhost:3001")
 
 def _safe_filename(name: str) -> str:
     return "".join(c if c.isalnum() or c in " -_." else "_" for c in name).strip() or "unknown"
+
+
+_DEFAULT_OLLAMA_URL = "http://localhost:11434"
+
+async def _resolve_ai(db_settings: dict) -> tuple[str, str, str]:
+    """Return (api_key, ollama_url, ollama_model), auto-detecting Ollama if needed."""
+    api_key = db_settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "").strip()
+    ollama_url = db_settings.get("ollama_url", "").strip()
+    ollama_model = (db_settings.get("ollama_model", "") or "aya").strip()
+    if not api_key and not ollama_url:
+        try:
+            async with httpx.AsyncClient(timeout=2.0) as hx:
+                r = await hx.get(f"{_DEFAULT_OLLAMA_URL}/api/tags")
+                if r.status_code == 200:
+                    ollama_url = _DEFAULT_OLLAMA_URL
+                    save_setting("ollama_url", ollama_url)
+                    if not ollama_model:
+                        ollama_model = "aya"
+                        save_setting("ollama_model", ollama_model)
+        except Exception:
+            pass
+    return api_key, ollama_url, ollama_model
 
 
 def _resolve_group(group_id: str, db_settings: dict) -> tuple[list, dict, str]:
@@ -593,9 +615,7 @@ async def summarize_group(group_id: str = "", since_minutes: int = 60):
         return {"summary": "", "message_count": 0, "group_name": group_name,
                 "note": "No messages found in the selected time window"}
 
-    api_key = db_settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "").strip()
-    ollama_url = db_settings.get("ollama_url", "").strip()
-    ollama_model = db_settings.get("ollama_model", "aya").strip() or "aya"
+    api_key, ollama_url, ollama_model = await _resolve_ai(db_settings)
 
     if not api_key and not ollama_url:
         return {"error": "No AI configured. Add an Anthropic API key or set up Ollama in Settings → Integrations."}
@@ -649,24 +669,33 @@ async def dm_inbox_get():
 
 @app.post("/api/dm-inbox/ignore")
 async def dm_inbox_ignore(request: Request):
-    body = await request.json()
-    async with httpx.AsyncClient(timeout=5.0) as hx:
-        r = await hx.post(f"{BOT_API_URL}/dm-inbox/ignore", json=body)
-        return r.json()
+    try:
+        body = await request.json()
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/dm-inbox/ignore", json=body)
+            return r.json()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 @app.post("/api/dm-inbox/snooze")
 async def dm_inbox_snooze(request: Request):
-    body = await request.json()
-    async with httpx.AsyncClient(timeout=5.0) as hx:
-        r = await hx.post(f"{BOT_API_URL}/dm-inbox/snooze", json=body)
-        return r.json()
+    try:
+        body = await request.json()
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/dm-inbox/snooze", json=body)
+            return r.json()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 @app.post("/api/dm-inbox/remind")
 async def dm_inbox_remind(request: Request):
-    body = await request.json()
-    async with httpx.AsyncClient(timeout=10.0) as hx:
-        r = await hx.post(f"{BOT_API_URL}/dm-inbox/remind", json=body)
-        return r.json()
+    try:
+        body = await request.json()
+        async with httpx.AsyncClient(timeout=10.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/dm-inbox/remind", json=body)
+            return r.json()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
 
 # ── Inbox: suggest & send reply ──────────────────────────────────────────────────
 
@@ -679,9 +708,7 @@ async def inbox_suggest_reply(request: Request):
     if not text:
         return {"error": "No message text"}
     db_settings = get_settings()
-    api_key = db_settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "").strip()
-    ollama_url = db_settings.get("ollama_url", "").strip()
-    ollama_model = db_settings.get("ollama_model", "aya").strip() or "aya"
+    api_key, ollama_url, ollama_model = await _resolve_ai(db_settings)
     if not api_key and not ollama_url:
         return {"error": "No AI configured — set up Anthropic or Ollama in Settings → Integrations"}
     suggestion = await asyncio.get_event_loop().run_in_executor(
@@ -720,6 +747,80 @@ async def mazaltover_log():
             return r.json()
     except Exception:
         return {"log": [], "pending": {}}
+
+# ── Group Analysis endpoints ─────────────────────────────────────────────────────
+
+@app.get("/api/group-analysis")
+async def group_analysis(group_id: str = "", days: int = 30):
+    if not group_id:
+        return {"error": "group_id required"}
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as hx:
+            r = await hx.get(f"{BOT_API_URL}/group-analysis", params={"groupId": group_id, "days": days})
+            return r.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/group-analysis/topics")
+async def group_analysis_topics(request: Request):
+    body = await request.json()
+    group_id = body.get("group_id", "")
+    days = int(body.get("days", 30))
+    if not group_id:
+        return {"error": "group_id required"}
+
+    db_settings = get_settings()
+    api_key, ollama_url, ollama_model = await _resolve_ai(db_settings)
+
+    if not api_key and not ollama_url:
+        return {"error": "No AI configured — set up Anthropic or Ollama in Settings → Integrations"}
+
+    since_ms = int((time.time() - days * 86400) * 1000)
+    group_name = group_id
+    messages = []
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as hx:
+            # Resolve group name
+            try:
+                gr = await hx.get(f"{BOT_API_URL}/groups")
+                for g in gr.json().get("groups", []):
+                    if g.get("id") == group_id:
+                        group_name = g.get("name", group_id)
+                        break
+            except Exception:
+                pass
+            r = await hx.get(f"{BOT_API_URL}/history-text", params={"groupId": group_id, "since": since_ms})
+            messages = r.json().get("messages", [])
+    except Exception as e:
+        return {"error": f"Could not reach bot: {e}"}
+
+    if not messages:
+        return {"topics": "", "group_name": group_name,
+                "note": "No messages found in this time window"}
+
+    transcript = "\n".join(f"{m['sender']}: {m['text']}" for m in messages[-500:])
+
+    if api_key:
+        result = await asyncio.get_event_loop().run_in_executor(
+            None, analyze_group_topics, transcript, group_name, api_key, "", ""
+        )
+        return {"topics": result, "group_name": group_name, "message_count": len(messages)}
+
+    # Ollama streaming
+    meta = json.dumps({"group_name": group_name, "message_count": len(messages)})
+
+    async def generate():
+        yield f"data: {meta}\n\n"
+        try:
+            async for chunk in stream_analyze_ollama(transcript, group_name, ollama_url, ollama_model):
+                yield f"data: {json.dumps({'chunk': chunk})}\n\n"
+        except Exception as e:
+            yield f"data: {json.dumps({'error': str(e)})}\n\n"
+        yield 'data: {"done":true}\n\n'
+
+    return StreamingResponse(generate(), media_type="text/event-stream")
+
 
 # ── Digest endpoints ─────────────────────────────────────────────────────────────
 

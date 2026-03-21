@@ -17,7 +17,7 @@
   <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
     <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
       <a href="/static/index.html" class="flex items-center gap-2.5 group">
-        <div class="w-8 h-8 rounded-xl bg-blue-600 flex items-center justify-center shadow-sm group-hover:bg-blue-700 transition-colors">
+        <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm group-hover:bg-indigo-700 transition-colors">
           <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
@@ -30,6 +30,7 @@
           Inbox<span id="inbox-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
         </a>
         <a href="/static/scout.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Scout</a>
+        <a href="/static/groups.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Groups</a>
         <a href="/static/mazaltover.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">MazalTover</a>
         <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-blue-600 bg-blue-50">Settings</a>
       </div>
@@ -194,7 +195,11 @@
               </div>
             </div>
           </div>
-          <div class="flex gap-2 items-center">
+          <div class="flex gap-2 items-center flex-wrap">
+            <button onclick="autoDetectOllama()"
+                    class="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-xl hover:bg-gray-200 transition-colors">
+              Auto-detect
+            </button>
             <button onclick="testOllama()"
                     class="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-xl hover:bg-emerald-700 transition-colors shadow-sm">
               Test Connection
@@ -417,6 +422,34 @@
       document.getElementById('gp-connect-btn').classList.remove('hidden');
       document.getElementById('gp-disconnect-btn').classList.add('hidden');
       showToast('Disconnected from Google Photos');
+    }
+
+    async function autoDetectOllama() {
+      const resultEl = document.getElementById('ollama-test-result');
+      resultEl.textContent = 'Detecting…';
+      resultEl.className = 'text-xs text-gray-400';
+      const url = 'http://localhost:11434';
+      try {
+        const r = await fetch('/api/settings/ollama/test', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url, model: 'aya' }),
+        });
+        const d = await r.json();
+        if (d.ok) {
+          document.getElementById('ollama-url').value = url;
+          if (!document.getElementById('ollama-model').value) document.getElementById('ollama-model').value = 'aya';
+          await saveSettings();
+          resultEl.textContent = '✓ Detected & saved';
+          resultEl.className = 'text-xs text-green-600';
+        } else {
+          resultEl.textContent = '✗ Ollama not found at localhost:11434';
+          resultEl.className = 'text-xs text-red-500';
+        }
+      } catch (e) {
+        resultEl.textContent = '✗ Detection failed';
+        resultEl.className = 'text-xs text-red-500';
+      }
     }
 
     async function testOllama() {

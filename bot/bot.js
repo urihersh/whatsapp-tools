@@ -117,10 +117,7 @@ function loadTextHistory() {
   const cutoff = Date.now() - 7 * 24 * 60 * 60 * 1000; // keep 7 days
   for (const file of fs.readdirSync(TEXT_LOG_DIR)) {
     if (!file.endsWith('.jsonl')) continue;
-    const jid = file.slice(0, -6).replace(/_/g, match => {
-      // rough reverse: can't perfectly reverse but we read groupId from the stored entry
-      return match;
-    });
+    // groupId is read from the stored entry itself, not derived from filename
     try {
       const lines = fs.readFileSync(path.join(TEXT_LOG_DIR, file), 'utf8').trim().split('\n').filter(Boolean);
       const msgs = lines.map(l => JSON.parse(l)).filter(m => m.timestamp >= cutoff);
@@ -488,7 +485,7 @@ async function connect() {
       if (!groupConfig) continue;
 
       const forwardToId = settings.forward_to_id;
-      if (!forwardToId) { console.log('[bot] No forward target configured.'); continue; }
+      if (!forwardToId) continue;
 
       const groupName = groupConfig.name || groupId;
       const mediaType = isVideo ? 'Video' : 'Image';
@@ -861,6 +858,67 @@ app.get('/activity-heatmap', (req, res) => {
   }
   contacts.sort((a, b) => b.sent - a.sent);
   res.json({ contacts: contacts.slice(0, 12), days });
+});
+
+// Single-group analysis: top writers, hourly/dow activity, emoji, trend
+app.get('/group-analysis', (req, res) => {
+  const { groupId, days = '30' } = req.query;
+  if (!groupId) return res.status(400).json({ error: 'groupId required' });
+
+  const daysInt = parseInt(days);
+  const now = Date.now();
+  const since = now - daysInt * 24 * 60 * 60 * 1000;
+  const prevSince = since - daysInt * 24 * 60 * 60 * 1000;
+
+  const allMsgs = textHistory.get(groupId) || [];
+  const msgs = allMsgs.filter(m => m.timestamp >= since);
+  const allEntries = statLog.get(groupId) || [];
+  const entries = allEntries.filter(e => e.ts >= since);
+
+  // Top writers
+  const writerCounts = {};
+  for (const m of msgs) writerCounts[m.sender] = (writerCounts[m.sender] || 0) + 1;
+  const topWriters = Object.entries(writerCounts)
+    .sort((a, b) => b[1] - a[1]).slice(0, 10)
+    .map(([sender, count]) => ({ sender, count }));
+
+  // Hourly buckets (all message types via statLog)
+  const hourBuckets = new Array(24).fill(0);
+  for (const e of entries) hourBuckets[new Date(e.ts).getHours()]++;
+
+  // Day-of-week buckets
+  const dowBuckets = new Array(7).fill(0);
+  for (const e of entries) dowBuckets[new Date(e.ts).getDay()]++;
+
+  // Stat counts
+  const uniqueSenders = new Set(msgs.map(m => m.sender)).size;
+  let mediaCount = 0;
+  for (const store of [imageHistory.get(groupId), videoHistory.get(groupId)]) {
+    if (store) for (const [, msg] of store)
+      if ((msg.messageTimestamp || 0) * 1000 >= since) mediaCount++;
+  }
+  const totalMessages = entries.length;
+  const prevTotal = allEntries.filter(e => e.ts >= prevSince && e.ts < since).length;
+  const trendPct = prevTotal === 0 ? null : Math.round((totalMessages - prevTotal) / prevTotal * 100);
+
+  // Top emoji
+  const EMOJI_RE = /\p{Emoji_Presentation}/gu;
+  const emojiCounts = {};
+  for (const m of msgs) {
+    if (!m.text) continue;
+    for (const e of (m.text.match(EMOJI_RE) || [])) emojiCounts[e] = (emojiCounts[e] || 0) + 1;
+  }
+  const topEmoji = Object.entries(emojiCounts)
+    .sort((a, b) => b[1] - a[1]).slice(0, 12)
+    .map(([emoji, count]) => ({ emoji, count }));
+
+  const group = allGroups.find(g => g.id === groupId);
+  res.json({
+    groupId, groupName: group?.name || groupId, days: daysInt,
+    totalMessages, uniqueSenders, mediaCount, trendPct,
+    topWriters, hourBuckets, dowBuckets, topEmoji,
+    textMessageCount: msgs.length,
+  });
 });
 
 // MazalTover log + pending counts

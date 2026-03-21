@@ -173,6 +173,70 @@ def summarize_messages(
     return ""
 
 
+def analyze_group_topics(
+    transcript: str,
+    group_name: str,
+    api_key: str = "",
+    ollama_url: str = "",
+    ollama_model: str = "aya",
+) -> str:
+    """Identify the main topics discussed in a group transcript."""
+    lang = _dominant_language(transcript)
+    prompt = (
+        f'Analyze this WhatsApp group conversation from "{group_name}".\n'
+        f"Identify the 4–7 main recurring topics or themes discussed.\n"
+        f"For each topic write one line: start with a relevant emoji, then the topic name, "
+        f"then a colon, then a brief description (max 12 words).\n"
+        f"Write in {lang}. Output only the topic lines, nothing else.\n\n"
+        f"{transcript}"
+    )
+    key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+    if key:
+        try:
+            client = _get_client(key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=600,
+                messages=[{"role": "user", "content": prompt}],
+            )
+            return msg.content[0].text.strip()
+        except Exception as e:
+            return f"Analysis failed: {e}"
+    if ollama_url:
+        try:
+            system = f"You are a conversation analyst. Write all output in {lang} only."
+            return _ollama_chat(prompt, ollama_url, ollama_model or "aya", system=system)
+        except Exception as e:
+            return f"Ollama error: {e}"
+    return ""
+
+
+async def stream_analyze_ollama(transcript: str, group_name: str, ollama_url: str, ollama_model: str = "aya"):
+    """Async generator that streams topic analysis chunks from Ollama."""
+    lang = _dominant_language(transcript)
+    prompt = (
+        f'Analyze this WhatsApp group conversation from "{group_name}".\n'
+        f"Identify the 4–7 main recurring topics or themes discussed.\n"
+        f"For each topic write one line: start with a relevant emoji, then the topic name, "
+        f"then a colon, then a brief description (max 12 words).\n"
+        f"Write in {lang}. Output only the topic lines, nothing else.\n\n"
+        f"{transcript}"
+    )
+    system = f"You are a conversation analyst. Write all output in {lang} only."
+    async with httpx.AsyncClient(timeout=180) as client:
+        async with client.stream("POST", ollama_url.rstrip("/") + "/api/chat", json={
+            "model": ollama_model,
+            "messages": [{"role": "system", "content": system}, {"role": "user", "content": prompt}],
+            "stream": True,
+        }) as r:
+            r.raise_for_status()
+            async for line in r.aiter_lines():
+                if line:
+                    data = json.loads(line)
+                    if chunk := data.get("message", {}).get("content", ""):
+                        yield chunk
+
+
 def suggest_reply(message_text: str, sender_name: str, api_key: str = "", ollama_url: str = "", ollama_model: str = "aya") -> str:
     """Suggest a short reply for an unanswered DM."""
     lang = _dominant_language(message_text)
