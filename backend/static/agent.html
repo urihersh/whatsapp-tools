@@ -106,6 +106,16 @@
                     class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white leading-relaxed"></textarea>
         </div>
 
+        <!-- Approval mode toggle -->
+        <label class="flex items-center gap-2.5 cursor-pointer select-none">
+          <div class="relative">
+            <input type="checkbox" id="approval-mode" class="sr-only peer">
+            <div class="w-9 h-5 bg-gray-200 peer-checked:bg-teal-600 rounded-full transition-colors"></div>
+            <div class="absolute top-0.5 left-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform peer-checked:translate-x-4"></div>
+          </div>
+          <span class="text-sm font-medium text-gray-700">Approve each message before sending</span>
+        </label>
+
         <!-- Activate -->
         <button id="activate-btn" onclick="toggleAgent()"
                 class="w-full py-3 bg-teal-700 text-white font-semibold rounded-xl hover:bg-teal-800 transition-all shadow-sm flex items-center justify-center gap-2">
@@ -144,6 +154,19 @@
             </span>
           </div>
           <button onclick="clearLog()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Clear log</button>
+        </div>
+        <!-- Approval card -->
+        <div id="approval-card" class="hidden px-5 py-4 border-t border-amber-100 bg-amber-50">
+          <p class="text-xs font-semibold text-amber-700 mb-2 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            Waiting for your approval
+          </p>
+          <textarea id="approval-text" rows="3"
+                    class="w-full border border-amber-200 rounded-xl px-3 py-2 text-sm text-gray-800 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white mb-2"></textarea>
+          <div class="flex gap-2">
+            <button onclick="approveMessage()" class="flex-1 py-2 bg-teal-700 text-white text-sm font-semibold rounded-xl hover:bg-teal-800 transition-colors">Send</button>
+            <button onclick="rejectMessage()" class="flex-1 py-2 border border-gray-200 text-gray-500 text-sm font-semibold rounded-xl hover:bg-gray-50 transition-colors">Discard</button>
+          </div>
         </div>
         <div id="log-feed" class="flex-1 overflow-y-auto px-5 py-4 space-y-3">
           <p id="log-empty" class="text-sm text-gray-300 text-center mt-16">No activity yet.<br>Activate the bot to start.</p>
@@ -241,13 +264,14 @@
 
       if (agentActive) {
         await fetch('/api/agent/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid: selectedJid }) });
+        document.getElementById('approval-card').classList.add('hidden');
         setAgentUI(false);
         showToast('Bot stopped');
       } else {
         const r = await fetch('/api/agent/start', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ jid: selectedJid, name: selectedName, prompt: document.getElementById('agent-prompt').value.trim() }),
+          body: JSON.stringify({ jid: selectedJid, name: selectedName, prompt: document.getElementById('agent-prompt').value.trim(), approval_mode: document.getElementById('approval-mode').checked }),
         });
         const d = await r.json();
         if (d.ok) { setAgentUI(true); showToast('Bot activated'); }
@@ -281,6 +305,35 @@
         document.getElementById('initiate-btn').classList.add('hidden');
         clearInterval(logPollInterval); logPollInterval = null;
       }
+    }
+
+    async function approveMessage() {
+      if (!selectedJid) return;
+      const text = document.getElementById('approval-text').value.trim();
+      if (!text) return;
+      const btn = document.querySelector('#approval-card button:first-of-type');
+      btn.disabled = true; btn.textContent = 'Sending…';
+      try {
+        const r = await fetch('/api/agent/approve', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jid: selectedJid, text }),
+        });
+        const d = await r.json();
+        if (!d.ok) showToast(d.error || 'Failed to send', 'error');
+        document.getElementById('approval-card').classList.add('hidden');
+      } catch (_) { showToast('Network error', 'error'); }
+      finally { btn.disabled = false; btn.textContent = 'Send'; }
+    }
+
+    async function rejectMessage() {
+      if (!selectedJid) return;
+      await fetch('/api/agent/reject', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ jid: selectedJid }),
+      });
+      document.getElementById('approval-card').classList.add('hidden');
     }
 
     async function initiateConversation() {
@@ -323,11 +376,23 @@
     async function pollLog() {
       if (!selectedJid) return;
       try {
-        const r = await fetch(`/api/agent/log?jid=${encodeURIComponent(selectedJid)}&since=${lastLogTs}`);
-        const d = await r.json();
-        document.getElementById('busy-indicator').classList.toggle('hidden', !d.busy);
-        document.getElementById('busy-indicator').classList.toggle('flex', d.busy);
+        const [logRes, pendRes] = await Promise.all([
+          fetch(`/api/agent/log?jid=${encodeURIComponent(selectedJid)}&since=${lastLogTs}`),
+          fetch(`/api/agent/pending?jid=${encodeURIComponent(selectedJid)}`),
+        ]);
+        const d = await logRes.json();
+        const pd = await pendRes.json();
+        document.getElementById('busy-indicator').classList.toggle('hidden', !d.busy || pd.pending);
+        document.getElementById('busy-indicator').classList.toggle('flex', d.busy && !pd.pending);
         appendLog(d.log);
+        // Show/hide approval card
+        const card = document.getElementById('approval-card');
+        if (pd.pending) {
+          document.getElementById('approval-text').value = pd.pending.text;
+          card.classList.remove('hidden');
+        } else {
+          card.classList.add('hidden');
+        }
       } catch (_) {}
     }
 
@@ -345,6 +410,8 @@
       if (!entries.length) return;
       document.getElementById('log-empty')?.remove();
       entries.forEach(e => { appendEntry(e); if (e.ts > lastLogTs) lastLogTs = e.ts; });
+      const feed = document.getElementById('log-feed');
+      feed.scrollTop = feed.scrollHeight;
     }
 
     function appendEntry(e) {
@@ -372,6 +439,17 @@
           <div class="w-7 h-7 rounded-full bg-teal-700 flex items-center justify-center flex-shrink-0">
             <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"/></svg>
           </div>`;
+      } else if (e.role === 'pending') {
+        div.className = 'flex items-end justify-end gap-2 opacity-60';
+        div.innerHTML = `
+          <div class="max-w-xs text-right">
+            <p class="text-xs text-amber-500 mb-1 mr-1">Pending approval…</p>
+            <div class="msg-out px-3 py-2 text-sm ml-auto inline-block border border-dashed border-teal-400">${escHtml(e.text)}</div>
+            <p class="text-xs text-gray-300 mt-1 mr-1">${time}</p>
+          </div>`;
+      } else if (e.role === 'rejected') {
+        div.className = 'flex justify-center';
+        div.innerHTML = `<div class="px-3 py-1.5 text-xs text-gray-400 italic">Message discarded</div>`;
       } else if (e.role === 'error') {
         div.className = 'flex justify-center';
         div.innerHTML = `<div class="msg-err px-3 py-2 text-xs text-red-600 max-w-sm text-center">${escHtml(e.text)}</div>`;

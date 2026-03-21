@@ -990,6 +990,38 @@ async def agent_initiate(request: Request):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+
+@app.get("/api/agent/pending")
+async def agent_pending(jid: str = ""):
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.get(f"{BOT_API_URL}/agent/pending", params={"jid": jid})
+            return r.json()
+    except Exception:
+        return {"pending": None}
+
+
+@app.post("/api/agent/approve")
+async def agent_approve(request: Request):
+    body = await request.json()
+    try:
+        async with httpx.AsyncClient(timeout=15.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/agent/approve", json=body)
+            return r.json()
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/agent/reject")
+async def agent_reject(request: Request):
+    body = await request.json()
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/agent/reject", json=body)
+            return r.json()
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
 @app.post("/api/digest/send-now")
 async def digest_send_now():
     """Flush the digest queue immediately."""

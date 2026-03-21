@@ -70,10 +70,19 @@ const contactNames = new Map();
 // DM text history for agent context: jid → [{ts, fromMe, text, sender}]
 const dmTextHistory = new Map();
 const MAX_DM_TEXT = 60;
-// Conversation agents: jid → {jid, name, prompt, active, log: [{ts, role, text, sender?}]}
+// Conversation agents: jid → {jid, name, prompt, active, approval_mode, log: [{ts, role, text, sender?}]}
 const agentConfigs = new Map();
 // Prevent overlapping responses per JID
 const agentBusy = new Set();
+// Pending approval: jid → {text, ts, id}
+const pendingApprovals = new Map();
+
+// Simulate realistic typing delay based on message length
+function humanDelay(text) {
+  const base = Math.min(7000, Math.max(1200, text.length * 28));
+  const jitter = (Math.random() - 0.5) * 1200;
+  return Math.round(base + jitter);
+}
 
 function loadDmInbox() {
   try { dmInbox = JSON.parse(fs.readFileSync(DM_INBOX_FILE, 'utf8')); } catch (_) {}
@@ -469,20 +478,31 @@ async function connect() {
                 contact_name: agent.name,
               }, { timeout: 45000 });
               const reply = res.data?.reply;
-              if (reply && isConnected) {
-                await sock.sendMessage(agentJid, { text: reply });
-                agent.log.push({ ts: Date.now(), role: 'outgoing', text: reply });
+              if (!reply) return;
+
+              if (agent.approval_mode) {
+                // Hold for user approval — keep agentBusy set until resolved
+                const id = Date.now().toString();
+                pendingApprovals.set(agentJid, { id, text: reply, ts: Date.now() });
+                agent.log.push({ ts: Date.now(), role: 'pending', text: reply, id });
                 if (agent.log.length > 200) agent.log.splice(0, agent.log.length - 200);
-                // Keep DM history up to date with our own outgoing message
-                if (agentJid.endsWith('@s.whatsapp.net')) {
-                  if (!dmTextHistory.has(agentJid)) dmTextHistory.set(agentJid, []);
-                  dmTextHistory.get(agentJid).push({ ts: Date.now(), fromMe: true, text: reply, sender: 'Me' });
+                // agentBusy stays set until approve/reject clears it
+              } else {
+                if (isConnected) {
+                  await new Promise(r => setTimeout(r, humanDelay(reply)));
+                  await sock.sendMessage(agentJid, { text: reply });
+                  agent.log.push({ ts: Date.now(), role: 'outgoing', text: reply });
+                  if (agent.log.length > 200) agent.log.splice(0, agent.log.length - 200);
+                  if (agentJid.endsWith('@s.whatsapp.net')) {
+                    if (!dmTextHistory.has(agentJid)) dmTextHistory.set(agentJid, []);
+                    dmTextHistory.get(agentJid).push({ ts: Date.now(), fromMe: true, text: reply, sender: 'Me' });
+                  }
                 }
+                agentBusy.delete(agentJid);
               }
             } catch (e) {
               console.error('[agent] Reply failed:', e.message);
               agent.log.push({ ts: Date.now(), role: 'error', text: `Failed to generate reply: ${e.message}` });
-            } finally {
               agentBusy.delete(agentJid);
             }
           })();
@@ -1040,11 +1060,67 @@ app.get('/contacts', (req, res) => {
 
 // ── Conversation agent endpoints ─────────────────────────────────────────────
 app.post('/agent/start', (req, res) => {
-  const { jid, name, prompt } = req.body;
+  const { jid, name, prompt, approval_mode } = req.body;
   if (!jid || !prompt) return res.status(400).json({ error: 'jid and prompt required' });
   const existing = agentConfigs.get(jid);
-  agentConfigs.set(jid, { jid, name: name || jid.split('@')[0], prompt, active: true, log: existing?.log || [] });
-  console.log(`[agent] Started for ${name || jid}`);
+  agentConfigs.set(jid, {
+    jid,
+    name: name || jid.split('@')[0],
+    prompt,
+    active: true,
+    approval_mode: !!approval_mode,
+    log: existing?.log || [],
+  });
+  console.log(`[agent] Started for ${name || jid}${approval_mode ? ' (approval mode)' : ''}`);
+  res.json({ ok: true });
+});
+
+app.get('/agent/pending', (req, res) => {
+  const jid = req.query.jid;
+  const pending = pendingApprovals.get(jid) || null;
+  res.json({ pending });
+});
+
+app.post('/agent/approve', express.json(), async (req, res) => {
+  const { jid, text } = req.body;
+  if (!jid) return res.status(400).json({ error: 'jid required' });
+  const pending = pendingApprovals.get(jid);
+  if (!pending) return res.status(404).json({ error: 'No pending message' });
+  const finalText = (text || pending.text).trim();
+  pendingApprovals.delete(jid);
+  try {
+    if (!isConnected) throw new Error('Not connected');
+    await new Promise(r => setTimeout(r, humanDelay(finalText)));
+    await sock.sendMessage(jid, { text: finalText });
+    const agent = agentConfigs.get(jid);
+    if (agent) {
+      // Replace pending entry with outgoing
+      const idx = agent.log.findIndex(e => e.role === 'pending' && e.id === pending.id);
+      if (idx !== -1) agent.log[idx] = { ts: Date.now(), role: 'outgoing', text: finalText };
+      else agent.log.push({ ts: Date.now(), role: 'outgoing', text: finalText });
+    }
+    if (jid.endsWith('@s.whatsapp.net')) {
+      if (!dmTextHistory.has(jid)) dmTextHistory.set(jid, []);
+      dmTextHistory.get(jid).push({ ts: Date.now(), fromMe: true, text: finalText, sender: 'Me' });
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  } finally {
+    agentBusy.delete(jid);
+  }
+});
+
+app.post('/agent/reject', express.json(), (req, res) => {
+  const { jid } = req.body;
+  if (!jid) return res.status(400).json({ error: 'jid required' });
+  pendingApprovals.delete(jid);
+  const agent = agentConfigs.get(jid);
+  if (agent) {
+    const idx = agent.log.findIndex(e => e.role === 'pending');
+    if (idx !== -1) agent.log[idx] = { ...agent.log[idx], role: 'rejected' };
+  }
+  agentBusy.delete(jid);
   res.json({ ok: true });
 });
 
@@ -1081,10 +1157,11 @@ app.post('/agent/initiate', express.json(), async (req, res) => {
   if (!jid || !opener) return res.status(400).json({ error: 'jid and opener required' });
   const agent = agentConfigs.get(jid);
   try {
+    await new Promise(r => setTimeout(r, humanDelay(opener)));
     await sock.sendMessage(jid, { text: opener });
     // Log it
     if (agent) {
-      agent.log.push({ ts: Date.now(), dir: 'out', text: opener });
+      agent.log.push({ ts: Date.now(), role: 'outgoing', text: opener });
     }
     // Track in DM history so agent has context
     if (jid.endsWith('@s.whatsapp.net')) {

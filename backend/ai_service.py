@@ -323,6 +323,7 @@ def agent_reply(
 ) -> str:
     """Generate an autonomous reply for the conversation agent."""
     who = f" with {contact_name}" if contact_name else ""
+    name_rule = f"- Always address the person by their full name \"{contact_name}\" — never shorten or nickname it" if contact_name else ""
     system = (
         f"You are managing a WhatsApp conversation{who} on behalf of the user.\n"
         f"Instructions: {prompt}\n\n"
@@ -330,7 +331,11 @@ def agent_reply(
         "- Write ONLY the reply message text, nothing else\n"
         "- Keep it natural and conversational\n"
         "- Match the language used in the conversation\n"
-        "- Never include meta-commentary, quotes, or explanation"
+        "- Never use nicknames or diminutives for any name\n"
+        "- Never use placeholder text like [...] or template markers\n"
+        "- Write a complete, ready-to-send message — never leave blanks\n"
+        "- Never include meta-commentary, quotes, or explanation\n"
+        + (name_rule + "\n" if name_rule else "")
     )
     context = "\n".join(
         f"{'Me' if h.get('fromMe') else h.get('sender', 'Them')}: {h.get('text', '')}"
@@ -379,6 +384,7 @@ def generate_opener(
 ) -> str:
     """Generate an opening message to start a conversation, based on agent instructions."""
     who = f" with {contact_name}" if contact_name else ""
+    name_rule = f"- Always address the person by their full name \"{contact_name}\" — never shorten or nickname it" if contact_name else ""
     system = (
         f"You are starting a WhatsApp conversation{who} on behalf of the user.\n"
         f"Instructions: {prompt}\n\n"
@@ -386,7 +392,11 @@ def generate_opener(
         "- Write ONLY the opening message text, nothing else\n"
         "- Keep it natural, warm, and conversational\n"
         "- Match the tone implied by the instructions\n"
-        "- Never include meta-commentary, quotes, or explanation"
+        "- Never use nicknames or diminutives for any name\n"
+        "- Never use placeholder text like [...] or template markers\n"
+        "- Write a complete, ready-to-send message — never leave blanks\n"
+        "- Never include meta-commentary, quotes, or explanation\n"
+        + (name_rule + "\n" if name_rule else "")
     )
     user_msg = "Generate the first message to open this conversation."
     key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
