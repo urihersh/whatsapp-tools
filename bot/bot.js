@@ -65,6 +65,8 @@ const DM_INBOX_FILE = path.join(__dirname, '..', 'data', 'dm-inbox.json');
 let dmInbox = {};
 // Live unread counts from Baileys chat events — jid -> unreadCount
 const dmUnreadCounts = new Map();
+// Known contact display names — jid -> name (populated from pushName as messages arrive)
+const contactNames = new Map();
 
 function loadDmInbox() {
   try { dmInbox = JSON.parse(fs.readFileSync(DM_INBOX_FILE, 'utf8')); } catch (_) {}
@@ -73,6 +75,10 @@ function saveDmInbox() {
   try { fs.writeFileSync(DM_INBOX_FILE, JSON.stringify(dmInbox, null, 2)); } catch (_) {}
 }
 loadDmInbox();
+// Seed contactNames from persisted inbox entries
+for (const [jid, entry] of Object.entries(dmInbox)) {
+  if (entry.name) contactNames.set(jid, entry.name);
+}
 
 // --- MazalTover: auto congratulations sender ---
 const MAZALTOVER_LOG_FILE = path.join(__dirname, '..', 'data', 'mazaltover-log.json');
@@ -332,6 +338,7 @@ async function connect() {
         // Sent a reply → clear from inbox (applies to live events and history replay)
         delete dmInbox[dmJid]; saveDmInbox();
       }
+      if (isValidDM && msg.pushName) contactNames.set(dmJid, msg.pushName);
       if (!isHistory && isValidDM && !msg.key.fromMe) {
         const msgType = Object.keys(msg.message || {})[0];
         if (msg.message && msgType && !DM_SKIP_TYPES.has(msgType)) {
@@ -851,8 +858,7 @@ app.get('/activity-heatmap', (req, res) => {
     if (sent + received === 0) continue;
     const peakHour = hourBucket.indexOf(Math.max(...hourBucket));
     const group = allGroups.find(g => g.id === jid);
-    const chat = allChats.find(c => c.id === jid);
-    const name = group?.name || chat?.name || jid.split('@')[0];
+    const name = group?.name || contactNames.get(jid) || jid.split('@')[0];
     const isGroup = jid.endsWith('@g.us');
     contacts.push({ jid, name, sent, received, today, peakHour, isGroup });
   }
