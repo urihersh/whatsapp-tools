@@ -25,7 +25,7 @@
   <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
     <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
       <a href="/static/index.html" class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm">
+        <div class="w-8 h-8 rounded-xl bg-teal-700 flex items-center justify-center shadow-sm">
           <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
@@ -34,7 +34,7 @@
       </a>
       <div class="flex gap-1">
         <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Home</a>
-        <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-indigo-600 bg-indigo-50 flex items-center gap-1.5">
+        <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-teal-700 bg-teal-50 flex items-center gap-1.5">
           Inbox
           <span id="nav-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
         </a>
@@ -80,13 +80,13 @@
     <div id="reminder-banner" class="hidden mb-5 bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
       <div class="flex items-center justify-between">
         <div class="flex items-center gap-2">
-          <svg class="w-4 h-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <svg class="w-4 h-4 text-teal-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
           <span class="text-sm font-medium text-gray-700">Daily WA reminder</span>
           <span id="reminder-time-label" class="text-xs text-gray-400"></span>
         </div>
         <div class="flex items-center gap-2">
-          <input type="time" id="reminder-time" value="20:00" class="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-400" />
-          <button onclick="saveReminder()" class="px-3 py-1.5 bg-indigo-600 text-white text-xs font-medium rounded-lg hover:bg-indigo-700 transition-colors">Save</button>
+          <input type="time" id="reminder-time" value="20:00" class="border border-gray-200 rounded-lg px-2 py-1 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          <button onclick="saveReminder()" class="px-3 py-1.5 bg-teal-700 text-white text-xs font-medium rounded-lg hover:bg-teal-800 transition-colors">Save</button>
           <button onclick="disableReminder()" class="px-3 py-1.5 bg-gray-100 text-gray-500 text-xs font-medium rounded-lg hover:bg-gray-200 transition-colors">Disable</button>
         </div>
       </div>
@@ -94,7 +94,7 @@
 
     <!-- Enable scheduled reminder -->
     <div id="enable-reminder-row" class="flex items-center gap-2 mb-5 text-sm text-gray-400">
-      <button onclick="showReminderSetup()" class="flex items-center gap-1.5 hover:text-indigo-500 transition-colors">
+      <button onclick="showReminderSetup()" class="flex items-center gap-1.5 hover:text-teal-500 transition-colors">
         <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/></svg>
         Set up daily reminder
       </button>
@@ -132,7 +132,7 @@
     }
 
     // Deterministic avatar color from name
-    const COLORS = ['bg-violet-500','bg-indigo-500','bg-blue-500','bg-teal-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-pink-500'];
+    const COLORS = ['bg-violet-500','bg-teal-500','bg-blue-500','bg-cyan-500','bg-emerald-500','bg-amber-500','bg-rose-500','bg-pink-500'];
     function avatarColor(name) {
       let h = 0;
       for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
@@ -206,7 +206,7 @@
               Open in WA
             </a>
             <button onclick="remindOne('${item.jid}')"
-                    class="px-3 py-1.5 bg-indigo-50 text-indigo-600 text-xs font-medium rounded-xl hover:bg-indigo-100 transition-colors">
+                    class="px-3 py-1.5 bg-teal-50 text-teal-700 text-xs font-medium rounded-xl hover:bg-teal-100 transition-colors">
               Remind me
             </button>
             <div class="relative">

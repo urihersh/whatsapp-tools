@@ -28,7 +28,7 @@
   <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
     <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
       <a href="/static/index.html" class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-xl bg-indigo-600 flex items-center justify-center shadow-sm">
+        <div class="w-8 h-8 rounded-xl bg-teal-700 flex items-center justify-center shadow-sm">
           <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
@@ -41,7 +41,7 @@
           Inbox<span id="inbox-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
         </a>
         <a href="/static/scout.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Scout</a>
-        <a href="/static/groups.html" class="px-4 py-2 rounded-xl text-sm font-medium text-indigo-600 bg-indigo-50">Groups</a>
+        <a href="/static/groups.html" class="px-4 py-2 rounded-xl text-sm font-medium text-teal-700 bg-teal-50">Groups</a>
         <a href="/static/mazaltover.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">MazalTover</a>
         <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
       </div>
@@ -70,7 +70,7 @@
         <!-- Group search -->
         <div class="relative" id="group-search-wrap">
           <input id="group-search" type="text" placeholder="Search groups…" autocomplete="off"
-                 class="border border-gray-200 rounded-xl px-3 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-indigo-400 bg-white"
+                 class="border border-gray-200 rounded-xl px-3 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
                  oninput="filterGroups()" onfocus="showGroupDropdown()" />
           <div id="group-dropdown" class="hidden absolute right-0 z-20 w-64 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"></div>
           <input type="hidden" id="selected-group-id" />
@@ -157,19 +157,19 @@
           <p class="text-xs text-gray-400 mt-0.5">What are people actually talking about?</p>
         </div>
         <label class="flex items-center gap-2 text-sm text-gray-500 cursor-pointer select-none" title="Caption images using vision AI and include them in the analysis">
-          <input type="checkbox" id="include-images-cb" class="accent-indigo-600" />
+          <input type="checkbox" id="include-images-cb" class="accent-teal-700" />
           Include images
         </label>
         <button id="run-topics-btn" onclick="runTopicAnalysis()"
-                class="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white text-sm font-medium rounded-xl hover:bg-indigo-700 transition-colors disabled:opacity-50">
+                class="flex items-center gap-2 px-4 py-2 bg-teal-700 text-white text-sm font-medium rounded-xl hover:bg-teal-800 transition-colors disabled:opacity-50">
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
           </svg>
           Analyze Topics
         </button>
       </div>
-      <div id="topics-result" class="hidden bg-indigo-50 border border-indigo-100 rounded-xl p-4">
-        <p class="text-xs font-medium text-indigo-400 mb-2" id="topics-meta"></p>
+      <div id="topics-result" class="hidden bg-teal-50 border border-teal-100 rounded-xl p-4">
+        <p class="text-xs font-medium text-teal-500 mb-2" id="topics-meta"></p>
         <div id="topics-text" class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed"></div>
       </div>
       <p id="topics-note" class="hidden text-xs text-gray-400 mt-2"></p>
@@ -235,7 +235,7 @@
         dropdown.innerHTML = '';
         filtered.forEach(g => {
           const item = document.createElement('div');
-          item.className = 'px-3 py-2 text-sm text-gray-700 cursor-pointer hover:bg-indigo-50 rounded-lg';
+          item.className = 'px-3 py-2 text-sm text-gray-700 cursor-pointer hover:bg-teal-50 rounded-lg';
           item.textContent = g.name;
           item.addEventListener('mousedown', () => selectGroup(g.id, g.name));
           dropdown.appendChild(item);
@@ -304,8 +304,8 @@
 
     // ── Top writers ───────────────────────────────────────────────────────────
     const AVATAR_COLORS = [
-      'bg-violet-100 text-violet-600', 'bg-indigo-100 text-indigo-600',
-      'bg-blue-100 text-blue-600', 'bg-teal-100 text-teal-600',
+      'bg-violet-100 text-violet-600', 'bg-teal-100 text-teal-700',
+      'bg-blue-100 text-blue-600', 'bg-cyan-100 text-cyan-700',
       'bg-emerald-100 text-emerald-600', 'bg-amber-100 text-amber-600',
       'bg-rose-100 text-rose-600', 'bg-pink-100 text-pink-600',
     ];
@@ -330,8 +330,8 @@
       el.innerHTML = writers.map((w, i) => {
         const pct = Math.round(w.count / maxCount * 100);
         const isMe = w.sender === 'Me';
-        const avatarBg = isMe ? 'bg-indigo-100 text-indigo-600' : avatarColor(w.sender);
-        const barColor = isMe ? 'bg-indigo-500' : 'bg-indigo-300';
+        const avatarBg = isMe ? 'bg-teal-100 text-teal-700' : avatarColor(w.sender);
+        const barColor = isMe ? 'bg-teal-500' : 'bg-teal-300';
         const displayName = isMe ? 'You' : w.sender;
         return `
           <div class="flex items-center gap-3 mb-3 last:mb-0">
@@ -364,7 +364,7 @@
       }
       el.innerHTML = hourBuckets.map((count, h) => {
         const isPeak = h === peakH && count > 0;
-        const color = count === 0 ? 'bg-gray-100' : isPeak ? 'bg-indigo-500' : 'bg-indigo-200';
+        const color = count === 0 ? 'bg-gray-100' : isPeak ? 'bg-teal-500' : 'bg-teal-200';
         const heightPx = count > 0 ? Math.max(Math.round(count / max * 80), 4) : 2;
         const label = h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
         return `<div class="flex-1 hour-bar rounded-t-sm ${color}" style="height:${heightPx}px" title="${label} — ${count} msgs"></div>`;
@@ -382,7 +382,7 @@
       const peakDay = dowBuckets.indexOf(Math.max(...dowBuckets));
       el.innerHTML = dowBuckets.map((count, d) => {
         const isPeak = d === peakDay && count > 0;
-        const color = count === 0 ? 'bg-gray-100' : isPeak ? 'bg-indigo-500' : 'bg-indigo-200';
+        const color = count === 0 ? 'bg-gray-100' : isPeak ? 'bg-teal-500' : 'bg-teal-200';
         const heightPx = count > 0 ? Math.max(Math.round(count / max * 112), 4) : 2;
         return `<div class="flex-1 rounded-t-lg ${color} transition-all duration-500" style="height:${heightPx}px" title="${DOW_LABELS[d]} — ${count} msgs"></div>`;
       }).join('');
