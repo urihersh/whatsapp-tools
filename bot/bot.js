@@ -67,6 +67,13 @@ let dmInbox = {};
 const dmUnreadCounts = new Map();
 // Known contact display names — jid -> name (populated from pushName as messages arrive)
 const contactNames = new Map();
+// DM text history for agent context: jid → [{ts, fromMe, text, sender}]
+const dmTextHistory = new Map();
+const MAX_DM_TEXT = 60;
+// Conversation agents: jid → {jid, name, prompt, active, log: [{ts, role, text, sender?}]}
+const agentConfigs = new Map();
+// Prevent overlapping responses per JID
+const agentBusy = new Set();
 
 function loadDmInbox() {
   try { dmInbox = JSON.parse(fs.readFileSync(DM_INBOX_FILE, 'utf8')); } catch (_) {}
@@ -339,6 +346,21 @@ async function connect() {
         delete dmInbox[dmJid]; saveDmInbox();
       }
       if (isValidDM && msg.pushName) contactNames.set(dmJid, msg.pushName);
+
+      // Track DM text history (for agent context)
+      if (isValidDM && msg.message) {
+        const msgType = Object.keys(msg.message)[0];
+        let dmText = null;
+        if (msgType === 'conversation') dmText = msg.message.conversation;
+        else if (msgType === 'extendedTextMessage') dmText = msg.message.extendedTextMessage?.text;
+        if (dmText) {
+          if (!dmTextHistory.has(dmJid)) dmTextHistory.set(dmJid, []);
+          const hist = dmTextHistory.get(dmJid);
+          hist.push({ ts: (msg.messageTimestamp || 0) * 1000 || Date.now(), fromMe: !!msg.key.fromMe, text: dmText, sender: msg.key.fromMe ? 'Me' : (msg.pushName || dmJid.split('@')[0]) });
+          if (hist.length > MAX_DM_TEXT) hist.splice(0, hist.length - MAX_DM_TEXT);
+        }
+      }
+
       if (!isHistory && isValidDM && !msg.key.fromMe) {
         const msgType = Object.keys(msg.message || {})[0];
         if (msg.message && msgType && !DM_SKIP_TYPES.has(msgType)) {
@@ -408,6 +430,62 @@ async function connect() {
           }
         } catch (e) {
           console.error('[mazaltover] Error:', e.message);
+        }
+      }
+
+      // ── Conversation agent ──
+      if (!isHistory && !msg.key.fromMe) {
+        const agentJid = msg.key.remoteJid;
+        const agent = agentConfigs.get(agentJid);
+        if (agent?.active && !agentBusy.has(agentJid) && isConnected) {
+          agentBusy.add(agentJid);
+          // Extract text of the triggering message
+          const msgType = Object.keys(msg.message || {})[0];
+          let triggerText = '[message]';
+          if (msgType === 'conversation') triggerText = msg.message.conversation;
+          else if (msgType === 'extendedTextMessage') triggerText = msg.message.extendedTextMessage?.text || '[message]';
+          else if (msgType === 'imageMessage') triggerText = '[photo]';
+          else if (msgType === 'videoMessage') triggerText = '[video]';
+          else if (msgType === 'audioMessage') triggerText = '[voice message]';
+          else if (msgType === 'stickerMessage') triggerText = '[sticker]';
+          const senderName = msg.pushName || contactNames.get(agentJid) || agentJid.split('@')[0];
+          agent.log.push({ ts: Date.now(), role: 'incoming', text: triggerText, sender: senderName });
+          if (agent.log.length > 200) agent.log.splice(0, agent.log.length - 200);
+
+          // Build history context
+          let history = [];
+          if (agentJid.endsWith('@g.us')) {
+            history = (textHistory.get(agentJid) || []).slice(-30).map(m => ({ ts: m.timestamp, fromMe: false, text: m.text, sender: m.sender }));
+          } else {
+            history = (dmTextHistory.get(agentJid) || []).slice(-30);
+          }
+
+          // Fire-and-forget agent reply
+          (async () => {
+            try {
+              const res = await axios.post(`${PYTHON_API_URL}/api/agent/reply`, {
+                prompt: agent.prompt,
+                history,
+                contact_name: agent.name,
+              }, { timeout: 45000 });
+              const reply = res.data?.reply;
+              if (reply && isConnected) {
+                await sock.sendMessage(agentJid, { text: reply });
+                agent.log.push({ ts: Date.now(), role: 'outgoing', text: reply });
+                if (agent.log.length > 200) agent.log.splice(0, agent.log.length - 200);
+                // Keep DM history up to date with our own outgoing message
+                if (agentJid.endsWith('@s.whatsapp.net')) {
+                  if (!dmTextHistory.has(agentJid)) dmTextHistory.set(agentJid, []);
+                  dmTextHistory.get(agentJid).push({ ts: Date.now(), fromMe: true, text: reply, sender: 'Me' });
+                }
+              }
+            } catch (e) {
+              console.error('[agent] Reply failed:', e.message);
+              agent.log.push({ ts: Date.now(), role: 'error', text: `Failed to generate reply: ${e.message}` });
+            } finally {
+              agentBusy.delete(agentJid);
+            }
+          })();
         }
       }
 
@@ -948,6 +1026,53 @@ app.post('/inbox/send-reply', express.json(), async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+// ── Known DM contacts ────────────────────────────────────────────────────────
+app.get('/contacts', (req, res) => {
+  const contacts = [];
+  for (const [jid, name] of contactNames) {
+    if (jid.endsWith('@s.whatsapp.net')) contacts.push({ id: jid, name });
+  }
+  contacts.sort((a, b) => a.name.localeCompare(b.name));
+  res.json({ contacts });
+});
+
+// ── Conversation agent endpoints ─────────────────────────────────────────────
+app.post('/agent/start', (req, res) => {
+  const { jid, name, prompt } = req.body;
+  if (!jid || !prompt) return res.status(400).json({ error: 'jid and prompt required' });
+  const existing = agentConfigs.get(jid);
+  agentConfigs.set(jid, { jid, name: name || jid.split('@')[0], prompt, active: true, log: existing?.log || [] });
+  console.log(`[agent] Started for ${name || jid}`);
+  res.json({ ok: true });
+});
+
+app.post('/agent/stop', (req, res) => {
+  const { jid } = req.body;
+  const agent = agentConfigs.get(jid);
+  if (agent) { agent.active = false; console.log(`[agent] Stopped for ${agent.name}`); }
+  res.json({ ok: true });
+});
+
+app.post('/agent/clear-log', (req, res) => {
+  const { jid } = req.body;
+  const agent = agentConfigs.get(jid);
+  if (agent) agent.log = [];
+  res.json({ ok: true });
+});
+
+app.get('/agent/list', (req, res) => {
+  const agents = [...agentConfigs.values()].map(({ log, ...a }) => ({ ...a, logCount: log.length }));
+  res.json({ agents });
+});
+
+app.get('/agent/log', (req, res) => {
+  const jid = req.query.jid;
+  const since = parseInt(req.query.since || '0');
+  const agent = agentConfigs.get(jid);
+  const log = (agent?.log || []).filter(e => e.ts > since);
+  res.json({ log, active: agent?.active || false, busy: agentBusy.has(jid) });
 });
 
 app.listen(BOT_PORT, () => {

@@ -19,7 +19,7 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 from database import init_db, get_settings, log_activity, save_setting
 from face_service import FaceService
 from google_photos import GooglePhotosService
-from ai_service import get_moment_caption, caption_image, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama, analyze_group_topics, stream_analyze_ollama
+from ai_service import get_moment_caption, caption_image, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama, analyze_group_topics, stream_analyze_ollama, agent_reply
 from routers.enrollment import router as enrollment_router, load_kids
 from routers.settings import router as settings_router
 from routers.dashboard import router as dashboard_router
@@ -873,6 +873,96 @@ async def digest_queue_status():
             for it in _digest_queue
         ],
     }
+
+
+# ── Conversation Agent endpoints ─────────────────────────────────────────────────
+
+@app.post("/api/agent/reply")
+async def agent_reply_endpoint(request: Request):
+    body = await request.json()
+    prompt = body.get("prompt", "")
+    history = body.get("history", [])
+    contact_name = body.get("contact_name", "")
+    if not prompt:
+        return {"error": "prompt required"}
+    db_settings = get_settings()
+    api_key, ollama_url, ollama_model = await _resolve_ai(db_settings)
+    if not api_key and not ollama_url:
+        return {"error": "No AI configured"}
+    reply = await asyncio.get_event_loop().run_in_executor(
+        None, agent_reply, prompt, history, contact_name, api_key, ollama_url, ollama_model
+    )
+    return {"reply": reply}
+
+
+@app.post("/api/agent/start")
+async def agent_start(request: Request):
+    try:
+        body = await request.json()
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/agent/start", json=body)
+            return r.json()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/agent/stop")
+async def agent_stop(request: Request):
+    try:
+        body = await request.json()
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/agent/stop", json=body)
+            return r.json()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.post("/api/agent/clear-log")
+async def agent_clear_log(request: Request):
+    try:
+        body = await request.json()
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/agent/clear-log", json=body)
+            return r.json()
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+
+@app.get("/api/agent/list")
+async def agent_list():
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.get(f"{BOT_API_URL}/agent/list")
+            return r.json()
+    except Exception:
+        return {"agents": []}
+
+
+@app.get("/api/agent/log")
+async def agent_log(jid: str = "", since: int = 0):
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.get(f"{BOT_API_URL}/agent/log", params={"jid": jid, "since": since})
+            return r.json()
+    except Exception:
+        return {"log": [], "active": False, "busy": False}
+
+
+@app.get("/api/agent/contacts")
+async def agent_contacts():
+    """Return known DM contacts + all groups for the agent picker."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            contacts_r, groups_r = await asyncio.gather(
+                hx.get(f"{BOT_API_URL}/contacts"),
+                hx.get(f"{BOT_API_URL}/groups"),
+            )
+            contacts = contacts_r.json().get("contacts", [])
+            groups = [{"id": g["id"], "name": g["name"], "isGroup": True}
+                      for g in groups_r.json().get("groups", [])]
+            return {"contacts": contacts, "groups": groups}
+    except Exception as e:
+        return {"contacts": [], "groups": [], "error": str(e)}
 
 
 @app.post("/api/digest/send-now")

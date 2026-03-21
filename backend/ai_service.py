@@ -313,6 +313,52 @@ def suggest_reply(message_text: str, sender_name: str, api_key: str = "", ollama
     return ""
 
 
+def agent_reply(
+    prompt: str,
+    history: list[dict],
+    contact_name: str = "",
+    api_key: str = "",
+    ollama_url: str = "",
+    ollama_model: str = "aya",
+) -> str:
+    """Generate an autonomous reply for the conversation agent."""
+    who = f" with {contact_name}" if contact_name else ""
+    system = (
+        f"You are managing a WhatsApp conversation{who} on behalf of the user.\n"
+        f"Instructions: {prompt}\n\n"
+        "Rules:\n"
+        "- Write ONLY the reply message text, nothing else\n"
+        "- Keep it natural and conversational\n"
+        "- Match the language used in the conversation\n"
+        "- Never include meta-commentary, quotes, or explanation"
+    )
+    context = "\n".join(
+        f"{'Me' if h.get('fromMe') else h.get('sender', 'Them')}: {h.get('text', '')}"
+        for h in history[-25:]
+    ) or "(conversation just started)"
+    user_msg = f"Recent conversation:\n{context}\n\nGenerate the next reply to send."
+
+    key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+    if key:
+        try:
+            client = _get_client(key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=300,
+                system=system,
+                messages=[{"role": "user", "content": user_msg}],
+            )
+            return msg.content[0].text.strip()
+        except Exception:
+            return ""
+    if ollama_url:
+        try:
+            return _ollama_chat(user_msg, ollama_url, ollama_model, system=system)
+        except Exception:
+            return ""
+    return ""
+
+
 def test_ollama(ollama_url: str, model: str) -> dict:
     """Test connectivity and model availability."""
     try:

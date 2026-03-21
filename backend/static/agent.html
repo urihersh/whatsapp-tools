@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WA Assistant – Bot Agent</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/dark.css" />
+  <style>
+    .msg-in  { background: #f1f5f9; border-radius: 0 1rem 1rem 1rem; }
+    .msg-out { background: #0f766e; color: white; border-radius: 1rem 0 1rem 1rem; }
+    .msg-err { background: #fee2e2; border-radius: 0.75rem; }
+    #log-feed { scroll-behavior: smooth; }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+
+  <div id="toast" class="hidden fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50"></div>
+
+  <!-- Nav -->
+  <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="/static/index.html" class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-teal-700 flex items-center justify-center shadow-sm">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
+        <span class="text-base font-bold text-gray-900">WA Assistant</span>
+      </a>
+      <div class="flex gap-1">
+        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Home</a>
+        <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+          Inbox<span id="inbox-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
+        </a>
+        <a href="/static/scout.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Scout</a>
+        <a href="/static/groups.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Groups</a>
+        <a href="/static/agent.html" class="px-4 py-2 rounded-xl text-sm font-medium text-teal-700 bg-teal-50 flex items-center gap-1.5">
+          Bot<span id="agent-active-badge" class="hidden w-2 h-2 rounded-full bg-green-500"></span>
+        </a>
+        <a href="/static/mazaltover.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">MazalTover</a>
+        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="nav-status" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-400">
+          <span id="nav-dot" class="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0"></span>
+          <span id="nav-name">Connecting…</span>
+        </div>
+        <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors">
+          <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg id="dark-icon-sun" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-4xl mx-auto px-6 py-8">
+
+    <div class="flex items-start justify-between mb-6">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Conversation Bot</h1>
+        <p class="text-sm text-gray-400 mt-0.5">Set a goal and let AI handle the conversation for you.</p>
+      </div>
+      <div id="status-pill" class="hidden items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold">
+        <span id="status-dot" class="w-2 h-2 rounded-full flex-shrink-0"></span>
+        <span id="status-label"></span>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-5 gap-6">
+
+      <!-- Config panel -->
+      <div class="lg:col-span-2 space-y-4">
+
+        <!-- Contact/Group picker -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h2 class="font-semibold text-gray-900 mb-3">Conversation</h2>
+          <div class="relative" id="picker-wrap">
+            <input id="picker-input" type="text" placeholder="Search contacts or groups…" autocomplete="off"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                   oninput="filterPicker()" onfocus="showPicker()" />
+            <div id="picker-dropdown" class="hidden absolute left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto"></div>
+          </div>
+          <div id="selected-display" class="hidden mt-3 flex items-center gap-2.5 p-3 bg-teal-50 border border-teal-100 rounded-xl">
+            <div id="selected-avatar" class="w-9 h-9 rounded-full bg-teal-700 text-white flex items-center justify-center text-xs font-bold flex-shrink-0"></div>
+            <div class="min-w-0">
+              <p id="selected-name" class="text-sm font-medium text-gray-900 truncate"></p>
+              <p id="selected-type" class="text-xs text-gray-400"></p>
+            </div>
+            <button onclick="clearSelection()" class="ml-auto text-gray-300 hover:text-gray-500">✕</button>
+          </div>
+        </div>
+
+        <!-- Instructions -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <h2 class="font-semibold text-gray-900 mb-1">Instructions</h2>
+          <p class="text-xs text-gray-400 mb-3">Describe the goal and how to handle the conversation. Be specific.</p>
+          <textarea id="agent-prompt" rows="6" placeholder="Examples:
+• Close a deal with this client — be warm, address any price concerns, offer a 10% discount if they hesitate.
+• Schedule a meeting — find a time that works, be professional and brief.
+• Politely handle a complaint — acknowledge the issue, apologize, offer a solution."
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white leading-relaxed"></textarea>
+        </div>
+
+        <!-- Activate -->
+        <button id="activate-btn" onclick="toggleAgent()"
+                class="w-full py-3 bg-teal-700 text-white font-semibold rounded-xl hover:bg-teal-800 transition-all shadow-sm flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+          </svg>
+          Activate Bot
+        </button>
+
+        <!-- Warning -->
+        <div class="flex items-start gap-2.5 px-4 py-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700">
+          <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+          <span>The bot will send messages automatically. Monitor the log and stop it if needed.</span>
+        </div>
+
+      </div>
+
+      <!-- Log panel -->
+      <div class="lg:col-span-3 bg-white rounded-2xl shadow-sm border border-gray-100 flex flex-col" style="min-height:520px">
+        <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100">
+          <div class="flex items-center gap-2">
+            <h2 class="font-semibold text-gray-900">Live Log</h2>
+            <span id="busy-indicator" class="hidden items-center gap-1.5 text-xs text-teal-600 font-medium">
+              <svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg>
+              Thinking…
+            </span>
+          </div>
+          <button onclick="clearLog()" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Clear log</button>
+        </div>
+        <div id="log-feed" class="flex-1 overflow-y-auto px-5 py-4 space-y-3">
+          <p id="log-empty" class="text-sm text-gray-300 text-center mt-16">No activity yet.<br>Activate the bot to start.</p>
+        </div>
+      </div>
+
+    </div>
+  </main>
+
+  <script>
+    // ── State ─────────────────────────────────────────────────────────────────
+    let selectedJid = null, selectedName = '', selectedIsGroup = false;
+    let agentActive = false;
+    let allItems = [];  // {id, name, isGroup}
+    let logPollInterval = null;
+    let lastLogTs = 0;
+
+    // ── Toast ─────────────────────────────────────────────────────────────────
+    function showToast(msg, type = 'success') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50 ${type === 'success' ? 'bg-teal-700 text-white' : 'bg-red-500 text-white'}`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    // ── Picker ────────────────────────────────────────────────────────────────
+    async function loadContacts() {
+      try {
+        const r = await fetch('/api/agent/contacts');
+        const d = await r.json();
+        const contacts = (d.contacts || []).map(c => ({ id: c.id, name: c.name, isGroup: false }));
+        const groups = (d.groups || []).map(g => ({ id: g.id, name: g.name, isGroup: true }));
+        allItems = [...contacts, ...groups].sort((a, b) => a.name.localeCompare(b.name));
+        filterPicker();
+      } catch (_) {}
+    }
+
+    function filterPicker() {
+      const q = document.getElementById('picker-input').value.toLowerCase().trim();
+      const filtered = q ? allItems.filter(i => i.name.toLowerCase().includes(q)) : allItems.slice(0, 12);
+      const dd = document.getElementById('picker-dropdown');
+      if (!filtered.length) {
+        dd.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">No results.</p>';
+      } else {
+        dd.innerHTML = '';
+        filtered.forEach(item => {
+          const el = document.createElement('div');
+          el.className = 'px-3 py-2.5 text-sm text-gray-700 cursor-pointer hover:bg-teal-50 rounded-lg flex items-center gap-2.5';
+          const icon = item.isGroup
+            ? `<svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/></svg>`
+            : `<svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"/></svg>`;
+          el.innerHTML = `${icon}<span class="truncate">${item.name}</span>`;
+          el.addEventListener('mousedown', () => selectItem(item));
+          dd.appendChild(el);
+        });
+      }
+      dd.classList.remove('hidden');
+    }
+
+    function showPicker() { filterPicker(); }
+
+    function selectItem(item) {
+      selectedJid = item.id;
+      selectedName = item.name;
+      selectedIsGroup = item.isGroup;
+      document.getElementById('picker-input').value = '';
+      document.getElementById('picker-dropdown').classList.add('hidden');
+      const display = document.getElementById('selected-display');
+      display.classList.remove('hidden');
+      display.classList.add('flex');
+      document.getElementById('selected-avatar').textContent = initials(item.name);
+      document.getElementById('selected-name').textContent = item.name;
+      document.getElementById('selected-type').textContent = item.isGroup ? 'Group' : 'Contact';
+      // Check if there's an active agent for this JID
+      refreshAgentState();
+    }
+
+    function clearSelection() {
+      selectedJid = null;
+      document.getElementById('selected-display').classList.add('hidden');
+      document.getElementById('selected-display').classList.remove('flex');
+      setAgentUI(false);
+    }
+
+    document.addEventListener('click', e => {
+      if (!document.getElementById('picker-wrap').contains(e.target))
+        document.getElementById('picker-dropdown').classList.add('hidden');
+    });
+
+    // ── Agent control ─────────────────────────────────────────────────────────
+    async function toggleAgent() {
+      if (!selectedJid) { showToast('Select a contact or group first', 'error'); return; }
+      if (!document.getElementById('agent-prompt').value.trim()) { showToast('Write instructions first', 'error'); return; }
+
+      if (agentActive) {
+        await fetch('/api/agent/stop', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid: selectedJid }) });
+        setAgentUI(false);
+        showToast('Bot stopped');
+      } else {
+        const r = await fetch('/api/agent/start', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jid: selectedJid, name: selectedName, prompt: document.getElementById('agent-prompt').value.trim() }),
+        });
+        const d = await r.json();
+        if (d.ok) { setAgentUI(true); showToast('Bot activated'); }
+        else showToast(d.error || 'Failed to start', 'error');
+      }
+    }
+
+    function setAgentUI(active) {
+      agentActive = active;
+      const btn = document.getElementById('activate-btn');
+      const pill = document.getElementById('status-pill');
+      const dot = document.getElementById('status-dot');
+      const label = document.getElementById('status-label');
+      const badge = document.getElementById('agent-active-badge');
+
+      if (active) {
+        btn.className = 'w-full py-3 bg-red-500 text-white font-semibold rounded-xl hover:bg-red-600 transition-all shadow-sm flex items-center justify-center gap-2';
+        btn.innerHTML = `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10h6v4H9z"/></svg> Stop Bot`;
+        pill.className = 'flex items-center gap-2 px-3 py-1.5 rounded-full text-xs font-semibold bg-green-50 text-green-700';
+        dot.className = 'w-2 h-2 rounded-full flex-shrink-0 bg-green-500 animate-pulse';
+        label.textContent = 'Active';
+        pill.classList.remove('hidden');
+        badge.classList.remove('hidden');
+        if (!logPollInterval) logPollInterval = setInterval(pollLog, 2500);
+      } else {
+        btn.className = 'w-full py-3 bg-teal-700 text-white font-semibold rounded-xl hover:bg-teal-800 transition-all shadow-sm flex items-center justify-center gap-2';
+        btn.innerHTML = `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Activate Bot`;
+        pill.classList.add('hidden');
+        badge.classList.add('hidden');
+        clearInterval(logPollInterval); logPollInterval = null;
+      }
+    }
+
+    async function refreshAgentState() {
+      if (!selectedJid) return;
+      try {
+        const r = await fetch(`/api/agent/log?jid=${encodeURIComponent(selectedJid)}&since=0`);
+        const d = await r.json();
+        setAgentUI(d.active);
+        lastLogTs = 0;
+        renderLog(d.log);
+      } catch (_) {}
+    }
+
+    // ── Log ───────────────────────────────────────────────────────────────────
+    async function pollLog() {
+      if (!selectedJid) return;
+      try {
+        const r = await fetch(`/api/agent/log?jid=${encodeURIComponent(selectedJid)}&since=${lastLogTs}`);
+        const d = await r.json();
+        document.getElementById('busy-indicator').classList.toggle('hidden', !d.busy);
+        document.getElementById('busy-indicator').classList.toggle('flex', d.busy);
+        appendLog(d.log);
+      } catch (_) {}
+    }
+
+    function renderLog(entries) {
+      const feed = document.getElementById('log-feed');
+      feed.innerHTML = '';
+      if (!entries.length) {
+        feed.innerHTML = '<p id="log-empty" class="text-sm text-gray-300 text-center mt-16">No activity yet.<br>Activate the bot to start.</p>';
+        return;
+      }
+      entries.forEach(e => appendEntry(e));
+    }
+
+    function appendLog(entries) {
+      if (!entries.length) return;
+      document.getElementById('log-empty')?.remove();
+      entries.forEach(e => { appendEntry(e); if (e.ts > lastLogTs) lastLogTs = e.ts; });
+    }
+
+    function appendEntry(e) {
+      const feed = document.getElementById('log-feed');
+      const div = document.createElement('div');
+      const time = new Date(e.ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+      if (e.role === 'incoming') {
+        div.className = 'flex items-end gap-2';
+        div.innerHTML = `
+          <div class="w-7 h-7 rounded-full bg-gray-200 flex items-center justify-center text-xs font-bold text-gray-500 flex-shrink-0">${initials(e.sender || '?')}</div>
+          <div class="max-w-xs">
+            <p class="text-xs text-gray-400 mb-1 ml-1">${e.sender || 'Them'}</p>
+            <div class="msg-in px-3 py-2 text-sm text-gray-700">${escHtml(e.text)}</div>
+            <p class="text-xs text-gray-300 mt-1 ml-1">${time}</p>
+          </div>`;
+      } else if (e.role === 'outgoing') {
+        div.className = 'flex items-end justify-end gap-2';
+        div.innerHTML = `
+          <div class="max-w-xs text-right">
+            <p class="text-xs text-gray-400 mb-1 mr-1">Bot</p>
+            <div class="msg-out px-3 py-2 text-sm ml-auto inline-block">${escHtml(e.text)}</div>
+            <p class="text-xs text-gray-300 mt-1 mr-1">${time}</p>
+          </div>
+          <div class="w-7 h-7 rounded-full bg-teal-700 flex items-center justify-center flex-shrink-0">
+            <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"/></svg>
+          </div>`;
+      } else if (e.role === 'error') {
+        div.className = 'flex justify-center';
+        div.innerHTML = `<div class="msg-err px-3 py-2 text-xs text-red-600 max-w-sm text-center">${escHtml(e.text)}</div>`;
+      }
+
+      feed.appendChild(div);
+      feed.scrollTop = feed.scrollHeight;
+      if (e.ts > lastLogTs) lastLogTs = e.ts;
+    }
+
+    async function clearLog() {
+      if (!selectedJid) return;
+      await fetch('/api/agent/clear-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid: selectedJid }) });
+      renderLog([]);
+      lastLogTs = 0;
+    }
+
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    function initials(name) {
+      return (name || '?').split(/\s+/).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    }
+    function escHtml(s) {
+      return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+    }
+
+    // ── Nav ───────────────────────────────────────────────────────────────────
+    async function loadNavStatus() {
+      try {
+        const r = await fetch('/api/settings/whatsapp/status');
+        const d = await r.json();
+        const dot = document.getElementById('nav-dot');
+        const name = document.getElementById('nav-name');
+        if (d.connected) {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0';
+          name.textContent = d.phone?.name || 'Connected';
+          document.getElementById('nav-status').className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-xs font-medium text-green-700';
+        } else {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0';
+          name.textContent = 'Disconnected';
+          document.getElementById('nav-status').className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 text-xs font-medium text-red-600';
+        }
+      } catch (_) {}
+    }
+
+    async function loadInboxBadge() {
+      try {
+        const r = await fetch('/api/dm-inbox');
+        const d = await r.json();
+        const b = document.getElementById('inbox-badge');
+        if (d.total > 0) { b.textContent = d.total; b.classList.remove('hidden'); }
+        else b.classList.add('hidden');
+      } catch (_) {}
+    }
+
+    // ── Init ──────────────────────────────────────────────────────────────────
+    loadNavStatus();
+    loadInboxBadge();
+    loadContacts();
+    setInterval(() => { loadNavStatus(); loadInboxBadge(); }, 60000);
+  </script>
+  <script src="/static/dark.js"></script>
+  <script src="/static/pin_lock.js"></script>
+</body>
+</html>
