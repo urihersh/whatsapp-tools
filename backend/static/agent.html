@@ -116,6 +116,15 @@
           Activate Bot
         </button>
 
+        <!-- Start conversation -->
+        <button id="initiate-btn" onclick="initiateConversation()"
+                class="hidden w-full py-2.5 border border-teal-600 text-teal-700 font-semibold rounded-xl hover:bg-teal-50 transition-all flex items-center justify-center gap-2 text-sm">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/>
+          </svg>
+          Start conversation
+        </button>
+
         <!-- Warning -->
         <div class="flex items-start gap-2.5 px-4 py-3 bg-amber-50 border border-amber-100 rounded-xl text-xs text-amber-700">
           <svg class="w-4 h-4 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
@@ -262,13 +271,40 @@
         label.textContent = 'Active';
         pill.classList.remove('hidden');
         badge.classList.remove('hidden');
+        document.getElementById('initiate-btn').classList.remove('hidden');
         if (!logPollInterval) logPollInterval = setInterval(pollLog, 2500);
       } else {
         btn.className = 'w-full py-3 bg-teal-700 text-white font-semibold rounded-xl hover:bg-teal-800 transition-all shadow-sm flex items-center justify-center gap-2';
         btn.innerHTML = `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z"/><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg> Activate Bot`;
         pill.classList.add('hidden');
         badge.classList.add('hidden');
+        document.getElementById('initiate-btn').classList.add('hidden');
         clearInterval(logPollInterval); logPollInterval = null;
+      }
+    }
+
+    async function initiateConversation() {
+      if (!selectedJid) { showToast('Select a contact or group first', 'error'); return; }
+      const prompt = document.getElementById('agent-prompt').value.trim();
+      if (!prompt) { showToast('Write instructions first', 'error'); return; }
+      const btn = document.getElementById('initiate-btn');
+      const origHTML = btn.innerHTML;
+      btn.disabled = true;
+      btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> Generating…';
+      try {
+        const r = await fetch('/api/agent/initiate', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ jid: selectedJid, name: selectedName, prompt }),
+        });
+        const d = await r.json();
+        if (d.ok) showToast('Conversation started!');
+        else showToast(d.error || 'Failed to send opener', 'error');
+      } catch (e) {
+        showToast('Network error', 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = origHTML;
       }
     }
 

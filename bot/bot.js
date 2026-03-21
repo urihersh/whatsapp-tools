@@ -1075,6 +1075,30 @@ app.get('/agent/log', (req, res) => {
   res.json({ log, active: agent?.active || false, busy: agentBusy.has(jid) });
 });
 
+app.post('/agent/initiate', express.json(), async (req, res) => {
+  if (!isConnected) return res.status(503).json({ error: 'Not connected' });
+  const { jid, opener } = req.body;
+  if (!jid || !opener) return res.status(400).json({ error: 'jid and opener required' });
+  const agent = agentConfigs.get(jid);
+  try {
+    await sock.sendMessage(jid, { text: opener });
+    // Log it
+    if (agent) {
+      agent.log.push({ ts: Date.now(), dir: 'out', text: opener });
+    }
+    // Track in DM history so agent has context
+    if (jid.endsWith('@s.whatsapp.net')) {
+      if (!dmTextHistory.has(jid)) dmTextHistory.set(jid, []);
+      const hist = dmTextHistory.get(jid);
+      hist.push({ ts: Date.now(), fromMe: true, text: opener, sender: 'Me' });
+      if (hist.length > MAX_DM_TEXT) hist.splice(0, hist.length - MAX_DM_TEXT);
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.listen(BOT_PORT, () => {
   console.log(`[bot] API listening on http://localhost:${BOT_PORT}`);
 });

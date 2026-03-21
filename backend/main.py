@@ -19,7 +19,7 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 from database import init_db, get_settings, log_activity, save_setting
 from face_service import FaceService
 from google_photos import GooglePhotosService
-from ai_service import get_moment_caption, caption_image, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama, analyze_group_topics, stream_analyze_ollama, agent_reply
+from ai_service import get_moment_caption, caption_image, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama, analyze_group_topics, stream_analyze_ollama, agent_reply, generate_opener
 from routers.enrollment import router as enrollment_router, load_kids
 from routers.settings import router as settings_router
 from routers.dashboard import router as dashboard_router
@@ -963,6 +963,31 @@ async def agent_contacts():
             return {"contacts": contacts, "groups": groups}
     except Exception as e:
         return {"contacts": [], "groups": [], "error": str(e)}
+
+
+
+@app.post("/api/agent/initiate")
+async def agent_initiate(request: Request):
+    """Generate an opening message and send it to start the conversation."""
+    body = await request.json()
+    jid = body.get("jid", "")
+    contact_name = body.get("name", "")
+    prompt = body.get("prompt", "")
+    if not jid or not prompt:
+        return JSONResponse({"error": "jid and prompt required"}, status_code=400)
+    settings = get_settings()
+    api_key, ollama_url, ollama_model = await _resolve_ai(settings)
+    opener = await asyncio.get_event_loop().run_in_executor(
+        None, generate_opener, prompt, contact_name, api_key, ollama_url, ollama_model
+    )
+    if not opener:
+        return JSONResponse({"error": "AI did not generate an opener"}, status_code=500)
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/agent/initiate", json={"jid": jid, "opener": opener})
+            return r.json()
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
 
 
 @app.post("/api/digest/send-now")

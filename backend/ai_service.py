@@ -368,3 +368,43 @@ def test_ollama(ollama_url: str, model: str) -> dict:
         return {"ok": False, "error": f"Cannot connect to {ollama_url} — is Ollama running?"}
     except Exception as e:
         return {"ok": False, "error": str(e)}
+
+
+def generate_opener(
+    prompt: str,
+    contact_name: str = "",
+    api_key: str = "",
+    ollama_url: str = "",
+    ollama_model: str = "aya",
+) -> str:
+    """Generate an opening message to start a conversation, based on agent instructions."""
+    who = f" with {contact_name}" if contact_name else ""
+    system = (
+        f"You are starting a WhatsApp conversation{who} on behalf of the user.\n"
+        f"Instructions: {prompt}\n\n"
+        "Rules:\n"
+        "- Write ONLY the opening message text, nothing else\n"
+        "- Keep it natural, warm, and conversational\n"
+        "- Match the tone implied by the instructions\n"
+        "- Never include meta-commentary, quotes, or explanation"
+    )
+    user_msg = "Generate the first message to open this conversation."
+    key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
+    if key:
+        try:
+            client = _get_client(key)
+            msg = client.messages.create(
+                model="claude-haiku-4-5-20251001",
+                max_tokens=200,
+                system=system,
+                messages=[{"role": "user", "content": user_msg}],
+            )
+            return msg.content[0].text.strip()
+        except Exception:
+            return ""
+    if ollama_url:
+        try:
+            return _ollama_chat(user_msg, ollama_url, ollama_model, system=system)
+        except Exception:
+            return ""
+    return ""
