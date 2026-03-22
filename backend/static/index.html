@@ -15,10 +15,6 @@
     .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
     .bar-fill { transition: width 0.6s ease; }
     .hour-bar { transition: height 0.4s ease; }
-    .pill-btn { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; border: 1px solid #e5e7eb; background: white; color: #6b7280; cursor: pointer; transition: all 0.15s; }
-    .pill-btn:hover { border-color: #0d9488; color: #0f766e; }
-    .pill-btn.active { background: #0f766e; border-color: #0f766e; color: white; }
-    .kbd-active { background: #f0fdfa !important; outline: 2px solid #0d9488; outline-offset: -2px; border-radius: 0.5rem; }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen font-sans antialiased">
@@ -38,6 +34,7 @@
       </a>
       <div class="flex gap-1">
         <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-teal-700 bg-teal-50">Home</a>
+        <a href="/static/groups.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Groups</a>
         <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1.5">
           Inbox<span id="inbox-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
         </a>
@@ -72,20 +69,6 @@
       <svg class="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
       <span>WhatsApp bot is not connected. <a href="/static/settings.html" class="font-semibold underline">Go to Settings</a> to reconnect.</span>
     </div>
-
-    <!-- Page tabs -->
-    <div class="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 w-fit">
-      <button onclick="setTab('dashboard')" id="tab-dashboard"
-              class="px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm">
-        Dashboard
-      </button>
-      <button onclick="setTab('groups')" id="tab-groups"
-              class="px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-500 hover:text-gray-800">
-        Groups
-      </button>
-    </div>
-
-    <div id="panel-dashboard">
 
     <!-- Stat cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
@@ -145,183 +128,32 @@
       </div>
     </div>
 
-    <!-- Scout teaser + Summarize row -->
-    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-
-      <!-- Scout teaser -->
-      <a href="/static/scout.html" class="group block bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow">
-        <div class="flex items-center gap-3 mb-3">
-          <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-            <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-              <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-            </svg>
-          </div>
-          <div>
-            <p class="text-white font-semibold">Scout</p>
-            <p class="text-emerald-100 text-xs">Kids photo finder</p>
-          </div>
-          <svg class="w-4 h-4 text-white/60 ml-auto group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+    <!-- Scout teaser -->
+    <a href="/static/scout.html" class="group block bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow mb-6">
+      <div class="flex items-center gap-3 mb-3">
+        <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
+          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+          </svg>
         </div>
-        <div class="flex gap-4">
-          <div>
-            <p class="text-2xl font-bold text-white" id="scout-matched">—</p>
-            <p class="text-emerald-100 text-xs">matched today</p>
-          </div>
-          <div>
-            <p class="text-2xl font-bold text-white" id="scout-scanned">—</p>
-            <p class="text-emerald-100 text-xs">scanned today</p>
-          </div>
-        </div>
-      </a>
-
-      <!-- Summarize -->
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <h2 class="font-semibold text-gray-900 mb-3">Summarize a Group</h2>
-        <!-- Recent groups chips -->
-        <div id="recent-group-chips" class="hidden mb-2">
-          <p class="text-xs text-gray-400 mb-1.5">Recent</p>
-          <div id="recent-chips-row" class="flex flex-wrap gap-1.5"></div>
-        </div>
-        <div class="relative mb-3" id="summarize-group-wrap">
-          <input id="summarize-group-search" type="text" placeholder="Search all groups…" autocomplete="off"
-                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500"
-                 oninput="filterSummarizeGroups()" onfocus="showSummarizeDropdown()" />
-          <div id="summarize-group-dropdown" class="hidden absolute z-20 w-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-44 overflow-y-auto"></div>
-          <input type="hidden" id="summarize-group" value="" />
-        </div>
-        <div class="flex flex-wrap gap-1.5 mb-3">
-          <button class="pill-btn" data-minutes="5">5m</button>
-          <button class="pill-btn" data-minutes="15">15m</button>
-          <button class="pill-btn active" data-minutes="60">1h</button>
-          <button class="pill-btn" data-minutes="720">12h</button>
-          <button class="pill-btn" data-minutes="1440">24h</button>
-          <button class="pill-btn" data-minutes="4320">72h</button>
-          <button onclick="runSummarize()" id="summarize-btn"
-                  class="ml-auto px-4 py-1.5 bg-teal-700 text-white text-xs font-medium rounded-full hover:bg-teal-800 transition-colors">
-            Summarize
-          </button>
-        </div>
-        <div id="summarize-result" class="hidden bg-teal-50 border border-teal-100 rounded-xl p-3 max-h-56 overflow-y-auto">
-          <p class="text-xs font-medium text-teal-500 mb-1.5" id="summarize-meta"></p>
-          <div id="summarize-text" class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed"></div>
-        </div>
-        <p id="summarize-note" class="hidden text-xs text-gray-400 mt-2"></p>
-      </div>
-    </div>
-
-    </div><!-- /panel-dashboard -->
-
-    <div id="panel-groups" class="hidden">
-
-      <!-- Header -->
-      <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
         <div>
-          <h1 class="text-2xl font-bold text-gray-900">Group Analysis</h1>
-          <p class="text-sm text-gray-400 mt-0.5" id="group-subtitle">Select a group to analyze</p>
+          <p class="text-white font-semibold">Scout</p>
+          <p class="text-emerald-100 text-xs">Kids photo finder</p>
         </div>
-        <div class="flex items-center gap-3 flex-wrap">
-          <div class="relative" id="group-search-wrap">
-            <input id="group-search" type="text" placeholder="Search groups…" autocomplete="off"
-                   class="border border-gray-200 rounded-xl px-3 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-                   oninput="filterGroups()" onfocus="showGroupDropdown()" />
-            <div id="group-dropdown" class="hidden absolute right-0 z-20 w-64 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"></div>
-            <input type="hidden" id="selected-group-id" />
-          </div>
-          <div class="flex gap-1">
-            <button class="pill-btn grp-period" data-days="7">7d</button>
-            <button class="pill-btn grp-period active" data-days="30">30d</button>
-            <button class="pill-btn grp-period" data-days="90">90d</button>
-          </div>
+        <svg class="w-4 h-4 text-white/60 ml-auto group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+      </div>
+      <div class="flex gap-4">
+        <div>
+          <p class="text-2xl font-bold text-white" id="scout-matched">—</p>
+          <p class="text-emerald-100 text-xs">matched today</p>
+        </div>
+        <div>
+          <p class="text-2xl font-bold text-white" id="scout-scanned">—</p>
+          <p class="text-emerald-100 text-xs">scanned today</p>
         </div>
       </div>
-
-      <!-- Stat cards -->
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
-        <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Messages</p>
-          <p class="text-3xl font-bold text-gray-900" id="stat-total">—</p>
-          <p class="text-xs text-gray-400 mt-1" id="stat-period">in selected period</p>
-        </div>
-        <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Active Members</p>
-          <p class="text-3xl font-bold text-gray-900" id="stat-senders">—</p>
-          <p class="text-xs text-gray-400 mt-1">unique senders</p>
-        </div>
-        <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Media Shared</p>
-          <p class="text-3xl font-bold text-gray-900" id="grp-stat-media">—</p>
-          <p class="text-xs text-gray-400 mt-1">photos &amp; videos</p>
-        </div>
-        <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
-          <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Trend</p>
-          <p class="text-3xl font-bold text-gray-900" id="stat-trend">—</p>
-          <p class="text-xs text-gray-400 mt-1">vs previous period</p>
-        </div>
-      </div>
-
-      <!-- Top writers + Hourly chart -->
-      <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-        <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h2 class="font-semibold text-gray-900 mb-5">Top Writers</h2>
-          <div id="top-writers">
-            <p class="text-sm text-gray-400 text-center py-8">Select a group to see top writers</p>
-          </div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <div class="flex items-center justify-between mb-5">
-            <h2 class="font-semibold text-gray-900">Most Active Hours</h2>
-            <span class="text-xs text-gray-400" id="peak-hour-label"></span>
-          </div>
-          <div id="grp-hourly-chart" class="flex items-end gap-px h-20 w-full"></div>
-          <div class="flex justify-between text-xs text-gray-300 mt-1.5">
-            <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span>
-          </div>
-        </div>
-      </div>
-
-      <!-- Busiest days + Top emoji -->
-      <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h2 class="font-semibold text-gray-900 mb-5">Busiest Days</h2>
-          <div id="dow-chart" class="flex items-end gap-2 h-28 w-full"></div>
-          <div class="flex justify-between text-xs text-gray-300 mt-2" id="dow-labels"></div>
-        </div>
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-          <h2 class="font-semibold text-gray-900 mb-4">Top Emoji</h2>
-          <div id="top-emoji" class="flex flex-wrap gap-2">
-            <p class="text-sm text-gray-400">—</p>
-          </div>
-        </div>
-      </div>
-
-      <!-- AI Topic Analysis -->
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
-        <div class="flex items-center justify-between mb-4">
-          <div>
-            <h2 class="font-semibold text-gray-900">AI Topic Analysis</h2>
-            <p class="text-xs text-gray-400 mt-0.5">What are people actually talking about?</p>
-          </div>
-          <label class="flex items-center gap-2 text-sm text-gray-500 cursor-pointer select-none" title="Caption images using vision AI and include them in the analysis">
-            <input type="checkbox" id="include-images-cb" class="accent-teal-700" />
-            Include images
-          </label>
-          <button id="run-topics-btn" onclick="runTopicAnalysis()"
-                  class="flex items-center gap-2 px-4 py-2 bg-teal-700 text-white text-sm font-medium rounded-xl hover:bg-teal-800 transition-colors disabled:opacity-50">
-            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
-            </svg>
-            Analyze Topics
-          </button>
-        </div>
-        <div id="topics-result" class="hidden bg-teal-50 border border-teal-100 rounded-xl p-4">
-          <p class="text-xs font-medium text-teal-500 mb-2" id="topics-meta"></p>
-          <div id="topics-text" class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed"></div>
-        </div>
-        <p id="topics-note" class="hidden text-xs text-gray-400 mt-2"></p>
-      </div>
-
-    </div><!-- /panel-groups -->
+    </a>
 
   </main>
 
@@ -384,17 +216,20 @@
       } catch (_) {}
     }
 
+    function fmtHour(h) {
+      return h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
+    }
+
     function renderHourlyChart(hourly) {
       const el = document.getElementById('hourly-chart');
       if (!hourly.length) { el.innerHTML = ''; return; }
-      const max = Math.max(...hourly, 1);
+      const rawMax = Math.max(...hourly);
+      const max = Math.max(rawMax, 1);
       const now = new Date();
-      const peakSlot = hourly.indexOf(Math.max(...hourly));
-      if (Math.max(...hourly) > 0) {
+      const peakSlot = hourly.indexOf(rawMax);
+      if (rawMax > 0) {
         const peakTime = new Date(now.getTime() - (23 - peakSlot) * 3600000);
-        const h = peakTime.getHours();
-        const label = h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
-        document.getElementById('peak-label').textContent = `Peak: ${label}`;
+        document.getElementById('peak-label').textContent = `Peak: ${fmtHour(peakTime.getHours())}`;
       }
       el.innerHTML = hourly.map((count, slot) => {
         const isPeak = slot === peakSlot && count > 0;
@@ -402,183 +237,17 @@
         const color = count === 0 ? 'bg-gray-100' : isPeak ? 'bg-teal-500' : isCurrent ? 'bg-teal-300' : 'bg-teal-200';
         const heightPx = count > 0 ? Math.max(Math.round(count / max * 80), 4) : 2;
         const slotTime = new Date(now.getTime() - (23 - slot) * 3600000);
-        const h = slotTime.getHours();
-        const label = h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
+        const label = fmtHour(slotTime.getHours());
         return `<div class="flex-1 hour-bar rounded-t-sm ${color}" style="height:${heightPx}px" title="${label} — ${count} msgs"></div>`;
       }).join('');
-      // Dynamic x-axis labels: show 5 evenly spaced time labels
       const labelsEl = document.getElementById('hourly-labels');
       const labelSlots = [0, 6, 12, 18, 23];
       labelsEl.innerHTML = labelSlots.map(slot => {
         const t = new Date(now.getTime() - (23 - slot) * 3600000);
-        const h = t.getHours();
-        return `<span>${h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`}</span>`;
+        return `<span>${fmtHour(t.getHours())}</span>`;
       }).join('');
     }
 
-    // ── Summarize ──────────────────────────────────────────────────────────────
-    let allSummarizeGroups = [];
-    let summarizeMinutes = 60;
-
-    document.querySelectorAll('.pill-btn[data-minutes]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        summarizeMinutes = parseInt(btn.dataset.minutes);
-        localStorage.setItem('summarize_minutes', summarizeMinutes);
-        document.querySelectorAll('.pill-btn[data-minutes]').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-      });
-    });
-    // Restore saved time window
-    const savedMinutes = parseInt(localStorage.getItem('summarize_minutes') || '60');
-    summarizeMinutes = savedMinutes;
-    document.querySelectorAll('.pill-btn[data-minutes]').forEach(btn => {
-      btn.classList.toggle('active', parseInt(btn.dataset.minutes) === savedMinutes);
-    });
-
-    function selectSummarizeGroup(id, name) {
-      document.getElementById('summarize-group').value = id;
-      document.getElementById('summarize-group-search').value = name;
-      document.getElementById('summarize-group-dropdown').classList.add('hidden');
-      // Save to recents
-      let recents = JSON.parse(localStorage.getItem('summarize_recents') || '[]');
-      recents = recents.filter(g => g.id !== id);
-      recents.unshift({ id, name });
-      recents = recents.slice(0, 5);
-      localStorage.setItem('summarize_recents', JSON.stringify(recents));
-      renderRecentChips(recents);
-    }
-
-    function renderRecentChips(recents) {
-      const wrap = document.getElementById('recent-group-chips');
-      const row = document.getElementById('recent-chips-row');
-      if (!recents.length) { wrap.classList.add('hidden'); return; }
-      wrap.classList.remove('hidden');
-      row.innerHTML = recents.map(g =>
-        `<button onclick="selectSummarizeGroup('${g.id.replace(/'/g,"\\'")}','${g.name.replace(/'/g,"\\'")}');document.getElementById('summarize-group-search').value='${g.name.replace(/'/g,"\\'")}'"
-                 class="px-2.5 py-1 text-xs font-medium rounded-full border ${
-                   document.getElementById('summarize-group').value === g.id
-                   ? 'bg-teal-700 text-white border-teal-700'
-                   : 'bg-white text-gray-600 border-gray-200 hover:border-teal-500 hover:text-teal-700'
-                 } transition-colors truncate max-w-[160px]" title="${g.name}">${g.name}</button>`
-      ).join('');
-    }
-
-    async function loadSummarizeGroups() {
-      try {
-        const r = await fetch('/api/settings/whatsapp/groups?refresh=true');
-        const d = await r.json();
-        allSummarizeGroups = d.groups || [];
-      } catch (_) {}
-      // Restore last selected group
-      const recents = JSON.parse(localStorage.getItem('summarize_recents') || '[]');
-      renderRecentChips(recents);
-      if (recents.length) {
-        document.getElementById('summarize-group').value = recents[0].id;
-        document.getElementById('summarize-group-search').value = recents[0].name;
-      }
-    }
-
-    function showSummarizeDropdown() {
-      filterSummarizeGroups();
-      document.getElementById('summarize-group-dropdown').classList.remove('hidden');
-    }
-
-    function filterSummarizeGroups() {
-      const query = document.getElementById('summarize-group-search').value.trim().toLowerCase();
-      const dropdown = document.getElementById('summarize-group-dropdown');
-      const filtered = query ? allSummarizeGroups.filter(g => g.name.toLowerCase().includes(query)) : allSummarizeGroups.slice(0, 8);
-      if (!filtered.length) {
-        dropdown.innerHTML = `<p class="px-3 py-2 text-sm text-gray-400">No groups found.</p>`;
-      } else {
-        dropdown.innerHTML = '';
-        filtered.forEach(g => {
-          const item = document.createElement('div');
-          item.className = 'px-3 py-2 text-sm text-gray-700 cursor-pointer hover:bg-teal-50 rounded-lg';
-          item.textContent = g.name;
-          item.dataset.kbditem = '1';
-          item.addEventListener('mousedown', () => selectSummarizeGroup(g.id, g.name));
-          dropdown.appendChild(item);
-        });
-      }
-      dropdown.classList.remove('hidden');
-    }
-
-    document.addEventListener('click', e => {
-      if (!document.getElementById('summarize-group-wrap').contains(e.target))
-        document.getElementById('summarize-group-dropdown').classList.add('hidden');
-    });
-
-    function isRTL(text) {
-      const rtlChars = (text.match(/[\u0590-\u05FF\uFB1D-\uFB4F\u0600-\u06FF]/g) || []).length;
-      return rtlChars > 5;
-    }
-
-    async function runSummarize() {
-      const groupId = document.getElementById('summarize-group').value;
-      const noteEl = document.getElementById('summarize-note');
-      if (!groupId) { noteEl.textContent = 'Search and select a group first.'; noteEl.classList.remove('hidden'); return; }
-      noteEl.classList.add('hidden');
-      document.getElementById('summarize-result').classList.add('hidden');
-      const btn = document.getElementById('summarize-btn');
-      const summaryEl = document.getElementById('summarize-text');
-      btn.textContent = 'Thinking…'; btn.disabled = true;
-      summaryEl.textContent = '';
-      try {
-        const r = await fetch(`/api/summarize-group?group_id=${encodeURIComponent(groupId)}&since_minutes=${summarizeMinutes}`, { method: 'POST' });
-        const contentType = r.headers.get('content-type') || '';
-
-        if (contentType.includes('text/event-stream')) {
-          // Ollama streaming path
-          const reader = r.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
-          let meta = null;
-          const label = document.querySelector('.pill-btn.active')?.textContent || '';
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop();
-            for (const line of lines) {
-              if (!line.startsWith('data: ')) continue;
-              const data = JSON.parse(line.slice(6));
-              if (data.error) { noteEl.textContent = data.error; noteEl.classList.remove('hidden'); }
-              if (data.group_name) { meta = data; }
-              if (data.chunk) {
-                summaryEl.textContent += data.chunk;
-                summaryEl.dir = isRTL(summaryEl.textContent) ? 'rtl' : 'ltr';
-                document.getElementById('summarize-result').classList.remove('hidden');
-              }
-              if (data.done && meta) {
-                document.getElementById('summarize-meta').textContent = `${meta.group_name} · ${meta.message_count} msgs · last ${label}`;
-                renderRecentChips(JSON.parse(localStorage.getItem('summarize_recents') || '[]'));
-              }
-            }
-          }
-        } else {
-          // Anthropic / error JSON path
-          const d = await r.json();
-          if (d.error || d.note) {
-            noteEl.textContent = d.error || d.note;
-            noteEl.classList.remove('hidden');
-          } else {
-            const label = document.querySelector('.pill-btn.active')?.textContent || '';
-            document.getElementById('summarize-meta').textContent = `${d.group_name} · ${d.message_count} msgs · last ${label}`;
-            summaryEl.textContent = d.summary;
-            summaryEl.dir = isRTL(d.summary) ? 'rtl' : 'ltr';
-            document.getElementById('summarize-result').classList.remove('hidden');
-          }
-        }
-      } catch (_) {
-        noteEl.textContent = 'Summary failed. Is the backend running?';
-        noteEl.classList.remove('hidden');
-      } finally {
-        btn.textContent = 'Summarize'; btn.disabled = false;
-      }
-    }
-
-    // ── Who You Message Most ───────────────────────────────────────────────────
     const AVATAR_COLORS = [
       ['bg-violet-100 text-violet-600', 'bg-violet-500'],
       ['bg-teal-100 text-teal-700', 'bg-teal-500'],
@@ -597,6 +266,7 @@
     function nameInitials(name) {
       return name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
     }
+
     function fmtHour(h) {
       if (h === 0) return '12am';
       if (h < 12) return `${h}am`;
@@ -611,7 +281,6 @@
       try {
         const r = await fetch(`/api/dashboard/activity-heatmap?days=${days}`);
         const d = await r.json();
-        // When "Today" selected, re-rank by today count
         let contacts = (d.contacts || []).filter(c => isToday ? c.today > 0 : true);
         if (isToday) contacts.sort((a, b) => b.today - a.today);
         if (!contacts.length) {
@@ -681,306 +350,11 @@
     // Init
     loadNavStatus();
     loadHomeStats();
-    loadSummarizeGroups();
     loadInboxBadge();
     loadHeatmap();
     setInterval(() => { loadNavStatus(); loadHomeStats(); loadInboxBadge(); }, 60000);
-
-    // ── Tab switching ──────────────────────────────────────────────────────────
-    function setTab(tab) {
-      const isDash = tab === 'dashboard';
-      document.getElementById('panel-dashboard').classList.toggle('hidden', !isDash);
-      document.getElementById('panel-groups').classList.toggle('hidden', isDash);
-      document.getElementById('tab-dashboard').className = `px-5 py-2 rounded-lg text-sm font-medium transition-colors ${isDash ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`;
-      document.getElementById('tab-groups').className = `px-5 py-2 rounded-lg text-sm font-medium transition-colors ${!isDash ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500 hover:text-gray-800'}`;
-      localStorage.setItem('home_tab', tab);
-      if (!isDash && !grpGroupsLoaded) { grpGroupsLoaded = true; loadGroups(); }
-    }
-    // Init tab from localStorage or hash
-    (function() {
-      const hash = location.hash === '#groups' ? 'groups' : null;
-      const saved = hash || localStorage.getItem('home_tab') || 'dashboard';
-      if (saved === 'groups') setTab('groups');
-    })();
-
-    // ── Groups tab state ───────────────────────────────────────────────────────
-    let grpGroupsLoaded = false;
-    let allGroups = [];
-    let selectedGroupId = localStorage.getItem('analysis_group_id') || '';
-    let selectedGroupName = localStorage.getItem('analysis_group_name') || '';
-    let selectedDays = parseInt(localStorage.getItem('analysis_days') || '30');
-
-    // Period pills
-    document.querySelectorAll('.pill-btn.grp-period').forEach(btn => {
-      btn.classList.toggle('active', parseInt(btn.dataset.days) === selectedDays);
-      btn.addEventListener('click', () => {
-        selectedDays = parseInt(btn.dataset.days);
-        localStorage.setItem('analysis_days', selectedDays);
-        document.querySelectorAll('.pill-btn.grp-period').forEach(b => b.classList.remove('active'));
-        btn.classList.add('active');
-        if (selectedGroupId) loadAnalysis();
-      });
-    });
-
-    // Group dropdown
-    async function loadGroups() {
-      try {
-        const r = await fetch('/api/settings/whatsapp/groups');
-        const d = await r.json();
-        allGroups = d.groups || [];
-        // Also share with summarize widget
-        if (!allSummarizeGroups.length) allSummarizeGroups = allGroups;
-      } catch (_) {}
-      if (selectedGroupId) {
-        const g = allGroups.find(g => g.id === selectedGroupId);
-        if (g) { document.getElementById('group-search').value = g.name; loadAnalysis(); }
-      }
-    }
-
-    function filterGroups() {
-      const q = document.getElementById('group-search').value.trim().toLowerCase();
-      showGroupDropdown(q);
-    }
-
-    function showGroupDropdown(q = '') {
-      const dropdown = document.getElementById('group-dropdown');
-      const filtered = q ? allGroups.filter(g => g.name.toLowerCase().includes(q)) : allGroups.slice(0, 10);
-      if (!filtered.length) {
-        dropdown.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">No groups found.</p>';
-      } else {
-        dropdown.innerHTML = '';
-        filtered.forEach(g => {
-          const item = document.createElement('div');
-          item.className = 'px-3 py-2 text-sm text-gray-700 cursor-pointer hover:bg-teal-50 rounded-lg';
-          item.textContent = g.name;
-          item.addEventListener('mousedown', () => selectGroup(g.id, g.name));
-          dropdown.appendChild(item);
-        });
-      }
-      dropdown.classList.remove('hidden');
-    }
-
-    function selectGroup(id, name) {
-      selectedGroupId = id;
-      selectedGroupName = name;
-      localStorage.setItem('analysis_group_id', id);
-      localStorage.setItem('analysis_group_name', name);
-      document.getElementById('group-search').value = name;
-      document.getElementById('group-dropdown').classList.add('hidden');
-      loadAnalysis();
-    }
-
-    document.addEventListener('click', e => {
-      if (!document.getElementById('group-search-wrap').contains(e.target))
-        document.getElementById('group-dropdown').classList.add('hidden');
-    });
-
-    // Load & render analysis
-    async function loadAnalysis() {
-      if (!selectedGroupId) return;
-      document.getElementById('group-subtitle').textContent = selectedGroupName || selectedGroupId;
-      document.getElementById('topics-result').classList.add('hidden');
-      document.getElementById('topics-note').classList.add('hidden');
-      try {
-        const r = await fetch(`/api/group-analysis?group_id=${encodeURIComponent(selectedGroupId)}&days=${selectedDays}`);
-        const d = await r.json();
-        if (d.error) { showToast(d.error, 'error'); return; }
-        renderGrpStatCards(d);
-        renderTopWriters(d.topWriters || []);
-        renderGroupHourlyChart(d.hourBuckets || []);
-        renderDowChart(d.dowBuckets || []);
-        renderTopEmoji(d.topEmoji || []);
-      } catch (_) {
-        showToast('Could not load analysis. Is the bot running?', 'error');
-      }
-    }
-
-    function renderGrpStatCards(d) {
-      document.getElementById('stat-total').textContent = d.totalMessages ?? '—';
-      document.getElementById('stat-senders').textContent = d.uniqueSenders ?? '—';
-      document.getElementById('grp-stat-media').textContent = d.mediaCount ?? '—';
-      const tEl = document.getElementById('stat-trend');
-      if (d.trendPct === null || d.trendPct === undefined) {
-        tEl.textContent = '—'; tEl.className = 'text-3xl font-bold text-gray-900';
-      } else if (d.trendPct > 0) {
-        tEl.textContent = `↑ ${d.trendPct}%`; tEl.className = 'text-3xl font-bold text-emerald-500';
-      } else if (d.trendPct < 0) {
-        tEl.textContent = `↓ ${Math.abs(d.trendPct)}%`; tEl.className = 'text-3xl font-bold text-red-400';
-      } else {
-        tEl.textContent = '→ 0%'; tEl.className = 'text-3xl font-bold text-gray-400';
-      }
-      document.getElementById('stat-period').textContent = `last ${selectedDays} days`;
-    }
-
-    const GRP_AVATAR_COLORS = [
-      'bg-violet-100 text-violet-600', 'bg-teal-100 text-teal-700',
-      'bg-blue-100 text-blue-600', 'bg-cyan-100 text-cyan-700',
-      'bg-emerald-100 text-emerald-600', 'bg-amber-100 text-amber-600',
-      'bg-rose-100 text-rose-600', 'bg-pink-100 text-pink-600',
-    ];
-    function grpAvatarColor(name) {
-      let h = 0;
-      for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
-      return GRP_AVATAR_COLORS[Math.abs(h) % GRP_AVATAR_COLORS.length];
-    }
-    function grpInitials(name) {
-      if (name === 'Me') return 'Me';
-      return name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
-    }
-
-    function renderTopWriters(writers) {
-      const el = document.getElementById('top-writers');
-      if (!writers.length) { el.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">No messages in this period.</p>'; return; }
-      const maxCount = writers[0].count;
-      const medals = ['🥇', '🥈', '🥉'];
-      el.innerHTML = writers.map((w, i) => {
-        const pct = Math.round(w.count / maxCount * 100);
-        const isMe = w.sender === 'Me';
-        const avatarBg = isMe ? 'bg-teal-100 text-teal-700' : grpAvatarColor(w.sender);
-        const barColor = isMe ? 'bg-teal-500' : 'bg-teal-300';
-        const displayName = isMe ? 'You' : w.sender;
-        return `<div class="flex items-center gap-3 mb-3 last:mb-0">
-          <div class="relative flex-shrink-0">
-            <div class="w-9 h-9 rounded-full ${avatarBg} flex items-center justify-center text-xs font-bold">${grpInitials(w.sender)}</div>
-            ${medals[i] ? `<span class="absolute -top-1 -right-1 text-xs leading-none">${medals[i]}</span>` : ''}
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between mb-1">
-              <span class="text-sm font-semibold text-gray-800 truncate">${displayName}</span>
-              <span class="text-xs text-gray-400 ml-2 shrink-0">${w.count} msg${w.count !== 1 ? 's' : ''}</span>
-            </div>
-            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
-              <div class="${barColor} h-full rounded-full bar-fill" style="width:${pct}%"></div>
-            </div>
-          </div>
-        </div>`;
-      }).join('');
-    }
-
-    function renderGroupHourlyChart(hourBuckets) {
-      const el = document.getElementById('grp-hourly-chart');
-      if (!hourBuckets.length) { el.innerHTML = ''; return; }
-      const max = Math.max(...hourBuckets, 1);
-      const peakH = hourBuckets.indexOf(Math.max(...hourBuckets));
-      if (Math.max(...hourBuckets) > 0) {
-        const label = peakH === 0 ? '12am' : peakH < 12 ? `${peakH}am` : peakH === 12 ? '12pm' : `${peakH - 12}pm`;
-        document.getElementById('peak-hour-label').textContent = `Peak: ${label}`;
-      }
-      el.innerHTML = hourBuckets.map((count, h) => {
-        const isPeak = h === peakH && count > 0;
-        const color = count === 0 ? 'bg-gray-100' : isPeak ? 'bg-teal-500' : 'bg-teal-200';
-        const heightPx = count > 0 ? Math.max(Math.round(count / max * 80), 4) : 2;
-        const label = h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
-        return `<div class="flex-1 hour-bar rounded-t-sm ${color}" style="height:${heightPx}px" title="${label} — ${count} msgs"></div>`;
-      }).join('');
-    }
-
-    const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-    function renderDowChart(dowBuckets) {
-      const el = document.getElementById('dow-chart');
-      const labelsEl = document.getElementById('dow-labels');
-      if (!dowBuckets.length) { el.innerHTML = ''; return; }
-      const max = Math.max(...dowBuckets, 1);
-      const peakDay = dowBuckets.indexOf(Math.max(...dowBuckets));
-      el.innerHTML = dowBuckets.map((count, d) => {
-        const isPeak = d === peakDay && count > 0;
-        const color = count === 0 ? 'bg-gray-100' : isPeak ? 'bg-teal-500' : 'bg-teal-200';
-        const heightPx = count > 0 ? Math.max(Math.round(count / max * 112), 4) : 2;
-        return `<div class="flex-1 rounded-t-lg ${color} transition-all duration-500" style="height:${heightPx}px" title="${DOW_LABELS[d]} — ${count} msgs"></div>`;
-      }).join('');
-      labelsEl.innerHTML = DOW_LABELS.map(l => `<span>${l}</span>`).join('');
-    }
-
-    function renderTopEmoji(topEmoji) {
-      const el = document.getElementById('top-emoji');
-      if (!topEmoji.length) { el.innerHTML = '<p class="text-sm text-gray-400">No emoji used in this period.</p>'; return; }
-      el.innerHTML = topEmoji.map(({ emoji, count }) =>
-        `<span class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-full text-sm">
-          <span class="text-lg leading-none">${emoji}</span>
-          <span class="text-xs font-medium text-gray-500">${count}</span>
-        </span>`
-      ).join('');
-    }
-
-    async function runTopicAnalysis() {
-      if (!selectedGroupId) { showToast('Select a group first', 'error'); return; }
-      const btn = document.getElementById('run-topics-btn');
-      const resultEl = document.getElementById('topics-result');
-      const textEl = document.getElementById('topics-text');
-      const metaEl = document.getElementById('topics-meta');
-      const noteEl = document.getElementById('topics-note');
-      const includeImages = document.getElementById('include-images-cb').checked;
-      const btnOrigHTML = btn.innerHTML;
-      btn.disabled = true;
-      btn.innerHTML = `<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> ${includeImages ? 'Captioning images\u2026' : 'Analyzing\u2026'}`;
-      noteEl.classList.add('hidden');
-      resultEl.classList.add('hidden');
-      textEl.textContent = '';
-      function fmtMeta(d) {
-        let s = `${d.group_name} \u00b7 ${d.message_count} msgs`;
-        if (d.image_count) s += ` + ${d.image_count} images`;
-        return s + ' analyzed';
-      }
-      try {
-        const r = await fetch('/api/group-analysis/topics', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ group_id: selectedGroupId, days: selectedDays, include_images: includeImages }),
-        });
-        const contentType = r.headers.get('content-type') || '';
-        if (contentType.includes('text/event-stream')) {
-          const reader = r.body.getReader();
-          const decoder = new TextDecoder();
-          let buffer = '';
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            buffer += decoder.decode(value, { stream: true });
-            const lines = buffer.split('\n');
-            buffer = lines.pop();
-            for (const line of lines) {
-              if (!line.startsWith('data: ')) continue;
-              const data = JSON.parse(line.slice(6));
-              if (data.error) { noteEl.textContent = data.error; noteEl.classList.remove('hidden'); }
-              if (data.group_name) metaEl.textContent = fmtMeta(data);
-              if (data.chunk) {
-                textEl.textContent += data.chunk;
-                textEl.dir = isRTL(textEl.textContent) ? 'rtl' : 'ltr';
-                resultEl.classList.remove('hidden');
-              }
-            }
-          }
-        } else {
-          const d = await r.json();
-          if (d.error) { noteEl.textContent = d.error; noteEl.classList.remove('hidden'); }
-          else if (d.note) { noteEl.textContent = d.note; noteEl.classList.remove('hidden'); }
-          else if (d.topics) {
-            metaEl.textContent = fmtMeta(d);
-            textEl.textContent = d.topics;
-            textEl.dir = isRTL(d.topics) ? 'rtl' : 'ltr';
-            resultEl.classList.remove('hidden');
-          }
-        }
-      } catch (_) {
-        noteEl.textContent = 'Analysis failed. Is the backend running?';
-        noteEl.classList.remove('hidden');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = btnOrigHTML;
-      }
-    }
-
   </script>
   <script src="/static/dark.js"></script>
   <script src="/static/pin_lock.js"></script>
-  <script src="/static/kbd-nav.js"></script>
-  <script>
-    initKbdNav(
-      document.getElementById('summarize-group-search'),
-      () => document.querySelectorAll('#summarize-group-dropdown [data-kbditem]'),
-      el => el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })),
-      () => document.getElementById('summarize-group-dropdown')
-    );
-  </script>
 </body>
 </html>

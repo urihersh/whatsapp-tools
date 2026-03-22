@@ -2,10 +2,580 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8" />
-  <meta http-equiv="refresh" content="0; url=/static/index.html#groups" />
-  <title>Redirecting…</title>
+  <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>WA Assistant – Groups</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="stylesheet" href="/static/dark.css" />
+  <style>
+    .stat-card { transition: transform 0.15s, box-shadow 0.15s; }
+    .stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 24px rgba(0,0,0,0.08); }
+    .bar-fill { transition: width 0.6s ease; }
+    .hour-bar { transition: height 0.4s ease; }
+    .pill-btn { padding: 0.25rem 0.75rem; border-radius: 9999px; font-size: 0.75rem; font-weight: 500; border: 1px solid #e5e7eb; background: white; color: #6b7280; cursor: pointer; transition: all 0.15s; }
+    .pill-btn:hover { border-color: #0d9488; color: #0f766e; }
+    .pill-btn.active { background: #0f766e; border-color: #0f766e; color: white; }
+    .kbd-active { background: #f0fdfa !important; outline: 2px solid #0d9488; outline-offset: -2px; border-radius: 0.5rem; }
+  </style>
 </head>
-<body>
-  <script>location.replace('/static/index.html#groups');</script>
+<body class="bg-gray-50 min-h-screen font-sans antialiased">
+
+  <div id="toast" class="hidden fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50"></div>
+
+  <!-- Nav -->
+  <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
+    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
+      <a href="/static/index.html" class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-teal-700 flex items-center justify-center shadow-sm">
+          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+          </svg>
+        </div>
+        <span class="text-base font-bold text-gray-900">WA Assistant</span>
+      </a>
+      <div class="flex gap-1">
+        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Home</a>
+        <a href="/static/groups.html" class="px-4 py-2 rounded-xl text-sm font-medium text-teal-700 bg-teal-50">Groups</a>
+        <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1.5">
+          Inbox<span id="inbox-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
+        </a>
+        <a href="/static/scout.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Scout</a>
+        <a href="/static/agent.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1.5">Autopilot</a>
+        <a href="/static/mazaltover.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">MazalTover</a>
+        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
+      </div>
+      <div class="flex items-center gap-3">
+        <div id="nav-status" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-400">
+          <span id="nav-dot" class="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0"></span>
+          <span id="nav-name">Connecting…</span>
+        </div>
+        <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors">
+          <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg id="dark-icon-sun" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+        </button>
+      </div>
+    </div>
+  </nav>
+
+  <main class="max-w-6xl mx-auto px-6 py-8">
+
+    <!-- Header -->
+    <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900">Group Analysis</h1>
+        <p class="text-sm text-gray-400 mt-0.5" id="group-subtitle">Select a group to analyze</p>
+      </div>
+      <div class="flex items-center gap-3 flex-wrap">
+        <div class="relative" id="group-search-wrap">
+          <input id="group-search" type="text" placeholder="Search groups…" autocomplete="off"
+                 class="border border-gray-200 rounded-xl px-3 py-2 text-sm w-56 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
+                 oninput="filterGroups()" onfocus="showGroupDropdown()" />
+          <div id="group-dropdown" class="hidden absolute right-0 z-20 w-64 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-60 overflow-y-auto"></div>
+          <input type="hidden" id="selected-group-id" />
+        </div>
+        <div class="flex gap-1">
+          <button class="pill-btn grp-period" data-days="7">7d</button>
+          <button class="pill-btn grp-period active" data-days="30">30d</button>
+          <button class="pill-btn grp-period" data-days="90">90d</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Stat cards -->
+    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+      <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Messages</p>
+        <p class="text-3xl font-bold text-gray-900" id="stat-total">—</p>
+        <p class="text-xs text-gray-400 mt-1" id="stat-period">in selected period</p>
+      </div>
+      <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Active Members</p>
+        <p class="text-3xl font-bold text-gray-900" id="stat-senders">—</p>
+        <p class="text-xs text-gray-400 mt-1">unique senders</p>
+      </div>
+      <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Media Shared</p>
+        <p class="text-3xl font-bold text-gray-900" id="grp-stat-media">—</p>
+        <p class="text-xs text-gray-400 mt-1">photos &amp; videos</p>
+      </div>
+      <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+        <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Trend</p>
+        <p class="text-3xl font-bold text-gray-900" id="stat-trend">—</p>
+        <p class="text-xs text-gray-400 mt-1">vs previous period</p>
+      </div>
+    </div>
+
+    <!-- Top writers + Hourly chart -->
+    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
+      <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="font-semibold text-gray-900 mb-5">Top Writers</h2>
+        <div id="top-writers">
+          <p class="text-sm text-gray-400 text-center py-8">Select a group to see top writers</p>
+        </div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <div class="flex items-center justify-between mb-5">
+          <h2 class="font-semibold text-gray-900">Most Active Hours</h2>
+          <span class="text-xs text-gray-400" id="peak-hour-label"></span>
+        </div>
+        <div id="grp-hourly-chart" class="flex items-end gap-px h-20 w-full"></div>
+        <div class="flex justify-between text-xs text-gray-300 mt-1.5">
+          <span>12am</span><span>6am</span><span>12pm</span><span>6pm</span><span>11pm</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Busiest days + Top emoji -->
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="font-semibold text-gray-900 mb-5">Busiest Days</h2>
+        <div id="dow-chart" class="flex items-end gap-2 h-28 w-full"></div>
+        <div class="flex justify-between text-xs text-gray-300 mt-2" id="dow-labels"></div>
+      </div>
+      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+        <h2 class="font-semibold text-gray-900 mb-4">Top Emoji</h2>
+        <div id="top-emoji" class="flex flex-wrap gap-2">
+          <p class="text-sm text-gray-400">—</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- AI Analysis -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <h2 class="font-semibold text-gray-900 mb-5">AI Analysis</h2>
+
+      <div class="grid grid-cols-1 md:grid-cols-2 divide-y md:divide-y-0 md:divide-x divide-gray-100 mb-5">
+
+        <!-- Catch Up -->
+        <div class="pb-5 md:pb-0 md:pr-6">
+          <p class="text-sm font-semibold text-gray-800 mb-0.5">Catch Up</p>
+          <p class="text-xs text-gray-400 mb-4">What happened in the last…</p>
+          <div class="flex flex-wrap gap-1.5 mb-4">
+            <button class="pill-btn" data-minutes="5">5m</button>
+            <button class="pill-btn" data-minutes="15">15m</button>
+            <button class="pill-btn active" data-minutes="60">1h</button>
+            <button class="pill-btn" data-minutes="720">12h</button>
+            <button class="pill-btn" data-minutes="1440">24h</button>
+            <button class="pill-btn" data-minutes="4320">72h</button>
+          </div>
+          <button onclick="runSummarize()" id="summarize-btn"
+                  class="px-5 py-2 bg-teal-700 text-white text-sm font-medium rounded-xl hover:bg-teal-800 transition-colors disabled:opacity-50">
+            Summarize
+          </button>
+        </div>
+
+        <!-- Deep Dive -->
+        <div class="pt-5 md:pt-0 md:pl-6">
+          <p class="text-sm font-semibold text-gray-800 mb-0.5">Deep Dive</p>
+          <p class="text-xs text-gray-400 mb-4">Recurring topics over the selected period</p>
+          <label class="flex items-center gap-2 text-sm text-gray-500 cursor-pointer select-none mb-4">
+            <input type="checkbox" id="include-images-cb" class="accent-teal-700" />
+            Include images
+          </label>
+          <button id="run-topics-btn" onclick="runTopicAnalysis()"
+                  class="flex items-center gap-2 px-5 py-2 bg-teal-700 text-white text-sm font-medium rounded-xl hover:bg-teal-800 transition-colors disabled:opacity-50">
+            <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"/>
+            </svg>
+            Analyze Topics
+          </button>
+        </div>
+      </div>
+
+      <!-- Shared result -->
+      <div id="ai-result" class="hidden bg-teal-50 border border-teal-100 rounded-xl p-4 max-h-64 overflow-y-auto">
+        <p class="text-xs font-medium text-teal-500 mb-2" id="ai-meta"></p>
+        <div id="ai-text" class="text-sm text-gray-700 whitespace-pre-wrap leading-relaxed"></div>
+      </div>
+      <p id="ai-note" class="hidden text-xs text-gray-400 mt-2"></p>
+    </div>
+
+  </main>
+
+  <script>
+    function showToast(msg, type = 'success') {
+      const el = document.getElementById('toast');
+      el.textContent = msg;
+      el.className = `fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50 ${type === 'success' ? 'bg-green-600 text-white' : 'bg-red-500 text-white'}`;
+      el.classList.remove('hidden');
+      setTimeout(() => el.classList.add('hidden'), 3000);
+    }
+
+    async function loadNavStatus() {
+      try {
+        const r = await fetch('/api/settings/whatsapp/status');
+        const d = await r.json();
+        const dot = document.getElementById('nav-dot');
+        const name = document.getElementById('nav-name');
+        if (d.connected) {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-green-500 flex-shrink-0';
+          name.textContent = d.phone?.name || 'Connected';
+          document.getElementById('nav-status').className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-green-50 text-xs font-medium text-green-700';
+        } else {
+          dot.className = 'w-1.5 h-1.5 rounded-full bg-red-400 flex-shrink-0';
+          name.textContent = 'Disconnected';
+          document.getElementById('nav-status').className = 'flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-red-50 text-xs font-medium text-red-600';
+        }
+      } catch (_) {}
+    }
+
+    async function loadInboxBadge() {
+      try {
+        const r = await fetch('/api/dm-inbox');
+        const d = await r.json();
+        const badge = document.getElementById('inbox-badge');
+        if (d.total > 0) { badge.textContent = d.total; badge.classList.remove('hidden'); }
+        else badge.classList.add('hidden');
+      } catch (_) {}
+    }
+
+    // ── Groups state ─────────────────────────────────────────────────────────
+    let allGroups = [];
+    let selectedGroupId = localStorage.getItem('analysis_group_id') || '';
+    let selectedGroupName = localStorage.getItem('analysis_group_name') || '';
+    let selectedDays = parseInt(localStorage.getItem('analysis_days') || '30');
+
+    // Period pills
+    document.querySelectorAll('.pill-btn.grp-period').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.days) === selectedDays);
+      btn.addEventListener('click', () => {
+        selectedDays = parseInt(btn.dataset.days);
+        localStorage.setItem('analysis_days', selectedDays);
+        document.querySelectorAll('.pill-btn.grp-period').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        if (selectedGroupId) loadAnalysis();
+      });
+    });
+
+    async function loadGroups() {
+      try {
+        const r = await fetch('/api/settings/whatsapp/groups');
+        const d = await r.json();
+        allGroups = d.groups || [];
+      } catch (_) {}
+      if (selectedGroupId) {
+        const g = allGroups.find(g => g.id === selectedGroupId);
+        if (g) { document.getElementById('group-search').value = g.name; loadAnalysis(); }
+      }
+    }
+
+    function filterGroups() {
+      showGroupDropdown(document.getElementById('group-search').value.trim().toLowerCase());
+    }
+
+    function showGroupDropdown(q = '') {
+      const dropdown = document.getElementById('group-dropdown');
+      const filtered = q ? allGroups.filter(g => g.name.toLowerCase().includes(q)) : allGroups.slice(0, 10);
+      if (!filtered.length) {
+        dropdown.innerHTML = '<p class="px-3 py-2 text-sm text-gray-400">No groups found.</p>';
+      } else {
+        dropdown.innerHTML = '';
+        filtered.forEach(g => {
+          const item = document.createElement('div');
+          item.className = 'px-3 py-2 text-sm text-gray-700 cursor-pointer hover:bg-teal-50 rounded-lg';
+          item.textContent = g.name;
+          item.dataset.kbditem = '1';
+          item.addEventListener('mousedown', () => selectGroup(g.id, g.name));
+          dropdown.appendChild(item);
+        });
+      }
+      dropdown.classList.remove('hidden');
+    }
+
+    function selectGroup(id, name) {
+      selectedGroupId = id;
+      selectedGroupName = name;
+      localStorage.setItem('analysis_group_id', id);
+      localStorage.setItem('analysis_group_name', name);
+      document.getElementById('group-search').value = name;
+      document.getElementById('group-dropdown').classList.add('hidden');
+      loadAnalysis();
+    }
+
+    document.addEventListener('click', e => {
+      if (!document.getElementById('group-search-wrap').contains(e.target))
+        document.getElementById('group-dropdown').classList.add('hidden');
+      if (!document.getElementById('summarize-group-wrap').contains(e.target))
+        document.getElementById('summarize-group-dropdown').classList.add('hidden');
+    });
+
+    async function loadAnalysis() {
+      if (!selectedGroupId) return;
+      document.getElementById('group-subtitle').textContent = selectedGroupName || selectedGroupId;
+      aiReset();
+      try {
+        const r = await fetch(`/api/group-analysis?group_id=${encodeURIComponent(selectedGroupId)}&days=${selectedDays}`);
+        const d = await r.json();
+        if (d.error) { showToast(d.error, 'error'); return; }
+        renderGrpStatCards(d);
+        renderTopWriters(d.topWriters || []);
+        renderGroupHourlyChart(d.hourBuckets || []);
+        renderDowChart(d.dowBuckets || []);
+        renderTopEmoji(d.topEmoji || []);
+      } catch (_) {
+        showToast('Could not load analysis. Is the bot running?', 'error');
+      }
+    }
+
+    function renderGrpStatCards(d) {
+      document.getElementById('stat-total').textContent = d.totalMessages ?? '—';
+      document.getElementById('stat-senders').textContent = d.uniqueSenders ?? '—';
+      document.getElementById('grp-stat-media').textContent = d.mediaCount ?? '—';
+      const tEl = document.getElementById('stat-trend');
+      if (d.trendPct === null || d.trendPct === undefined) {
+        tEl.textContent = '—'; tEl.className = 'text-3xl font-bold text-gray-900';
+      } else if (d.trendPct > 0) {
+        tEl.textContent = `↑ ${d.trendPct}%`; tEl.className = 'text-3xl font-bold text-emerald-500';
+      } else if (d.trendPct < 0) {
+        tEl.textContent = `↓ ${Math.abs(d.trendPct)}%`; tEl.className = 'text-3xl font-bold text-red-400';
+      } else {
+        tEl.textContent = '→ 0%'; tEl.className = 'text-3xl font-bold text-gray-400';
+      }
+      document.getElementById('stat-period').textContent = `last ${selectedDays} days`;
+    }
+
+    const GRP_AVATAR_COLORS = [
+      'bg-violet-100 text-violet-600', 'bg-teal-100 text-teal-700',
+      'bg-blue-100 text-blue-600', 'bg-cyan-100 text-cyan-700',
+      'bg-emerald-100 text-emerald-600', 'bg-amber-100 text-amber-600',
+      'bg-rose-100 text-rose-600', 'bg-pink-100 text-pink-600',
+    ];
+    function grpAvatarColor(name) {
+      let h = 0;
+      for (const c of name) h = (h * 31 + c.charCodeAt(0)) & 0xffffffff;
+      return GRP_AVATAR_COLORS[Math.abs(h) % GRP_AVATAR_COLORS.length];
+    }
+    function grpInitials(name) {
+      if (name === 'Me') return 'Me';
+      return name.split(/\s+/).filter(Boolean).map(w => w[0]).join('').toUpperCase().slice(0, 2);
+    }
+
+    function renderTopWriters(writers) {
+      const el = document.getElementById('top-writers');
+      if (!writers.length) { el.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">No messages in this period.</p>'; return; }
+      const maxCount = writers[0].count;
+      const medals = ['🥇', '🥈', '🥉'];
+      el.innerHTML = writers.map((w, i) => {
+        const pct = Math.round(w.count / maxCount * 100);
+        const isMe = w.sender === 'Me';
+        const avatarBg = isMe ? 'bg-teal-100 text-teal-700' : grpAvatarColor(w.sender);
+        const barColor = isMe ? 'bg-teal-500' : 'bg-teal-300';
+        const displayName = isMe ? 'You' : w.sender;
+        return `<div class="flex items-center gap-3 mb-3 last:mb-0">
+          <div class="relative flex-shrink-0">
+            <div class="w-9 h-9 rounded-full ${avatarBg} flex items-center justify-center text-xs font-bold">${grpInitials(w.sender)}</div>
+            ${medals[i] ? `<span class="absolute -top-1 -right-1 text-xs leading-none">${medals[i]}</span>` : ''}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between mb-1">
+              <span class="text-sm font-semibold text-gray-800 truncate">${displayName}</span>
+              <span class="text-xs text-gray-400 ml-2 shrink-0">${w.count} msg${w.count !== 1 ? 's' : ''}</span>
+            </div>
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+              <div class="${barColor} h-full rounded-full bar-fill" style="width:${pct}%"></div>
+            </div>
+          </div>
+        </div>`;
+      }).join('');
+    }
+
+    function fmtHour(h) {
+      return h === 0 ? '12am' : h < 12 ? `${h}am` : h === 12 ? '12pm' : `${h - 12}pm`;
+    }
+
+    function renderGroupHourlyChart(hourBuckets) {
+      const el = document.getElementById('grp-hourly-chart');
+      if (!hourBuckets.length) { el.innerHTML = ''; return; }
+      const rawMax = Math.max(...hourBuckets);
+      const max = Math.max(rawMax, 1);
+      const peakH = hourBuckets.indexOf(rawMax);
+      if (rawMax > 0) {
+        document.getElementById('peak-hour-label').textContent = `Peak: ${fmtHour(peakH)}`;
+      }
+      el.innerHTML = hourBuckets.map((count, h) => {
+        const isPeak = h === peakH && count > 0;
+        const color = count === 0 ? 'bg-gray-100' : isPeak ? 'bg-teal-500' : 'bg-teal-200';
+        const heightPx = count > 0 ? Math.max(Math.round(count / max * 80), 4) : 2;
+        return `<div class="flex-1 hour-bar rounded-t-sm ${color}" style="height:${heightPx}px" title="${fmtHour(h)} — ${count} msgs"></div>`;
+      }).join('');
+    }
+
+    const DOW_LABELS = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+    function renderDowChart(dowBuckets) {
+      const el = document.getElementById('dow-chart');
+      const labelsEl = document.getElementById('dow-labels');
+      if (!dowBuckets.length) { el.innerHTML = ''; return; }
+      const max = Math.max(...dowBuckets, 1);
+      const peakDay = dowBuckets.indexOf(Math.max(...dowBuckets));
+      el.innerHTML = dowBuckets.map((count, d) => {
+        const isPeak = d === peakDay && count > 0;
+        const color = count === 0 ? 'bg-gray-100' : isPeak ? 'bg-teal-500' : 'bg-teal-200';
+        const heightPx = count > 0 ? Math.max(Math.round(count / max * 112), 4) : 2;
+        return `<div class="flex-1 rounded-t-lg ${color} transition-all duration-500" style="height:${heightPx}px" title="${DOW_LABELS[d]} — ${count} msgs"></div>`;
+      }).join('');
+      labelsEl.innerHTML = DOW_LABELS.map(l => `<span>${l}</span>`).join('');
+    }
+
+    function renderTopEmoji(topEmoji) {
+      const el = document.getElementById('top-emoji');
+      if (!topEmoji.length) { el.innerHTML = '<p class="text-sm text-gray-400">No emoji used in this period.</p>'; return; }
+      el.innerHTML = topEmoji.map(({ emoji, count }) =>
+        `<span class="inline-flex items-center gap-1 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-full text-sm">
+          <span class="text-lg leading-none">${emoji}</span>
+          <span class="text-xs font-medium text-gray-500">${count}</span>
+        </span>`
+      ).join('');
+    }
+
+    function isRTL(text) {
+      const rtlChars = (text.match(/[\u0590-\u05FF\uFB1D-\uFB4F\u0600-\u06FF]/g) || []).length;
+      return rtlChars > 5;
+    }
+
+    // ── AI Analysis (shared result area) ──────────────────────────────────────
+    let summarizeMinutes = parseInt(localStorage.getItem('summarize_minutes') || '60');
+
+    document.querySelectorAll('.pill-btn[data-minutes]').forEach(btn => {
+      btn.classList.toggle('active', parseInt(btn.dataset.minutes) === summarizeMinutes);
+      btn.addEventListener('click', () => {
+        summarizeMinutes = parseInt(btn.dataset.minutes);
+        localStorage.setItem('summarize_minutes', summarizeMinutes);
+        document.querySelectorAll('.pill-btn[data-minutes]').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+      });
+    });
+
+    function aiShowResult(meta, text) {
+      document.getElementById('ai-meta').textContent = meta;
+      const textEl = document.getElementById('ai-text');
+      textEl.textContent = text;
+      textEl.dir = isRTL(text) ? 'rtl' : 'ltr';
+      document.getElementById('ai-result').classList.remove('hidden');
+      document.getElementById('ai-note').classList.add('hidden');
+    }
+    function aiShowNote(msg) {
+      document.getElementById('ai-note').textContent = msg;
+      document.getElementById('ai-note').classList.remove('hidden');
+    }
+    function aiReset() {
+      document.getElementById('ai-result').classList.add('hidden');
+      document.getElementById('ai-text').textContent = '';
+      document.getElementById('ai-note').classList.add('hidden');
+    }
+
+    async function runSummarize() {
+      if (!selectedGroupId) { showToast('Select a group first', 'error'); return; }
+      const btn = document.getElementById('summarize-btn');
+      aiReset();
+      btn.textContent = 'Thinking…'; btn.disabled = true;
+      const label = document.querySelector('.pill-btn[data-minutes].active')?.textContent || '';
+      try {
+        const r = await fetch(`/api/summarize-group?group_id=${encodeURIComponent(selectedGroupId)}&since_minutes=${summarizeMinutes}`, { method: 'POST' });
+        const contentType = r.headers.get('content-type') || '';
+        if (contentType.includes('text/event-stream')) {
+          const reader = r.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '', meta = null;
+          const textEl = document.getElementById('ai-text');
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n'); buffer = lines.pop();
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const data = JSON.parse(line.slice(6));
+              if (data.error) aiShowNote(data.error);
+              if (data.group_name) meta = data;
+              if (data.chunk) {
+                textEl.textContent += data.chunk;
+                textEl.dir = isRTL(textEl.textContent) ? 'rtl' : 'ltr';
+                document.getElementById('ai-result').classList.remove('hidden');
+              }
+              if (data.done && meta)
+                document.getElementById('ai-meta').textContent = `${meta.group_name} · ${meta.message_count} msgs · last ${label}`;
+            }
+          }
+        } else {
+          const d = await r.json();
+          if (d.error || d.note) { aiShowNote(d.error || d.note); }
+          else { aiShowResult(`${d.group_name} · ${d.message_count} msgs · last ${label}`, d.summary); }
+        }
+      } catch (_) { aiShowNote('Summary failed. Is the backend running?'); }
+      finally { btn.textContent = 'Summarize'; btn.disabled = false; }
+    }
+
+    async function runTopicAnalysis() {
+      if (!selectedGroupId) { showToast('Select a group first', 'error'); return; }
+      const btn = document.getElementById('run-topics-btn');
+      const includeImages = document.getElementById('include-images-cb').checked;
+      const btnOrigHTML = btn.innerHTML;
+      aiReset();
+      btn.disabled = true;
+      btn.innerHTML = `<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> ${includeImages ? 'Captioning…' : 'Analyzing…'}`;
+      function fmtMeta(d) {
+        let s = `${d.group_name} · ${d.message_count} msgs`;
+        if (d.image_count) s += ` + ${d.image_count} images`;
+        return s + ` · last ${selectedDays}d`;
+      }
+      try {
+        const r = await fetch('/api/group-analysis/topics', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ group_id: selectedGroupId, days: selectedDays, include_images: includeImages }),
+        });
+        const contentType = r.headers.get('content-type') || '';
+        if (contentType.includes('text/event-stream')) {
+          const reader = r.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = '';
+          const textEl = document.getElementById('ai-text');
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n'); buffer = lines.pop();
+            for (const line of lines) {
+              if (!line.startsWith('data: ')) continue;
+              const data = JSON.parse(line.slice(6));
+              if (data.error) aiShowNote(data.error);
+              if (data.group_name) document.getElementById('ai-meta').textContent = fmtMeta(data);
+              if (data.chunk) {
+                textEl.textContent += data.chunk;
+                textEl.dir = isRTL(textEl.textContent) ? 'rtl' : 'ltr';
+                document.getElementById('ai-result').classList.remove('hidden');
+              }
+            }
+          }
+        } else {
+          const d = await r.json();
+          if (d.error) aiShowNote(d.error);
+          else if (d.note) aiShowNote(d.note);
+          else if (d.topics) aiShowResult(fmtMeta(d), d.topics);
+        }
+      } catch (_) { aiShowNote('Analysis failed. Is the backend running?'); }
+      finally { btn.disabled = false; btn.innerHTML = btnOrigHTML; }
+    }
+
+    // Init
+    loadNavStatus();
+    loadInboxBadge();
+    loadGroups();
+    setInterval(loadNavStatus, 60000);
+  </script>
+  <script src="/static/dark.js"></script>
+  <script src="/static/pin_lock.js"></script>
+  <script src="/static/kbd-nav.js"></script>
+  <script>
+    initKbdNav(
+      document.getElementById('group-search'),
+      () => document.querySelectorAll('#group-dropdown [data-kbditem]'),
+      el => el.dispatchEvent(new MouseEvent('mousedown', { bubbles: true })),
+      () => document.getElementById('group-dropdown')
+    );
+  </script>
 </body>
 </html>

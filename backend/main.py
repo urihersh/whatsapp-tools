@@ -806,29 +806,30 @@ async def group_analysis_topics(request: Request):
     image_count = 0
     if include_images and (api_key or ollama_vision_model):
         try:
-            async with httpx.AsyncClient(timeout=10.0) as hx:
+            async with httpx.AsyncClient(timeout=30.0) as hx:
                 ir = await hx.get(f"{BOT_API_URL}/history-images",
                                   params={"groupId": group_id, "since": since_ms})
                 image_list = ir.json().get("images", [])[:10]  # cap at 10
-            async def _caption_one(img_meta: dict) -> str | None:
-                try:
-                    async with httpx.AsyncClient(timeout=30.0) as hx:
+
+                async def _caption_one(img_meta: dict) -> str | None:
+                    try:
                         dr = await hx.get(f"{BOT_API_URL}/download-image/{img_meta['id']}",
                                           params={"groupId": group_id})
                         b64 = dr.json().get("image_b64", "")
                         if not b64:
                             return None
                         image_bytes = base64.b64decode(b64)
-                    caption = await asyncio.get_event_loop().run_in_executor(
-                        None, caption_image, image_bytes,
-                        img_meta.get("sender", ""), api_key, ollama_url, ollama_vision_model
-                    )
-                    if caption:
-                        return f"{img_meta.get('sender', 'Someone')} shared an image: {caption}"
-                except Exception:
-                    pass
-                return None
-            captions = await asyncio.gather(*[_caption_one(img) for img in image_list])
+                        caption = await asyncio.get_event_loop().run_in_executor(
+                            None, caption_image, image_bytes,
+                            img_meta.get("sender", ""), api_key, ollama_url, ollama_vision_model
+                        )
+                        if caption:
+                            return f"{img_meta.get('sender', 'Someone')} shared an image: {caption}"
+                    except Exception:
+                        pass
+                    return None
+
+                captions = await asyncio.gather(*[_caption_one(img) for img in image_list])
             for cap in captions:
                 if cap:
                     transcript_lines.append(cap)

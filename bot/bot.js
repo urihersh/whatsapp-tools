@@ -65,8 +65,18 @@ const DM_INBOX_FILE = path.join(__dirname, '..', 'data', 'dm-inbox.json');
 let dmInbox = {};
 // Live unread counts from Baileys chat events — jid -> unreadCount
 const dmUnreadCounts = new Map();
-// Known contact display names — jid -> name (populated from pushName as messages arrive)
+// Known contact display names — jid -> name (persisted so names survive restarts)
 const contactNames = new Map();
+const CONTACT_NAMES_FILE = path.join(__dirname, '..', 'data', 'contact-names.json');
+let _saveContactNamesTimer = null;
+function saveContactNames() {
+  clearTimeout(_saveContactNamesTimer);
+  _saveContactNamesTimer = setTimeout(() => {
+    const obj = {};
+    for (const [jid, name] of contactNames) obj[jid] = name;
+    try { fs.writeFileSync(CONTACT_NAMES_FILE, JSON.stringify(obj)); } catch (_) {}
+  }, 5000);
+}
 // DM text history for agent context: jid → [{ts, fromMe, text, sender}]
 const dmTextHistory = new Map();
 const MAX_DM_TEXT = 60;
@@ -91,7 +101,12 @@ function saveDmInbox() {
   try { fs.writeFileSync(DM_INBOX_FILE, JSON.stringify(dmInbox, null, 2)); } catch (_) {}
 }
 loadDmInbox();
-// Seed contactNames from persisted inbox entries
+// Load persisted contact names first, then overlay from dmInbox (dmInbox may be more recent)
+try {
+  const saved = JSON.parse(fs.readFileSync(CONTACT_NAMES_FILE, 'utf8'));
+  for (const [jid, name] of Object.entries(saved)) contactNames.set(jid, name);
+} catch (_) {}
+// Seed/override from dmInbox — these entries are always fresh
 for (const [jid, entry] of Object.entries(dmInbox)) {
   if (entry.name) contactNames.set(jid, entry.name);
 }
@@ -226,8 +241,9 @@ function storeStatEntry(msg) {
   const jid = msg.key?.remoteJid;
   if (!jid) return;
   // Capture pushName for DM contacts whenever we see it
-  if (msg.pushName && jid.endsWith('@s.whatsapp.net') && !contactNames.has(jid)) {
+  if (msg.pushName && jid.endsWith('@s.whatsapp.net') && contactNames.get(jid) !== msg.pushName) {
     contactNames.set(jid, msg.pushName);
+    saveContactNames();
   }
   if (!statLog.has(jid)) statLog.set(jid, []);
   statLog.get(jid).push({
@@ -257,7 +273,7 @@ function storeTextMsg(msg) {
     text,
   };
   arr.push(entry);
-  if (arr.length > MAX_TEXT_PER_GROUP) arr.splice(0, arr.length - MAX_TEXT_PER_GROUP);
+  if (arr.length > MAX_TEXT_PER_GROUP) textHistory.set(jid, arr.slice(-MAX_TEXT_PER_GROUP));
   try { fs.appendFileSync(textLogPath(jid), JSON.stringify(entry) + '\n'); } catch (_) {}
 }
 
@@ -339,6 +355,31 @@ async function connect() {
   sock.ev.on('chats.update', syncChatCounts);
   sock.ev.on('chats.upsert', syncChatCounts);
 
+  // Seed contactNames from WhatsApp's own contact store so display names are
+  // available for contacts who haven't sent a message since the bot started.
+  sock.ev.on('contacts.set', ({ contacts }) => {
+    let changed = false;
+    for (const c of (contacts || [])) {
+      const name = c.notify || c.name;
+      if (c.id && name && contactNames.get(c.id) !== name) {
+        contactNames.set(c.id, name);
+        changed = true;
+      }
+    }
+    if (changed) saveContactNames();
+  });
+  sock.ev.on('contacts.upsert', contacts => {
+    let changed = false;
+    for (const c of (contacts || [])) {
+      const name = c.notify || c.name;
+      if (c.id && name && contactNames.get(c.id) !== name) {
+        contactNames.set(c.id, name);
+        changed = true;
+      }
+    }
+    if (changed) saveContactNames();
+  });
+
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     // 'notify' = new live message; 'append' = historical sync from device
     const isHistory = type === 'append';
@@ -370,7 +411,7 @@ async function connect() {
           if (!dmTextHistory.has(dmJid)) dmTextHistory.set(dmJid, []);
           const hist = dmTextHistory.get(dmJid);
           hist.push({ ts: (msg.messageTimestamp || 0) * 1000 || Date.now(), fromMe: !!msg.key.fromMe, text: dmText, sender: msg.key.fromMe ? 'Me' : (msg.pushName || dmJid.split('@')[0]) });
-          if (hist.length > MAX_DM_TEXT) hist.splice(0, hist.length - MAX_DM_TEXT);
+          if (hist.length > MAX_DM_TEXT) dmTextHistory.set(dmJid, hist.slice(-MAX_DM_TEXT));
         }
       }
 
@@ -463,7 +504,7 @@ async function connect() {
           else if (msgType === 'stickerMessage') triggerText = '[sticker]';
           const senderName = msg.pushName || contactNames.get(agentJid) || agentJid.split('@')[0];
           agent.log.push({ ts: Date.now(), role: 'incoming', text: triggerText, sender: senderName });
-          if (agent.log.length > 200) agent.log.splice(0, agent.log.length - 200);
+          if (agent.log.length > 200) agent.log = agent.log.slice(-200);
 
           // Build history context
           let history = [];
@@ -482,21 +523,21 @@ async function connect() {
                 contact_name: agent.name,
               }, { timeout: 45000 });
               const reply = res.data?.reply;
-              if (!reply) return;
+              if (!reply) { agentBusy.delete(agentJid); return; }
 
               if (agent.approval_mode) {
                 // Hold for user approval — keep agentBusy set until resolved
                 const id = Date.now().toString();
                 pendingApprovals.set(agentJid, { id, text: reply, ts: Date.now() });
                 agent.log.push({ ts: Date.now(), role: 'pending', text: reply, id });
-                if (agent.log.length > 200) agent.log.splice(0, agent.log.length - 200);
+                if (agent.log.length > 200) agent.log = agent.log.slice(-200);
                 // agentBusy stays set until approve/reject clears it
               } else {
                 if (isConnected) {
                   await new Promise(r => setTimeout(r, humanDelay(reply)));
                   await sock.sendMessage(agentJid, { text: reply });
                   agent.log.push({ ts: Date.now(), role: 'outgoing', text: reply });
-                  if (agent.log.length > 200) agent.log.splice(0, agent.log.length - 200);
+                  if (agent.log.length > 200) agent.log = agent.log.slice(-200);
                   if (agentJid.endsWith('@s.whatsapp.net')) {
                     if (!dmTextHistory.has(agentJid)) dmTextHistory.set(agentJid, []);
                     dmTextHistory.get(agentJid).push({ ts: Date.now(), fromMe: true, text: reply, sender: 'Me' });
@@ -1128,14 +1169,14 @@ app.post('/agent/reject', express.json(), (req, res) => {
   res.json({ ok: true });
 });
 
-app.post('/agent/stop', (req, res) => {
+app.post('/agent/stop', express.json(), (req, res) => {
   const { jid } = req.body;
   const agent = agentConfigs.get(jid);
   if (agent) { agent.active = false; console.log(`[agent] Stopped for ${agent.name}`); }
   res.json({ ok: true });
 });
 
-app.post('/agent/clear-log', (req, res) => {
+app.post('/agent/clear-log', express.json(), (req, res) => {
   const { jid } = req.body;
   const agent = agentConfigs.get(jid);
   if (agent) agent.log = [];

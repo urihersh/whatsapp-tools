@@ -5,6 +5,7 @@ import os
 import requests
 import httpx
 
+_MODEL = "claude-haiku-4-5-20251001"
 _clients: dict[str, anthropic.Anthropic] = {}
 
 
@@ -61,7 +62,7 @@ def caption_image(
         try:
             client = _get_client(key)
             msg = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=_MODEL,
                 max_tokens=80,
                 messages=[{"role": "user", "content": [
                     {"type": "image", "source": {
@@ -111,7 +112,7 @@ def get_moment_caption(
         try:
             client = _get_client(key)
             msg = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=_MODEL,
                 max_tokens=80,
                 messages=[{
                     "role": "user",
@@ -201,7 +202,7 @@ def summarize_messages(
         try:
             client = _get_client(key)
             msg = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=_MODEL,
                 max_tokens=400,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -242,7 +243,7 @@ def analyze_group_topics(
         try:
             client = _get_client(key)
             msg = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=_MODEL,
                 max_tokens=600,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -297,7 +298,7 @@ def suggest_reply(message_text: str, sender_name: str, api_key: str = "", ollama
         try:
             client = _get_client(key)
             msg = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=_MODEL,
                 max_tokens=150,
                 messages=[{"role": "user", "content": prompt}],
             )
@@ -348,7 +349,7 @@ def agent_reply(
         try:
             client = _get_client(key)
             msg = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=_MODEL,
                 max_tokens=300,
                 system=system,
                 messages=[{"role": "user", "content": user_msg}],
@@ -404,7 +405,7 @@ def generate_opener(
         try:
             client = _get_client(key)
             msg = client.messages.create(
-                model="claude-haiku-4-5-20251001",
+                model=_MODEL,
                 max_tokens=200,
                 system=system,
                 messages=[{"role": "user", "content": user_msg}],

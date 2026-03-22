@@ -34,6 +34,7 @@
       </a>
       <div class="flex gap-1">
         <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Home</a>
+        <a href="/static/groups.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Groups</a>
         <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-teal-700 bg-teal-50 flex items-center gap-1.5">
           Inbox
           <span id="nav-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
@@ -184,6 +185,7 @@
         // Build whatsapp link
         const phone = item.jid.split('@')[0];
         const waLink = `https://wa.me/${phone}`;
+        const safeJid = safeJid;
 
         card.innerHTML = `
           <div class="flex items-start gap-3">
@@ -230,8 +232,8 @@
               Done
             </button>
           </div>
-          <div id="reply-panel-${item.jid.replace(/[^a-zA-Z0-9]/g, '_')}" class="hidden mt-3 ml-5 space-y-2">
-            <textarea id="reply-text-${item.jid.replace(/[^a-zA-Z0-9]/g, '_')}" rows="2"
+          <div id="reply-panel-${safeJid}" class="hidden mt-3 ml-5 space-y-2">
+            <textarea id="reply-text-${safeJid}" rows="2"
                       class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 bg-gray-50"
                       placeholder="AI suggestion will appear here…"></textarea>
             <div class="flex gap-2">
@@ -240,7 +242,7 @@
                 <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
                 Send via WA
               </button>
-              <button onclick="document.getElementById('reply-panel-${item.jid.replace(/[^a-zA-Z0-9]/g, '_')}').classList.add('hidden')"
+              <button onclick="document.getElementById('reply-panel-${safeJid}').classList.add('hidden')"
                       class="px-3 py-1.5 bg-gray-100 text-gray-500 text-xs font-medium rounded-xl hover:bg-gray-200 transition-colors">
                 Cancel
               </button>
