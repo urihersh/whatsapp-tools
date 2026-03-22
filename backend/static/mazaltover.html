@@ -137,25 +137,31 @@
           </div>
           <div class="flex gap-3">
             <div class="flex-1">
-              <label class="text-xs text-gray-500 font-medium">Threshold (people)</label>
+              <label class="text-xs text-gray-500 font-medium">Threshold <span class="font-normal">(people)</span></label>
               <input type="number" id="new-threshold" value="3" min="1" max="20"
                      class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
             <div class="flex-1">
-              <label class="text-xs text-gray-500 font-medium">Time window (minutes)</label>
+              <label class="text-xs text-gray-500 font-medium">Window <span class="font-normal">(min)</span></label>
               <input type="number" id="new-window" value="30" min="1" max="180"
                      class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
             <div class="flex-1">
-              <label class="text-xs text-gray-500 font-medium">Cooldown (hours)</label>
+              <label class="text-xs text-gray-500 font-medium">Cooldown <span class="font-normal">(hours)</span></label>
               <input type="number" id="new-cooldown" value="24" min="1" max="168"
                      class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
             </div>
           </div>
-          <button onclick="addGroup()"
-                  class="w-full py-2 bg-teal-700 text-white text-sm font-medium rounded-xl hover:bg-teal-800 transition-colors">
-            Add group
-          </button>
+          <div class="flex gap-2">
+            <button onclick="addGroup()"
+                    class="flex-1 py-2 bg-teal-700 text-white text-sm font-medium rounded-xl hover:bg-teal-800 transition-colors">
+              Add group
+            </button>
+            <button onclick="cancelAddGroup()"
+                    class="flex-1 py-2 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition-colors">
+              Cancel
+            </button>
+          </div>
         </div>
       </div>
 
@@ -196,17 +202,17 @@
         </div>
         <div class="flex gap-3">
           <div class="flex-1">
-            <label class="text-xs text-gray-500 font-medium">Threshold (people)</label>
+            <label class="text-xs text-gray-500 font-medium">Threshold <span class="font-normal">(people)</span></label>
             <input type="number" id="edit-threshold" min="1" max="20"
                    class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
           <div class="flex-1">
-            <label class="text-xs text-gray-500 font-medium">Time window (minutes)</label>
+            <label class="text-xs text-gray-500 font-medium">Window <span class="font-normal">(min)</span></label>
             <input type="number" id="edit-window" value="30" min="1" max="180"
                    class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
           <div class="flex-1">
-            <label class="text-xs text-gray-500 font-medium">Cooldown (hours)</label>
+            <label class="text-xs text-gray-500 font-medium">Cooldown <span class="font-normal">(hours)</span></label>
             <input type="number" id="edit-cooldown" min="1" max="168"
                    class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
@@ -397,6 +403,17 @@
       document.getElementById('new-window').value = '30';
       document.getElementById('new-cooldown').value = '24';
       showToast('Group added!');
+    }
+
+    function cancelAddGroup() {
+      selectedGroup = null;
+      document.getElementById('group-search').value = '';
+      document.getElementById('selected-group-id').value = '';
+      document.getElementById('add-group-config').classList.add('hidden');
+      document.getElementById('new-message').value = 'מזל טוב! 🎉';
+      document.getElementById('new-threshold').value = '3';
+      document.getElementById('new-window').value = '30';
+      document.getElementById('new-cooldown').value = '24';
     }
 
     async function removeGroup(i) {
