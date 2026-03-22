@@ -225,6 +225,10 @@ function storeMediaMsg(msg) {
 function storeStatEntry(msg) {
   const jid = msg.key?.remoteJid;
   if (!jid) return;
+  // Capture pushName for DM contacts whenever we see it
+  if (msg.pushName && jid.endsWith('@s.whatsapp.net') && !contactNames.has(jid)) {
+    contactNames.set(jid, msg.pushName);
+  }
   if (!statLog.has(jid)) statLog.set(jid, []);
   statLog.get(jid).push({
     ts: (msg.messageTimestamp || 0) * 1000,
@@ -956,7 +960,7 @@ app.get('/activity-heatmap', (req, res) => {
     if (sent + received === 0) continue;
     const peakHour = hourBucket.indexOf(Math.max(...hourBucket));
     const group = allGroups.find(g => g.id === jid);
-    const name = group?.name || contactNames.get(jid) || jid.split('@')[0];
+    const name = group?.name || contactNames.get(jid) || dmInbox[jid]?.name || jid.split('@')[0];
     const isGroup = jid.endsWith('@g.us');
     contacts.push({ jid, name, sent, received, today, peakHour, isGroup });
   }
