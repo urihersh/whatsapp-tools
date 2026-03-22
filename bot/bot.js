@@ -413,7 +413,7 @@ async function connect() {
             if (isMazaltovMsg(text)) {
               const sender = msg.key.participant || groupJid;
               const now = Date.now();
-              const windowMs = 30 * 60 * 1000;
+              const windowMs = (parseInt(config.window_minutes) || 30) * 60 * 1000;
               if (!mazaltoverTracker.has(groupJid)) {
                 mazaltoverTracker.set(groupJid, { senders: new Set(), windowStart: now, lastSent: 0 });
               }
