@@ -1,6 +1,6 @@
 from fastapi import FastAPI, UploadFile, Request
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, StreamingResponse
+from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
 from datetime import datetime
@@ -23,7 +23,7 @@ from ai_service import get_moment_caption, caption_image, summarize_messages, st
 from routers.enrollment import router as enrollment_router, load_kids
 from routers.settings import router as settings_router
 from routers.dashboard import router as dashboard_router
-from routers.auth import router as auth_router
+from routers.auth import router as auth_router, is_valid_session
 from routers.backup import router as backup_router
 
 # ── Digest queue ───────────────────────────────────────────────────────────────
@@ -271,6 +271,22 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="Parent Tool", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def auth_middleware(request: Request, call_next):
+    path = request.url.path
+    # Public: static files, auth endpoints, root
+    if not path.startswith("/api/") or path.startswith("/api/auth/"):
+        return await call_next(request)
+    s = get_settings()
+    if s.get("pin_enabled") != "true":
+        return await call_next(request)
+    token = request.cookies.get("pt_session", "")
+    if is_valid_session(token):
+        return await call_next(request)
+    return JSONResponse({"detail": "Unauthorized"}, status_code=401)
+
 
 app.include_router(enrollment_router, prefix="/api/enrollment")
 app.include_router(settings_router, prefix="/api/settings")
