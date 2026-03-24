@@ -115,45 +115,50 @@
         </div>
       </div>
 
-      <!-- Hourly activity -->
-      <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div class="flex items-center justify-between mb-5">
-          <h2 class="font-semibold text-gray-900">Activity by Hour</h2>
-          <span class="text-xs text-gray-400" id="peak-label">last 24h</span>
+      <!-- Right column: hourly chart + scout stacked -->
+      <div class="flex flex-col gap-6">
+
+        <!-- Hourly activity -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <div class="flex items-center justify-between mb-3">
+            <h2 class="font-semibold text-gray-900 text-sm">Activity by Hour</h2>
+            <span class="text-xs text-gray-400" id="peak-label">last 24h</span>
+          </div>
+          <div id="hourly-chart" class="flex items-end gap-px h-10 w-full">
+            <!-- bars rendered by JS -->
+          </div>
+          <div class="flex justify-between text-xs text-gray-300 mt-1.5" id="hourly-labels"></div>
         </div>
-        <div id="hourly-chart" class="flex items-end gap-px h-20 w-full">
-          <!-- bars rendered by JS -->
-        </div>
-        <div class="flex justify-between text-xs text-gray-300 mt-1.5" id="hourly-labels"></div>
+
+        <!-- Scout teaser -->
+        <a href="/static/scout.html" class="group flex-1 block bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-5 shadow-sm hover:shadow-md transition-shadow">
+          <div class="flex items-center gap-3 mb-4">
+            <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center flex-shrink-0">
+              <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
+              </svg>
+            </div>
+            <div class="flex-1">
+              <p class="text-white font-semibold">Scout</p>
+              <p class="text-emerald-100 text-xs">Kids photo finder</p>
+            </div>
+            <svg class="w-4 h-4 text-white/60 group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
+          </div>
+          <div class="flex flex-col gap-3">
+            <div>
+              <p class="text-2xl font-bold text-white" id="scout-matched">—</p>
+              <p class="text-emerald-100 text-xs">matched today</p>
+            </div>
+            <div>
+              <p class="text-2xl font-bold text-white" id="scout-scanned">—</p>
+              <p class="text-emerald-100 text-xs">scanned today</p>
+            </div>
+          </div>
+        </a>
+
       </div>
     </div>
-
-    <!-- Scout teaser -->
-    <a href="/static/scout.html" class="group block bg-gradient-to-br from-emerald-500 to-teal-600 rounded-2xl p-6 shadow-sm hover:shadow-md transition-shadow mb-6">
-      <div class="flex items-center gap-3 mb-3">
-        <div class="w-9 h-9 rounded-xl bg-white/20 flex items-center justify-center">
-          <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-          </svg>
-        </div>
-        <div>
-          <p class="text-white font-semibold">Scout</p>
-          <p class="text-emerald-100 text-xs">Kids photo finder</p>
-        </div>
-        <svg class="w-4 h-4 text-white/60 ml-auto group-hover:translate-x-0.5 transition-transform" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9 5l7 7-7 7"/></svg>
-      </div>
-      <div class="flex gap-4">
-        <div>
-          <p class="text-2xl font-bold text-white" id="scout-matched">—</p>
-          <p class="text-emerald-100 text-xs">matched today</p>
-        </div>
-        <div>
-          <p class="text-2xl font-bold text-white" id="scout-scanned">—</p>
-          <p class="text-emerald-100 text-xs">scanned today</p>
-        </div>
-      </div>
-    </a>
 
   </main>
 
@@ -235,7 +240,7 @@
         const isPeak = slot === peakSlot && count > 0;
         const isCurrent = slot === 23;
         const color = count === 0 ? 'bg-gray-100' : isPeak ? 'bg-teal-500' : isCurrent ? 'bg-teal-300' : 'bg-teal-200';
-        const heightPx = count > 0 ? Math.max(Math.round(count / max * 80), 4) : 2;
+        const heightPx = count > 0 ? Math.max(Math.round(count / max * 36), 3) : 1;
         const slotTime = new Date(now.getTime() - (23 - slot) * 3600000);
         const label = fmtHour(slotTime.getHours());
         return `<div class="flex-1 hour-bar rounded-t-sm ${color}" style="height:${heightPx}px" title="${label} — ${count} msgs"></div>`;
