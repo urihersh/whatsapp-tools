@@ -1012,6 +1012,35 @@ app.get('/activity-heatmap', (req, res) => {
   res.json({ contacts: contacts.slice(0, 12), days });
 });
 
+// Cross-group overview: totals, activity tiers, stale groups, top groups
+app.get('/groups-overview', (req, res) => {
+  const now = Date.now();
+  const ms30d = 30 * 24 * 60 * 60 * 1000;
+  const ms7d  =  7 * 24 * 60 * 60 * 1000;
+  const ms1d  =      24 * 60 * 60 * 1000;
+
+  const groupStats = allGroups.map(g => {
+    const entries = statLog.get(g.id) || [];
+    const msgs30d = entries.filter(e => e.ts >= now - ms30d).length;
+    const msgs7d  = entries.filter(e => e.ts >= now - ms7d).length;
+    const msgs1d  = entries.filter(e => e.ts >= now - ms1d).length;
+    const lastTs  = entries.length ? Math.max(...entries.map(e => e.ts)) : 0;
+    return { id: g.id, name: g.name, msgs30d, msgs7d, msgs1d, lastTs, hasHistory: entries.length > 0 };
+  });
+
+  const topGroups   = [...groupStats].filter(g => g.msgs30d > 0).sort((a, b) => b.msgs30d - a.msgs30d).slice(0, 10);
+  const staleGroups = [...groupStats].filter(g => g.hasHistory && g.msgs30d === 0).sort((a, b) => b.lastTs - a.lastTs).slice(0, 10);
+
+  res.json({
+    total:       allGroups.length,
+    activeToday: groupStats.filter(g => g.msgs1d  > 0).length,
+    active7d:    groupStats.filter(g => g.msgs7d  > 0).length,
+    staleCount:  groupStats.filter(g => g.hasHistory && g.msgs30d === 0).length,
+    topGroups,
+    staleGroups,
+  });
+});
+
 // Single-group analysis: top writers, hourly/dow activity, emoji, trend
 app.get('/group-analysis', (req, res) => {
   const { groupId, days = '30' } = req.query;

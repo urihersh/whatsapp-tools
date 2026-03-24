@@ -65,8 +65,8 @@
     <!-- Header -->
     <div class="flex flex-wrap items-center justify-between gap-4 mb-8">
       <div>
-        <h1 class="text-2xl font-bold text-gray-900">Group Analysis</h1>
-        <p class="text-sm text-gray-400 mt-0.5" id="group-subtitle">Select a group to analyze</p>
+        <h1 class="text-2xl font-bold text-gray-900">Groups</h1>
+        <p class="text-sm text-gray-400 mt-0.5" id="group-subtitle">Overview &amp; per-group analysis</p>
       </div>
       <div class="flex items-center gap-3 flex-wrap">
         <div class="relative" id="group-search-wrap">
@@ -83,6 +83,59 @@
         </div>
       </div>
     </div>
+
+    <!-- ── Overview section (not group-specific) ────────────────────────── -->
+    <div id="overview-section" class="mb-8">
+
+      <!-- Overview stat cards -->
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+        <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Total Groups</p>
+          <p class="text-3xl font-bold text-gray-900" id="ov-total">—</p>
+          <p class="text-xs text-gray-400 mt-1">you're a member of</p>
+        </div>
+        <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Active Today</p>
+          <p class="text-3xl font-bold text-gray-900" id="ov-today">—</p>
+          <p class="text-xs text-gray-400 mt-1">groups with messages</p>
+        </div>
+        <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Active This Week</p>
+          <p class="text-3xl font-bold text-gray-900" id="ov-week">—</p>
+          <p class="text-xs text-gray-400 mt-1">last 7 days</p>
+        </div>
+        <div class="stat-card bg-white rounded-2xl p-5 shadow-sm border border-gray-100">
+          <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-2">Stale Groups</p>
+          <p class="text-3xl font-bold text-gray-900" id="ov-stale">—</p>
+          <p class="text-xs text-gray-400 mt-1">no activity in 30 days</p>
+        </div>
+      </div>
+
+      <!-- Most active + Stale lists -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+
+        <!-- Most active groups -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 class="font-semibold text-gray-900 mb-5">Most Active Groups <span class="text-xs font-normal text-gray-400 ml-1">last 30 days</span></h2>
+          <div id="ov-top-groups">
+            <p class="text-sm text-gray-400 text-center py-6">Loading…</p>
+          </div>
+        </div>
+
+        <!-- Stale groups -->
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+          <h2 class="font-semibold text-gray-900 mb-5">Gone Quiet <span class="text-xs font-normal text-gray-400 ml-1">no messages in 30 days</span></h2>
+          <div id="ov-stale-groups">
+            <p class="text-sm text-gray-400 text-center py-6">Loading…</p>
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <hr class="border-gray-100 mb-8" />
+
+    <!-- ── Per-group analysis ─────────────────────────────────────────────── -->
 
     <!-- Stat cards -->
     <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
@@ -260,6 +313,65 @@
         const g = allGroups.find(g => g.id === selectedGroupId);
         if (g) { document.getElementById('group-search').value = g.name; loadAnalysis(); }
       }
+    }
+
+    function fmtRelTime(ts) {
+      if (!ts) return 'never';
+      const days = Math.floor((Date.now() - ts) / 86400000);
+      if (days === 0) return 'today';
+      if (days === 1) return 'yesterday';
+      if (days < 30) return `${days}d ago`;
+      return `${Math.floor(days / 30)}mo ago`;
+    }
+
+    async function loadOverview() {
+      try {
+        const r = await fetch('/api/groups-overview');
+        const d = await r.json();
+        if (d.error) return;
+
+        document.getElementById('ov-total').textContent = d.total ?? '—';
+        document.getElementById('ov-today').textContent = d.activeToday ?? '—';
+        document.getElementById('ov-week').textContent  = d.active7d ?? '—';
+        document.getElementById('ov-stale').textContent = d.staleCount ?? '—';
+
+        // Most active groups
+        const topEl = document.getElementById('ov-top-groups');
+        if (!d.topGroups?.length) {
+          topEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">No data yet.</p>';
+        } else {
+          const maxMsgs = d.topGroups[0].msgs30d;
+          topEl.innerHTML = d.topGroups.map((g, i) => {
+            const pct = Math.round(g.msgs30d / maxMsgs * 100);
+            const medals = ['🥇','🥈','🥉'];
+            return `<div class="flex items-center gap-3 mb-3 last:mb-0 cursor-pointer hover:bg-gray-50 rounded-xl px-2 py-1 -mx-2 transition-colors" onclick="selectGroup('${g.id.replace(/'/g,"\\'")}', '${g.name.replace(/'/g,"\\'")}')">
+              <span class="text-sm w-4 text-center flex-shrink-0">${medals[i] || ''}</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="text-sm font-medium text-gray-800 truncate">${g.name}</span>
+                  <span class="text-xs text-gray-400 ml-2 shrink-0">${g.msgs30d.toLocaleString()} msgs</span>
+                </div>
+                <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                  <div class="bg-teal-400 h-full rounded-full" style="width:${pct}%"></div>
+                </div>
+              </div>
+            </div>`;
+          }).join('');
+        }
+
+        // Stale groups
+        const staleEl = document.getElementById('ov-stale-groups');
+        if (!d.staleGroups?.length) {
+          staleEl.innerHTML = '<p class="text-sm text-gray-400 text-center py-6">All groups are active.</p>';
+        } else {
+          staleEl.innerHTML = d.staleGroups.map(g =>
+            `<div class="flex items-center justify-between py-2.5 border-b border-gray-50 last:border-0 cursor-pointer hover:bg-gray-50 rounded-xl px-2 -mx-2 transition-colors" onclick="selectGroup('${g.id.replace(/'/g,"\\'")}', '${g.name.replace(/'/g,"\\'")}')">
+              <span class="text-sm text-gray-700 truncate">${g.name}</span>
+              <span class="text-xs text-gray-400 shrink-0 ml-3">last: ${fmtRelTime(g.lastTs)}</span>
+            </div>`
+          ).join('');
+        }
+      } catch (_) {}
     }
 
     function filterGroups() {
@@ -564,6 +676,7 @@
     loadNavStatus();
     loadInboxBadge();
     loadGroups();
+    loadOverview();
     setInterval(loadNavStatus, 60000);
   </script>
   <script src="/static/dark.js"></script>
