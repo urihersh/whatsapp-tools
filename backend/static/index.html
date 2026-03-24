@@ -99,40 +99,35 @@
       </a>
     </div>
 
-    <div class="grid grid-cols-1 lg:grid-cols-3 gap-6 mb-6">
-
-      <!-- Top Conversations (unified) -->
-      <div class="lg:col-span-2 bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
-        <div class="flex items-center justify-between mb-5">
-          <div>
-            <h2 class="font-semibold text-gray-900">Top Conversations</h2>
-            <p class="text-xs text-gray-400 mt-0.5">Ranked by messages you sent</p>
-          </div>
-          <select id="heatmap-days" onchange="loadHeatmap()" class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
-            <option value="1">Today</option>
-            <option value="7">Last 7 days</option>
-            <option value="30" selected>Last 30 days</option>
-            <option value="90">Last 90 days</option>
-          </select>
+    <!-- Top Conversations -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="flex items-center justify-between mb-5">
+        <div>
+          <h2 class="font-semibold text-gray-900">Top Conversations</h2>
+          <p class="text-xs text-gray-400 mt-0.5">Ranked by messages you sent</p>
         </div>
-        <div id="heatmap-container">
-          <p class="text-sm text-gray-400 py-4 text-center">Loading…</p>
-        </div>
+        <select id="heatmap-days" onchange="loadHeatmap()" class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-600 focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white">
+          <option value="1">Today</option>
+          <option value="7">Last 7 days</option>
+          <option value="30" selected>Last 30 days</option>
+          <option value="90">Last 90 days</option>
+        </select>
       </div>
-
-      <!-- Right column: hourly chart -->
-      <div>
-        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
-          <div class="flex items-center justify-between mb-3">
-            <h2 class="font-semibold text-gray-900 text-sm">Activity by Hour</h2>
-            <span class="text-xs text-gray-400" id="peak-label">last 24h</span>
-          </div>
-          <div id="hourly-chart" class="flex items-end gap-px h-10 w-full">
-            <!-- bars rendered by JS -->
-          </div>
-          <div class="flex justify-between text-xs text-gray-300 mt-1.5" id="hourly-labels"></div>
-        </div>
+      <div id="heatmap-container">
+        <p class="text-sm text-gray-400 py-4 text-center">Loading…</p>
       </div>
+    </div>
+
+    <!-- Activity by Hour -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="font-semibold text-gray-900 text-sm">Activity by Hour</h2>
+        <span class="text-xs text-gray-400" id="peak-label">last 24h</span>
+      </div>
+      <div id="hourly-chart" class="flex items-end gap-px h-10 w-full">
+        <!-- bars rendered by JS -->
+      </div>
+      <div class="flex justify-between text-xs text-gray-300 mt-1.5" id="hourly-labels"></div>
     </div>
 
   </main>
