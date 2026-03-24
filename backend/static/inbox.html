@@ -185,7 +185,7 @@
         // Build whatsapp link
         const phone = item.jid.split('@')[0];
         const waLink = `https://wa.me/${phone}`;
-        const safeJid = safeJid;
+        const safeJid = item.jid.replace(/[^a-zA-Z0-9]/g, '_');
 
         card.innerHTML = `
           <div class="flex items-start gap-3">
