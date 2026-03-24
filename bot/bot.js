@@ -990,6 +990,7 @@ app.get('/activity-heatmap', (req, res) => {
   const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0);
   const contacts = [];
   for (const [jid, entries] of statLog) {
+    if (jid.endsWith('@lid')) continue; // anonymized privacy JIDs — unresolvable
     const hourBucket = new Array(24).fill(0);
     let sent = 0, received = 0, today = 0;
     for (const { ts, fromMe } of entries) {
@@ -1000,9 +1001,11 @@ app.get('/activity-heatmap', (req, res) => {
     }
     if (sent + received === 0) continue;
     const peakHour = hourBucket.indexOf(Math.max(...hourBucket));
-    const group = allGroups.find(g => g.id === jid);
-    const name = group?.name || contactNames.get(jid) || dmInbox[jid]?.name || jid.split('@')[0];
     const isGroup = jid.endsWith('@g.us');
+    const group = isGroup ? allGroups.find(g => g.id === jid) : null;
+    if (isGroup && !group) continue; // left or unknown group — skip
+    const dmHistoryName = (dmTextHistory.get(jid) || []).findLast(m => !m.fromMe)?.sender;
+    const name = group?.name || contactNames.get(jid) || dmInbox[jid]?.name || dmHistoryName || jid.split('@')[0];
     contacts.push({ jid, name, sent, received, today, peakHour, isGroup });
   }
   contacts.sort((a, b) => b.sent - a.sent);
