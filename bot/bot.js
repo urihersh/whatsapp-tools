@@ -1153,6 +1153,14 @@ app.get('/contacts', (req, res) => {
   res.json({ contacts });
 });
 
+app.post('/contacts/save', express.json(), (req, res) => {
+  const { jid, name } = req.body;
+  if (!jid || !name) return res.status(400).json({ error: 'jid and name required' });
+  contactNames.set(jid, name);
+  saveContactNames();
+  res.json({ ok: true });
+});
+
 // ── Conversation agent endpoints ─────────────────────────────────────────────
 app.post('/agent/start', (req, res) => {
   const { jid, name, prompt, approval_mode } = req.body;

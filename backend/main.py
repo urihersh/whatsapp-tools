@@ -992,6 +992,16 @@ async def agent_contacts():
         return {"contacts": [], "groups": [], "error": str(e)}
 
 
+@app.post("/api/contacts/save")
+async def save_contact(request: Request):
+    body = await request.json()
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/contacts/save", json=body)
+            return r.json()
+    except Exception as e:
+        return {"error": str(e)}
+
 
 @app.post("/api/agent/initiate")
 async def agent_initiate(request: Request):

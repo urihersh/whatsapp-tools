@@ -85,6 +85,13 @@
                    oninput="filterPicker()" onfocus="showPicker()" />
             <div id="picker-dropdown" class="hidden absolute left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto"></div>
           </div>
+          <!-- Name prompt shown when a raw phone number is selected -->
+          <div id="name-prompt" class="hidden mt-3 flex items-center gap-2">
+            <input id="name-prompt-input" type="text" placeholder="Enter contact name…"
+                   class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white" />
+            <button onclick="saveContactName()" class="px-3 py-2 bg-teal-700 text-white text-sm rounded-xl hover:bg-teal-800 transition-colors">Save</button>
+          </div>
+
           <div id="selected-display" class="hidden mt-3 flex items-center gap-2.5 p-3 bg-teal-50 border border-teal-100 rounded-xl">
             <div id="selected-avatar" class="w-9 h-9 rounded-full bg-teal-700 text-white flex items-center justify-center text-xs font-bold flex-shrink-0"></div>
             <div class="min-w-0">
@@ -252,19 +259,52 @@
 
     function showPicker() { filterPicker(); }
 
+    let _pendingPhoneJid = null;
+
     function selectItem(item) {
+      document.getElementById('picker-input').value = '';
+      document.getElementById('picker-dropdown').classList.add('hidden');
+
+      // If this was a raw phone number entry, ask for a name first
+      if (phoneToJid(item.name) === item.id) {
+        _pendingPhoneJid = item.id;
+        document.getElementById('name-prompt').classList.remove('hidden');
+        document.getElementById('name-prompt').classList.add('flex');
+        document.getElementById('name-prompt-input').value = '';
+        document.getElementById('name-prompt-input').focus();
+        return;
+      }
+
+      _applySelection(item);
+    }
+
+    async function saveContactName() {
+      const name = document.getElementById('name-prompt-input').value.trim();
+      if (!name || !_pendingPhoneJid) return;
+      await fetch('/api/contacts/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid: _pendingPhoneJid, name }) });
+      // Add to local list so it shows up in future searches
+      allItems.push({ id: _pendingPhoneJid, name, isGroup: false });
+      allItems.sort((a, b) => a.name.localeCompare(b.name));
+      document.getElementById('name-prompt').classList.add('hidden');
+      document.getElementById('name-prompt').classList.remove('flex');
+      _applySelection({ id: _pendingPhoneJid, name, isGroup: false });
+      _pendingPhoneJid = null;
+    }
+
+    document.getElementById('name-prompt-input')?.addEventListener('keydown', e => {
+      if (e.key === 'Enter') saveContactName();
+    });
+
+    function _applySelection(item) {
       selectedJid = item.id;
       selectedName = item.name;
       selectedIsGroup = item.isGroup;
-      document.getElementById('picker-input').value = '';
-      document.getElementById('picker-dropdown').classList.add('hidden');
       const display = document.getElementById('selected-display');
       display.classList.remove('hidden');
       display.classList.add('flex');
       document.getElementById('selected-avatar').textContent = initials(item.name);
       document.getElementById('selected-name').textContent = item.name;
       document.getElementById('selected-type').textContent = item.isGroup ? 'Group' : 'Contact';
-      // Check if there's an active agent for this JID
       refreshAgentState();
     }
 
@@ -272,6 +312,8 @@
       selectedJid = null;
       document.getElementById('selected-display').classList.add('hidden');
       document.getElementById('selected-display').classList.remove('flex');
+      document.getElementById('name-prompt').classList.add('hidden');
+      document.getElementById('name-prompt').classList.remove('flex');
       setAgentUI(false);
     }
 
