@@ -63,7 +63,7 @@
     <div class="flex items-center justify-between mb-6">
       <div>
         <h1 class="text-2xl font-bold text-gray-900">DMs</h1>
-        <p class="text-sm text-gray-400 mt-0.5">Unanswered direct messages</p>
+        <p class="text-sm text-gray-400 mt-0.5">Your direct messages</p>
       </div>
       <div class="flex gap-2">
         <button onclick="openCompose()" title="New message"
@@ -107,6 +107,7 @@
     </div>
 
     <!-- List -->
+    <p class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-3">Pending replies</p>
     <div id="inbox-list" class="space-y-3">
       <p class="text-sm text-gray-400 py-8 text-center">Loading…</p>
     </div>
@@ -212,7 +213,7 @@
               </svg>
             </div>
             <p class="font-semibold text-gray-700">All clear!</p>
-            <p class="text-sm text-gray-400 mt-1">No unanswered messages.</p>
+            <p class="text-sm text-gray-400 mt-1">No pending replies.</p>
           </div>`;
         return;
       }
