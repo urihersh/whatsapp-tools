@@ -223,7 +223,7 @@
         <!-- Deep Dive -->
         <div class="pt-5 md:pt-0 md:pl-6">
           <p class="text-sm font-semibold text-gray-800 mb-0.5">Deep Dive</p>
-          <p class="text-xs text-gray-400 mb-4">Recurring topics over the selected period</p>
+          <p class="text-xs text-gray-400 mb-4">Recurring topics over the last <span id="deep-dive-period">30</span> days</p>
           <label class="flex items-center gap-2 text-sm text-gray-500 cursor-pointer select-none mb-4">
             <input type="checkbox" id="include-images-cb" class="accent-teal-700" />
             Include images
@@ -291,6 +291,10 @@
     let selectedGroupName = localStorage.getItem('analysis_group_name') || '';
     let selectedDays = parseInt(localStorage.getItem('analysis_days') || '30');
 
+    function updatePeriodLabel() {
+      document.getElementById('deep-dive-period').textContent = selectedDays;
+    }
+
     // Period pills
     document.querySelectorAll('.pill-btn.grp-period').forEach(btn => {
       btn.classList.toggle('active', parseInt(btn.dataset.days) === selectedDays);
@@ -299,9 +303,11 @@
         localStorage.setItem('analysis_days', selectedDays);
         document.querySelectorAll('.pill-btn.grp-period').forEach(b => b.classList.remove('active'));
         btn.classList.add('active');
+        updatePeriodLabel();
         if (selectedGroupId) loadAnalysis();
       });
     });
+    updatePeriodLabel();
 
     async function loadGroups() {
       try {
