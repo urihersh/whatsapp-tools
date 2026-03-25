@@ -87,9 +87,10 @@
           </div>
           <!-- Name prompt shown when a raw phone number is selected -->
           <div id="name-prompt" class="hidden mt-3 flex items-center gap-2">
-            <input id="name-prompt-input" type="text" placeholder="Enter contact name…"
+            <input id="name-prompt-input" type="text" placeholder="Name (optional)…"
                    class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white" />
             <button onclick="saveContactName()" class="px-3 py-2 bg-teal-700 text-white text-sm rounded-xl hover:bg-teal-800 transition-colors">Save</button>
+            <button onclick="skipContactName()" class="px-3 py-2 text-sm text-gray-400 hover:text-gray-600 transition-colors">Skip</button>
           </div>
 
           <div id="selected-display" class="hidden mt-3 flex items-center gap-2.5 p-3 bg-teal-50 border border-teal-100 rounded-xl">
@@ -279,20 +280,32 @@
     }
 
     async function saveContactName() {
+      if (!_pendingPhoneJid) return;
       const name = document.getElementById('name-prompt-input').value.trim();
-      if (!name || !_pendingPhoneJid) return;
-      await fetch('/api/contacts/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid: _pendingPhoneJid, name }) });
-      // Add to local list so it shows up in future searches
-      allItems.push({ id: _pendingPhoneJid, name, isGroup: false });
-      allItems.sort((a, b) => a.name.localeCompare(b.name));
+      const displayName = name || _pendingPhoneJid.split('@')[0];
+      if (name) {
+        await fetch('/api/contacts/save', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid: _pendingPhoneJid, name }) });
+        allItems.push({ id: _pendingPhoneJid, name, isGroup: false });
+        allItems.sort((a, b) => a.name.localeCompare(b.name));
+      }
       document.getElementById('name-prompt').classList.add('hidden');
       document.getElementById('name-prompt').classList.remove('flex');
-      _applySelection({ id: _pendingPhoneJid, name, isGroup: false });
+      _applySelection({ id: _pendingPhoneJid, name: displayName, isGroup: false });
+      _pendingPhoneJid = null;
+    }
+
+    function skipContactName() {
+      if (!_pendingPhoneJid) return;
+      const displayName = _pendingPhoneJid.split('@')[0];
+      document.getElementById('name-prompt').classList.add('hidden');
+      document.getElementById('name-prompt').classList.remove('flex');
+      _applySelection({ id: _pendingPhoneJid, name: displayName, isGroup: false });
       _pendingPhoneJid = null;
     }
 
     document.getElementById('name-prompt-input')?.addEventListener('keydown', e => {
       if (e.key === 'Enter') saveContactName();
+      if (e.key === 'Escape') skipContactName();
     });
 
     function _applySelection(item) {
