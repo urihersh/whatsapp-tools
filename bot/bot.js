@@ -1125,6 +1125,57 @@ app.post('/inbox/send-reply', express.json(), async (req, res) => {
   }
 });
 
+// ── DM overview ──────────────────────────────────────────────────────────────
+app.get('/dm-overview', (req, res) => {
+  const now = Date.now();
+  const ms30d = 30 * 24 * 60 * 60 * 1000;
+  const ms7d  =  7 * 24 * 60 * 60 * 1000;
+  const ms1d  =      24 * 60 * 60 * 1000;
+
+  // Build name lookup: contactNames + dmInbox + dmTextHistory
+  const nameFor = jid => {
+    if (contactNames.has(jid)) return contactNames.get(jid);
+    if (dmInbox[jid]?.name) return dmInbox[jid].name;
+    const hist = dmTextHistory.get(jid) || [];
+    return hist.findLast(m => !m.fromMe && m.sender)?.sender || jid.split('@')[0];
+  };
+
+  // Collect all known DM JIDs: union of statLog, contactNames, dmInbox, dmTextHistory
+  const allDmJids = new Set();
+  for (const jid of contactNames.keys()) if (jid.endsWith('@s.whatsapp.net')) allDmJids.add(jid);
+  for (const jid of Object.keys(dmInbox)) if (jid.endsWith('@s.whatsapp.net')) allDmJids.add(jid);
+  for (const jid of dmTextHistory.keys()) if (jid.endsWith('@s.whatsapp.net')) allDmJids.add(jid);
+  for (const jid of statLog.keys()) if (jid.endsWith('@s.whatsapp.net')) allDmJids.add(jid);
+
+  const dmStats = [];
+  for (const jid of allDmJids) {
+    const entries = statLog.get(jid) || [];
+    const hist    = dmTextHistory.get(jid) || [];
+    const msgs30d = entries.filter(e => e.ts >= now - ms30d).length;
+    const msgs7d  = entries.filter(e => e.ts >= now - ms7d).length;
+    const msgs1d  = entries.filter(e => e.ts >= now - ms1d).length;
+    const lastStatTs = entries.length ? Math.max(...entries.map(e => e.ts)) : 0;
+    const lastHistTs = hist.length ? Math.max(...hist.map(m => m.ts)) : 0;
+    const lastTs  = Math.max(lastStatTs, lastHistTs, (dmInbox[jid]?.timestamp || 0) * 1000);
+    const lastMsg = [...entries].reverse().find(Boolean);
+    const waitingForReply = lastMsg?.fromMe && msgs30d > 0;
+    dmStats.push({ jid, name: nameFor(jid), msgs30d, msgs7d, msgs1d, lastTs, hasHistory: lastTs > 0, waitingForReply });
+  }
+
+  const pending = Object.values(dmInbox).filter(e => e.status === 'pending').length;
+  const mostActive  = [...dmStats].filter(g => g.msgs30d > 0).sort((a, b) => b.msgs30d - a.msgs30d).slice(0, 10);
+  const stale       = [...dmStats].filter(g => g.hasHistory && g.msgs30d === 0).sort((a, b) => b.lastTs - a.lastTs).slice(0, 10);
+  const noReply     = [...dmStats].filter(g => g.waitingForReply).sort((a, b) => a.lastTs - b.lastTs).slice(0, 6);
+
+  res.json({
+    total:       dmStats.length,
+    pending,
+    activeToday: dmStats.filter(g => g.msgs1d > 0).length,
+    active7d:    dmStats.filter(g => g.msgs7d > 0).length,
+    mostActive, stale, noReply,
+  });
+});
+
 // ── Known DM contacts ────────────────────────────────────────────────────────
 app.get('/contacts', (req, res) => {
   const seen = new Map(); // jid -> name

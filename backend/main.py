@@ -766,6 +766,16 @@ async def mazaltover_log():
 
 # ── Group Analysis endpoints ─────────────────────────────────────────────────────
 
+@app.get("/api/dm-overview")
+async def dm_overview():
+    try:
+        async with httpx.AsyncClient(timeout=10.0) as hx:
+            r = await hx.get(f"{BOT_API_URL}/dm-overview")
+            return r.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/api/groups-overview")
 async def groups_overview():
     try:
