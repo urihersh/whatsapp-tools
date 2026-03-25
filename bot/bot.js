@@ -1127,11 +1127,29 @@ app.post('/inbox/send-reply', express.json(), async (req, res) => {
 
 // ── Known DM contacts ────────────────────────────────────────────────────────
 app.get('/contacts', (req, res) => {
-  const contacts = [];
+  const seen = new Map(); // jid -> name
+
+  // Seed from contactNames (pushName from incoming messages)
   for (const [jid, name] of contactNames) {
-    if (jid.endsWith('@s.whatsapp.net')) contacts.push({ id: jid, name });
+    if (jid.endsWith('@s.whatsapp.net')) seen.set(jid, name);
   }
-  contacts.sort((a, b) => a.name.localeCompare(b.name));
+
+  // Fill gaps from dmTextHistory (sender field on received messages)
+  for (const [jid, msgs] of dmTextHistory) {
+    if (!jid.endsWith('@s.whatsapp.net') || seen.has(jid)) continue;
+    const name = msgs.findLast(m => !m.fromMe && m.sender)?.sender;
+    if (name) seen.set(jid, name);
+  }
+
+  // Fill gaps from dmInbox (has name captured at receipt time)
+  for (const [jid, entry] of Object.entries(dmInbox)) {
+    if (!jid.endsWith('@s.whatsapp.net') || seen.has(jid)) continue;
+    if (entry.name) seen.set(jid, entry.name);
+  }
+
+  const contacts = [...seen.entries()]
+    .map(([id, name]) => ({ id, name }))
+    .sort((a, b) => a.name.localeCompare(b.name));
   res.json({ contacts });
 });
 
