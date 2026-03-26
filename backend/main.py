@@ -776,6 +776,16 @@ async def dm_overview():
         return {"error": str(e)}
 
 
+@app.post("/api/fetch-history-all")
+async def fetch_history_all():
+    try:
+        async with httpx.AsyncClient(timeout=120.0) as hx:
+            r = await hx.post(f"{BOT_API_URL}/fetch-history-all")
+            return r.json()
+    except Exception as e:
+        return {"error": str(e)}
+
+
 @app.get("/api/groups-overview")
 async def groups_overview():
     try:

@@ -192,6 +192,8 @@ cleanInboxFromStatLog();
 
 // Oldest message cursor per group (used for fetchMessageHistory requests)
 const groupCursors = new Map(); // groupId -> { key, timestampMs }
+// Last known message timestamp per chat (from chats.upsert, used as fallback cursor)
+const chatLastTs = new Map(); // jid -> timestampMs
 
 function isImageMsg(msg) {
   const msgType = Object.keys(msg.message || {})[0];
@@ -297,6 +299,7 @@ async function connect() {
     for (const msg of (messages || [])) {
       updateCursor(msg);  // track oldest for all message types
       storeMediaMsg(msg); // store images and videos
+      storeTextMsg(msg);  // populate textHistory + statLog so groups show up in analytics
     }
     if (messages?.length) console.log(`[bot] History sync: processed ${messages.length} messages`);
   });
@@ -341,7 +344,13 @@ async function connect() {
     let changed = false;
     for (const chat of chats) {
       const jid = chat.id;
-      if (!jid?.endsWith('@s.whatsapp.net')) continue;
+      if (!jid) continue;
+      // Track last message timestamp for all chats (used as fallback history cursor)
+      if (chat.lastMsgTimestamp) {
+        const ts = Number(chat.lastMsgTimestamp) * 1000;
+        if (!chatLastTs.has(jid) || ts > chatLastTs.get(jid)) chatLastTs.set(jid, ts);
+      }
+      if (!jid.endsWith('@s.whatsapp.net')) continue;
       if (typeof chat.unreadCount === 'number') {
         dmUnreadCounts.set(jid, chat.unreadCount);
         if (dmInbox[jid] && chat.unreadCount <= 0) {
@@ -844,7 +853,6 @@ app.post('/fetch-history', express.json(), async (req, res) => {
 
   const cursor = groupCursors.get(groupId);
   if (!cursor) {
-    // No messages known for this group yet — request from beginning
     return res.status(404).json({ error: 'No messages seen for this group yet. Make sure the bot is connected and the group is monitored.' });
   }
 
@@ -856,6 +864,38 @@ app.post('/fetch-history', express.json(), async (req, res) => {
     console.error('[bot] fetchMessageHistory error:', e.message);
     res.status(500).json({ error: e.message });
   }
+});
+
+// Bulk history fetch: request history for all groups, using real cursors where
+// available and synthetic ones (from chats.upsert lastMsgTimestamp) where not.
+app.post('/fetch-history-all', express.json(), async (req, res) => {
+  if (!isConnected) return res.status(503).json({ error: 'Not connected' });
+  let sent = 0, skipped = 0;
+  const results = [];
+  for (const g of allGroups) {
+    const jid = g.id;
+    const cursor = groupCursors.get(jid);
+    const lastTs = chatLastTs.get(jid);
+    if (!cursor && !lastTs) { skipped++; continue; }
+    try {
+      if (cursor) {
+        await sock.fetchMessageHistory(200, cursor.key, cursor.timestampMs);
+      } else {
+        // Synthetic cursor: use group JID + lastMsgTimestamp to request recent history
+        const syntheticKey = { remoteJid: jid, fromMe: false, id: 'HISTORY_SYNC_REQUEST' };
+        await sock.fetchMessageHistory(200, syntheticKey, lastTs);
+      }
+      results.push({ jid, name: g.name, type: cursor ? 'real' : 'synthetic' });
+      sent++;
+      // Small delay to avoid flooding WhatsApp
+      await new Promise(r => setTimeout(r, 300));
+    } catch (e) {
+      console.error(`[bot] History fetch failed for ${g.name}: ${e.message}`);
+      skipped++;
+    }
+  }
+  console.log(`[bot] Bulk history fetch: ${sent} requested, ${skipped} skipped`);
+  res.json({ ok: true, sent, skipped, results });
 });
 
 app.get('/history-images', (req, res) => {
