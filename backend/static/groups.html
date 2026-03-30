@@ -430,7 +430,8 @@
 
     async function loadAnalysis() {
       if (!selectedGroupId) return;
-      document.getElementById('group-subtitle').textContent = selectedGroupName || selectedGroupId;
+      const subtitleEl = document.getElementById('group-subtitle');
+      if (subtitleEl) subtitleEl.textContent = selectedGroupName || selectedGroupId;
       aiReset();
       try {
         const r = await fetch(`/api/group-analysis?group_id=${encodeURIComponent(selectedGroupId)}&days=${selectedDays}`);

@@ -1079,6 +1079,18 @@ async def agent_reject(request: Request):
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 
+@app.post("/api/wa-disconnect")
+async def wa_disconnect():
+    async with httpx.AsyncClient(timeout=10.0) as hx:
+        r = await hx.post(f"{BOT_API_URL}/wa-disconnect")
+        return r.json()
+
+@app.post("/api/wa-connect")
+async def wa_connect():
+    async with httpx.AsyncClient(timeout=10.0) as hx:
+        r = await hx.post(f"{BOT_API_URL}/wa-connect")
+        return r.json()
+
 @app.post("/api/digest/send-now")
 async def digest_send_now():
     """Flush the digest queue immediately."""

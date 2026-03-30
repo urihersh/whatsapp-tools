@@ -24,6 +24,7 @@ fs.mkdirSync(SESSION_DIR, { recursive: true });
 // --- State ---
 let currentQR = null;
 let isConnected = false;
+let manuallyDisconnected = false;
 let phoneInfo = null;
 let allGroups = [];
 let allChats = [];
@@ -113,17 +114,47 @@ for (const [jid, entry] of Object.entries(dmInbox)) {
 
 // --- MazalTover: auto congratulations sender ---
 const MAZALTOVER_LOG_FILE = path.join(__dirname, '..', 'data', 'mazaltover-log.json');
+const MAZALTOVER_DETECTIONS_FILE = path.join(__dirname, '..', 'data', 'mazaltover-detections.json');
+const MAZALTOVER_TRACKER_FILE = path.join(__dirname, '..', 'data', 'mazaltover-tracker.json');
 let mazaltoverLog = [];
+let mazaltoverDetections = []; // every individual hit ever caught
 function loadMazaltoverLog() {
   try { mazaltoverLog = JSON.parse(fs.readFileSync(MAZALTOVER_LOG_FILE, 'utf8')); } catch (_) { mazaltoverLog = []; }
+  try { mazaltoverDetections = JSON.parse(fs.readFileSync(MAZALTOVER_DETECTIONS_FILE, 'utf8')); } catch (_) { mazaltoverDetections = []; }
 }
 function saveMazaltoverLog() {
   try { fs.writeFileSync(MAZALTOVER_LOG_FILE, JSON.stringify(mazaltoverLog.slice(0, 200), null, 2)); } catch (_) {}
 }
+function saveMazaltoverDetections() {
+  try { fs.writeFileSync(MAZALTOVER_DETECTIONS_FILE, JSON.stringify(mazaltoverDetections.slice(0, 1000), null, 2)); } catch (_) {}
+}
 loadMazaltoverLog();
 
-// groupId → { senders: Set<string>, windowStart: number, lastSent: number }
+// groupId → { senders: Set<string>, windowStart: number, lastSent: number, hits: [] }
 const mazaltoverTracker = new Map();
+function saveTrackerState() {
+  try {
+    const obj = {};
+    for (const [jid, t] of mazaltoverTracker) {
+      obj[jid] = { senders: [...t.senders], windowStart: t.windowStart, lastSent: t.lastSent, hits: t.hits || [] };
+    }
+    fs.writeFileSync(MAZALTOVER_TRACKER_FILE, JSON.stringify(obj, null, 2));
+  } catch (_) {}
+}
+function loadTrackerState() {
+  try {
+    const obj = JSON.parse(fs.readFileSync(MAZALTOVER_TRACKER_FILE, 'utf8'));
+    for (const [jid, t] of Object.entries(obj)) {
+      mazaltoverTracker.set(jid, {
+        senders: new Set(Array.isArray(t.senders) ? t.senders : []),
+        windowStart: t.windowStart || Date.now(),
+        lastSent: t.lastSent || 0,
+        hits: Array.isArray(t.hits) ? t.hits : [],
+      });
+    }
+  } catch (_) {}
+}
+loadTrackerState();
 const MAZALTOV_RE = /מזל[\s]*טוב|mazel[\s]*tov|mazal[\s]*tov|congrat|ברכות/i;
 const DM_SKIP_TYPES = new Set([
   'protocolMessage', 'reactionMessage', 'senderKeyDistributionMessage',
@@ -209,7 +240,9 @@ function isVideoMsg(msg) {
 
 function getSender(msg) {
   const jid = msg.key.participant || msg.key.remoteJid || '';
-  return msg.pushName || jid.split('@')[0];
+  const [localPart, domain] = jid.split('@');
+  if (domain === 'lid') return msg.pushName || contactNames.get(jid) || 'Unknown';
+  return msg.pushName || contactNames.get(jid) || localPart;
 }
 
 function updateCursor(msg) {
@@ -289,7 +322,7 @@ async function connect() {
     auth: state,
     logger: pino({ level: 'silent' }),
     printQRInTerminal: false,
-    browser: ['ParentTool', 'Chrome', '1.0'],
+    browser: ['WA Assistant', 'Chrome', '1.0'],
     markOnlineOnConnect: false,
   });
 
@@ -317,8 +350,11 @@ async function connect() {
       isConnected = true;
       currentQR = null;
       const me = sock.user;
-      phoneInfo = { number: me.id.split(':')[0], name: me.name || 'Unknown' };
+      const number = me.id.split(':')[0];
+      phoneInfo = { number, name: me.name || `+${number}` };
       console.log(`[bot] Connected as ${phoneInfo.name} (+${phoneInfo.number})`);
+      // Mark presence as unavailable so WhatsApp doesn't suppress phone notifications
+      await sock.sendPresenceUpdate('unavailable');
       await refreshGroupsAndChats();
     }
 
@@ -326,6 +362,10 @@ async function connect() {
       isConnected = false;
       phoneInfo = null;
       const code = lastDisconnect?.error?.output?.statusCode;
+      if (manuallyDisconnected) {
+        console.log('[bot] Disconnected manually — not reconnecting.');
+        return;
+      }
       const shouldReconnect = code !== DisconnectReason.loggedOut;
       console.log(`[bot] Disconnected (code ${code}). Reconnect: ${shouldReconnect}`);
       if (shouldReconnect) {
@@ -448,6 +488,36 @@ async function connect() {
         }
       }
 
+      // ── MazalTover: if I sent מזל טוב myself, apply cooldown so bot stands down ──
+      if (!isHistory && msg.key.fromMe && msg.key.remoteJid?.endsWith('@g.us')) {
+        const groupJid = msg.key.remoteJid;
+        try {
+          const settings = await getSettings();
+          const mazaltovGroups = JSON.parse(settings.mazaltov_groups || '[]');
+          const config = mazaltovGroups.find(g => g.id === groupJid);
+          if (config) {
+            const msgType = Object.keys(msg.message || {})[0];
+            let text = '';
+            if (msgType === 'conversation') text = msg.message.conversation || '';
+            else if (msgType === 'extendedTextMessage') text = msg.message.extendedTextMessage?.text || '';
+            if (isMazaltovMsg(text)) {
+              if (!mazaltoverTracker.has(groupJid)) {
+                mazaltoverTracker.set(groupJid, { senders: new Set(), windowStart: Date.now(), lastSent: 0, hits: [] });
+              }
+              const tracker = mazaltoverTracker.get(groupJid);
+              const cooldownMs = (parseInt(config.cooldown_hours) || 24) * 3600000;
+              tracker.lastSent = Date.now();
+              tracker.senders.clear();
+              tracker.hits = [];
+              saveTrackerState();
+              console.log(`[mazaltover] You sent mazal tov in ${config.name || groupJid} — cooldown applied`);
+            }
+          }
+        } catch (e) {
+          console.error('[mazaltover] Error (fromMe check):', e.message);
+        }
+      }
+
       // ── MazalTover: auto-congrats for group messages ──
       if (!isHistory && !msg.key.fromMe && msg.key.remoteJid?.endsWith('@g.us')) {
         const groupJid = msg.key.remoteJid;
@@ -470,9 +540,18 @@ async function connect() {
               const tracker = mazaltoverTracker.get(groupJid);
               if (now - tracker.windowStart > windowMs) {
                 tracker.senders.clear();
+                tracker.hits = [];
                 tracker.windowStart = now;
+                saveTrackerState();
               }
               tracker.senders.add(sender);
+              if (!tracker.hits) tracker.hits = [];
+              const senderName = getSender(msg);
+              tracker.hits.push({ sender: senderName, text, ts: now });
+              // Persist every individual detection to the detections log
+              mazaltoverDetections.unshift({ groupId: groupJid, groupName: config.name || groupJid, sender: senderName, text, ts: now });
+              saveMazaltoverDetections();
+              saveTrackerState();
               // Skip if today is user's birthday (avoid congratulating yourself)
               const birthday = settings.my_birthday || '';
               const today = new Date();
@@ -483,6 +562,8 @@ async function connect() {
               if (!isBirthday && tracker.senders.size >= threshold && (now - tracker.lastSent) > cooldownMs) {
                 tracker.lastSent = now;
                 tracker.senders.clear();
+                tracker.hits = [];
+                saveTrackerState();
                 const message = config.message || 'מזל טוב! 🎉';
                 await sock.sendMessage(groupJid, { text: message });
                 mazaltoverLog.unshift({ groupId: groupJid, groupName: config.name || groupJid, message, sentAt: now });
@@ -723,7 +804,8 @@ const app = express();
 app.use(express.json({ limit: '20mb' }));
 
 app.get('/status', (req, res) => {
-  res.json({ connected: isConnected, phone: phoneInfo });
+  const sessionExists = fs.readdirSync(SESSION_DIR).some(f => f.endsWith('.json'));
+  res.json({ connected: isConnected, phone: phoneInfo, sessionExists });
 });
 
 app.get('/qr', async (req, res) => {
@@ -1096,9 +1178,13 @@ app.get('/group-analysis', (req, res) => {
   const allEntries = statLog.get(groupId) || [];
   const entries = allEntries.filter(e => e.ts >= since);
 
-  // Top writers
+  // Top writers (normalize LID-format senders — all-digit strings > 13 chars — to 'Unknown')
+  const normalizeSender = s => (/^\d{14,}$/.test(s) ? 'Unknown' : s);
   const writerCounts = {};
-  for (const m of msgs) writerCounts[m.sender] = (writerCounts[m.sender] || 0) + 1;
+  for (const m of msgs) {
+    const sender = normalizeSender(m.sender);
+    writerCounts[sender] = (writerCounts[sender] || 0) + 1;
+  }
   const topWriters = Object.entries(writerCounts)
     .sort((a, b) => b[1] - a[1]).slice(0, 10)
     .map(([sender, count]) => ({ sender, count }));
@@ -1112,7 +1198,7 @@ app.get('/group-analysis', (req, res) => {
   for (const e of entries) dowBuckets[new Date(e.ts).getDay()]++;
 
   // Stat counts
-  const uniqueSenders = new Set(msgs.map(m => m.sender)).size;
+  const uniqueSenders = new Set(msgs.map(m => normalizeSender(m.sender))).size;
   let mediaCount = 0;
   for (const store of [imageHistory.get(groupId), videoHistory.get(groupId)]) {
     if (store) for (const [, msg] of store)
@@ -1144,11 +1230,16 @@ app.get('/group-analysis', (req, res) => {
 
 // MazalTover log + pending counts
 app.get('/mazaltover-log', (req, res) => {
-  const pending = {};
+  const trackers = {};
   for (const [jid, t] of mazaltoverTracker) {
-    if (t.senders.size > 0) pending[jid] = t.senders.size;
+    trackers[jid] = {
+      count: t.senders.size,
+      windowStart: t.windowStart,
+      lastSent: t.lastSent,
+      hits: t.hits || [],
+    };
   }
-  res.json({ log: mazaltoverLog, pending });
+  res.json({ log: mazaltoverLog, detections: mazaltoverDetections, trackers });
 });
 
 // Send a reply directly to a JID (used by Inbox suggest-reply feature)
@@ -1369,6 +1460,56 @@ app.post('/agent/initiate', express.json(), async (req, res) => {
     res.status(500).json({ error: e.message });
   }
 });
+
+// ── Manual connect / disconnect ───────────────────────────────────────────────
+app.post('/wa-disconnect', async (req, res) => {
+  if (!isConnected) return res.json({ ok: true, message: 'Already disconnected' });
+  try {
+    manuallyDisconnected = true;
+    await sock.end();
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+app.post('/wa-connect', async (req, res) => {
+  if (isConnected) return res.json({ ok: true, message: 'Already connected' });
+  try {
+    manuallyDisconnected = false;
+    connect().catch(err => console.error('[bot] Reconnect error:', err));
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
+// ── Schedule checker (runs every minute) ─────────────────────────────────────
+setInterval(async () => {
+  try {
+    const settings = await getSettings();
+    if (!settings.schedule_enabled) return;
+    const from = settings.schedule_from; // "HH:MM"
+    const to = settings.schedule_to;     // "HH:MM"
+    if (!from || !to) return;
+    const now = new Date();
+    const cur = now.getHours() * 60 + now.getMinutes();
+    const [fh, fm] = from.split(':').map(Number);
+    const [th, tm] = to.split(':').map(Number);
+    const start = fh * 60 + fm;
+    const end = th * 60 + tm;
+    const inWindow = start <= end ? (cur >= start && cur < end) : (cur >= start || cur < end);
+    if (inWindow && !isConnected && !manuallyDisconnected) {
+      console.log('[schedule] Within active hours — connecting');
+      manuallyDisconnected = false;
+      connect().catch(err => console.error('[schedule] Connect error:', err));
+    } else if (!inWindow && isConnected) {
+      console.log('[schedule] Outside active hours — disconnecting');
+      manuallyDisconnected = true;
+      await sock.end();
+    }
+  } catch (_) {}
+}, 60000);
 
 app.listen(BOT_PORT, () => {
   console.log(`[bot] API listening on http://localhost:${BOT_PORT}`);

@@ -110,6 +110,10 @@
               class="px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm">
         Groups
       </button>
+      <button onclick="setTab('simulate')" id="tab-simulate"
+              class="px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-500 hover:text-gray-800">
+        Simulate
+      </button>
       <button onclick="setTab('log')" id="tab-log"
               class="px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-500 hover:text-gray-800">
         Log
@@ -118,6 +122,15 @@
 
     <!-- Groups tab -->
     <div id="panel-groups">
+
+      <!-- Status refresh -->
+      <div class="flex items-center justify-between mb-4">
+        <p class="text-xs text-gray-400">Activity updates every 15s</p>
+        <button onclick="refreshTrackers()" class="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-500 hover:bg-gray-100 rounded-lg transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+          Refresh
+        </button>
+      </div>
 
       <!-- Add group -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
@@ -170,6 +183,71 @@
         <p class="text-sm text-gray-400 text-center py-8">Loading…</p>
       </div>
 
+    </div>
+
+    <!-- Simulate tab -->
+    <div id="panel-simulate" class="hidden">
+      <div class="bg-violet-50 border border-violet-100 rounded-2xl p-4 mb-5 text-xs text-violet-700">
+        🧪 Fully sandboxed — no real groups, no messages sent. Tests the detection logic only.
+      </div>
+
+      <!-- Config -->
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
+        <h2 class="text-sm font-semibold text-gray-700 mb-3">Sandbox config</h2>
+        <div class="flex gap-3 flex-wrap">
+          <div class="flex-1 min-w-24">
+            <label class="text-xs text-gray-500 font-medium">Threshold <span class="font-normal">(people)</span></label>
+            <input type="number" id="sim-threshold" value="3" min="1" max="20" onchange="simReset()"
+                   class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+          </div>
+          <div class="flex-1 min-w-24">
+            <label class="text-xs text-gray-500 font-medium">Window <span class="font-normal">(min)</span></label>
+            <input type="number" id="sim-window" value="30" min="1" max="180" onchange="simReset()"
+                   class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+          </div>
+          <div class="flex-1 min-w-24">
+            <label class="text-xs text-gray-500 font-medium">Cooldown <span class="font-normal">(hours)</span></label>
+            <input type="number" id="sim-cooldown" value="24" min="1" max="168" onchange="simReset()"
+                   class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+          </div>
+          <div class="flex-1 min-w-40">
+            <label class="text-xs text-gray-500 font-medium">Message that would be sent</label>
+            <input type="text" id="sim-message" value="מזל טוב! 🎉" dir="auto"
+                   class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+          </div>
+        </div>
+      </div>
+
+      <!-- Send fake message -->
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-5">
+        <h2 class="text-sm font-semibold text-gray-700 mb-3">Send a fake message</h2>
+        <div class="flex gap-3">
+          <div class="flex-1">
+            <label class="text-xs text-gray-500 font-medium">Sender name</label>
+            <input type="text" id="sim-sender" placeholder="e.g. David" autocomplete="off"
+                   class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+          </div>
+          <div class="flex-1">
+            <label class="text-xs text-gray-500 font-medium">Message text</label>
+            <input type="text" id="sim-text" value="מזל טוב!" dir="auto" autocomplete="off"
+                   onkeydown="if(event.key==='Enter') simSend()"
+                   class="mt-1 w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-violet-400" />
+          </div>
+          <div class="flex flex-col justify-end">
+            <button onclick="simSend()" class="px-4 py-2 bg-violet-600 text-white text-sm font-medium rounded-xl hover:bg-violet-700 transition-colors">Send</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- Status + timeline -->
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+        <div class="flex items-center justify-between mb-4">
+          <h2 class="text-sm font-semibold text-gray-700">Simulation state</h2>
+          <button onclick="simReset()" class="text-xs text-gray-400 hover:text-gray-600 hover:bg-gray-100 px-3 py-1.5 rounded-lg transition-colors">Reset</button>
+        </div>
+        <div id="sim-status" class="mb-4"></div>
+        <div id="sim-timeline" class="space-y-1.5"></div>
+      </div>
     </div>
 
     <!-- Log tab -->
@@ -241,16 +319,143 @@
     }
 
     // ── Tab ───────────────────────────────────────────────────────────────────
+    const TABS = ['groups', 'simulate', 'log'];
     function setTab(tab) {
-      document.getElementById('panel-groups').classList.toggle('hidden', tab !== 'groups');
-      document.getElementById('panel-log').classList.toggle('hidden', tab !== 'log');
-      document.getElementById('tab-groups').className = tab === 'groups'
-        ? 'px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm'
-        : 'px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-500 hover:text-gray-800';
-      document.getElementById('tab-log').className = tab === 'log'
-        ? 'px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm'
-        : 'px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-500 hover:text-gray-800';
+      TABS.forEach(t => {
+        document.getElementById(`panel-${t}`).classList.toggle('hidden', t !== tab);
+        document.getElementById(`tab-${t}`).className = t === tab
+          ? 'px-5 py-2 rounded-lg text-sm font-medium transition-colors bg-white text-gray-900 shadow-sm'
+          : 'px-5 py-2 rounded-lg text-sm font-medium transition-colors text-gray-500 hover:text-gray-800';
+      });
       if (tab === 'log') loadLog();
+      if (tab === 'simulate') simRenderStatus();
+    }
+
+    // ── Simulation ────────────────────────────────────────────────────────────
+    let simSenders = new Set();   // unique sender IDs in current window
+    let simHits = [];             // { sender, text, ts }
+    let simWindowStart = null;
+    let simLastFired = null;
+    let simFired = false;
+
+    function simReset() {
+      simSenders = new Set();
+      simHits = [];
+      simWindowStart = null;
+      simLastFired = null;
+      simFired = false;
+      document.getElementById('sim-timeline').innerHTML = '';
+      simRenderStatus();
+    }
+
+    function simRenderStatus() {
+      const el = document.getElementById('sim-status');
+      const threshold = parseInt(document.getElementById('sim-threshold')?.value) || 3;
+      if (simFired) {
+        const msg = document.getElementById('sim-message').value || 'מזל טוב! 🎉';
+        el.innerHTML = `<div class="flex items-center gap-3 p-3 bg-green-50 border border-green-100 rounded-xl">
+          <span class="text-2xl">🎉</span>
+          <div>
+            <p class="text-sm font-semibold text-green-800">Threshold reached — bot would have sent:</p>
+            <p class="text-sm text-green-700 mt-0.5" dir="auto">"${msg}"</p>
+          </div>
+        </div>`;
+        return;
+      }
+      if (!simWindowStart) {
+        el.innerHTML = `<p class="text-sm text-gray-400">No messages yet. Send a fake message above to start.</p>`;
+        return;
+      }
+      const count = simSenders.size;
+      const bar = Math.min(Math.round(count / threshold * 100), 100);
+      const winMin = parseInt(document.getElementById('sim-window')?.value) || 30;
+      const elapsed = Math.round((Date.now() - simWindowStart) / 60000);
+      const remaining = Math.max(0, winMin - elapsed);
+      el.innerHTML = `
+        <div class="mb-2 flex items-center justify-between">
+          <span class="text-sm font-medium text-amber-700">${count} of ${threshold} unique people — window expires in ${remaining}m</span>
+          <span class="text-xs text-gray-400">${elapsed}m elapsed</span>
+        </div>
+        <div class="h-2.5 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-amber-400 rounded-full transition-all" style="width:${bar}%"></div>
+        </div>`;
+    }
+
+    function simSend() {
+      const senderRaw = document.getElementById('sim-sender').value.trim();
+      const text = document.getElementById('sim-text').value.trim();
+      if (!senderRaw) { showToast('Enter a sender name', 'error'); return; }
+      if (!text) { showToast('Enter a message text', 'error'); return; }
+
+      const threshold = parseInt(document.getElementById('sim-threshold').value) || 3;
+      const winMin = parseInt(document.getElementById('sim-window').value) || 30;
+      const cooldownHours = parseInt(document.getElementById('sim-cooldown').value) || 24;
+      const now = Date.now();
+      const windowMs = winMin * 60 * 1000;
+      const cooldownMs = cooldownHours * 3600000;
+
+      // Check cooldown
+      if (simLastFired && (now - simLastFired) < cooldownMs) {
+        appendSimTimeline(senderRaw, text, now, '🚫 Blocked — still in cooldown');
+        simRenderStatus();
+        return;
+      }
+
+      // Check if matches pattern
+      const MAZALTOV_RE = /מזל[\s]*טוב|mazel[\s]*tov|mazal[\s]*tov|congrat|ברכות/i;
+      const EMOJI_RE = /🎊|🎉|🥳/;
+      if (!MAZALTOV_RE.test(text) && !EMOJI_RE.test(text)) {
+        appendSimTimeline(senderRaw, text, now, '⚪ Not a mazal tov — ignored');
+        simRenderStatus();
+        return;
+      }
+
+      // Reset window if expired
+      if (simWindowStart && (now - simWindowStart) > windowMs) {
+        simSenders = new Set();
+        simHits = [];
+        simWindowStart = now;
+        simFired = false;
+        appendSimTimeline(null, null, now, '⏱ Window expired — tracker reset');
+      }
+
+      if (!simWindowStart) simWindowStart = now;
+
+      // Already fired in this window
+      if (simFired) {
+        appendSimTimeline(senderRaw, text, now, '✅ Already fired this window');
+        simRenderStatus();
+        return;
+      }
+
+      const senderId = senderRaw.toLowerCase();
+      const isNew = !simSenders.has(senderId);
+      simSenders.add(senderId);
+      simHits.push({ sender: senderRaw, text, ts: now });
+
+      if (isNew && simSenders.size >= threshold) {
+        simFired = true;
+        simLastFired = now;
+        appendSimTimeline(senderRaw, text, now, `🎉 "${senderRaw}" was the ${threshold}th unique person — FIRED!`);
+      } else {
+        const label = isNew
+          ? `👤 New sender (${simSenders.size}/${threshold})`
+          : `🔁 "${senderRaw}" already counted — not a new unique sender`;
+        appendSimTimeline(senderRaw, text, now, label);
+      }
+
+      simRenderStatus();
+      document.getElementById('sim-sender').value = '';
+    }
+
+    function appendSimTimeline(sender, text, ts, label) {
+      const el = document.getElementById('sim-timeline');
+      const time = new Date(ts).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+      const msgPart = sender ? `<span class="font-medium text-gray-800">${sender}:</span> <span class="text-gray-500" dir="auto">"${text}"</span> · ` : '';
+      const div = document.createElement('div');
+      div.className = 'text-xs py-1.5 border-b border-gray-50 last:border-0';
+      div.innerHTML = `<span class="text-gray-300 mr-1.5">${time}</span>${msgPart}<span class="text-gray-600">${label}</span>`;
+      el.prepend(div);
     }
 
     // ── Settings storage ──────────────────────────────────────────────────────
@@ -268,11 +473,13 @@
     }
 
     async function saveGroups() {
-      await fetch('/api/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ mazaltov_groups: JSON.stringify(groups) }),
-      });
+      try {
+        await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ mazaltov_groups: JSON.stringify(groups) }),
+        });
+      } catch (_) { showToast('Failed to save — check connection', 'error'); }
     }
 
     async function saveBirthday() {
@@ -353,6 +560,56 @@
       }
       el.innerHTML = '';
       groups.forEach((g, i) => {
+        const tracker = lastTrackers[g.id];
+        const threshold = g.threshold || 3;
+        const winMin = g.window_minutes || 30;
+        const hits = tracker?.hits || [];
+        const count = tracker?.count || 0;
+        const lastSent = tracker?.lastSent || 0;
+        const cooldownMs = (g.cooldown_hours || 24) * 3600000;
+        const inCooldown = lastSent && (Date.now() - lastSent) < cooldownMs;
+
+        const windowStart = tracker?.windowStart || 0;
+        const trackerLoaded = !!tracker;
+
+        let statusHtml = '';
+        // Check last sent from log even if no active tracker
+        const lastLogEntry = (window._mazaltoverLog || []).find(e => e.groupId === g.id);
+        if (!trackerLoaded) {
+          const lastSentStr = lastLogEntry ? `Last sent ${agoStr(lastLogEntry.sentAt)}` : 'Never fired';
+          statusHtml = `<div class="mt-3 pt-3 border-t border-gray-50 flex items-center gap-2">
+            <span class="text-xs text-gray-400">No active window ·</span>
+            <span class="text-xs text-gray-400">${lastSentStr}</span>
+          </div>`;
+        } else if (inCooldown) {
+          statusHtml = `<div class="mt-3 pt-3 border-t border-gray-50 flex items-center gap-2">
+            <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-green-50 text-green-700 text-xs font-medium">✅ Bot sent ${agoStr(lastSent)} · cooldown active</span>
+          </div>`;
+        } else if (hits.length) {
+          const bar = Math.min(Math.round(count / threshold * 100), 100);
+          const windowStartStr = new Date(windowStart).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+          statusHtml = `<div class="mt-3 pt-3 border-t border-gray-50">
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-semibold text-amber-600">🔥 Activity detected — window started at ${windowStartStr}</span>
+              <span class="text-xs font-bold text-amber-600">${count} / ${threshold} people</span>
+            </div>
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden mb-2">
+              <div class="h-full bg-amber-400 rounded-full transition-all" style="width:${bar}%"></div>
+            </div>
+            <div class="space-y-1">
+              ${hits.map(h => `<div class="flex items-baseline gap-1.5">
+                <span class="text-xs font-medium text-gray-700 shrink-0">${h.sender}</span>
+                <span class="text-xs text-gray-400 truncate" dir="auto">"${h.text}"</span>
+                <span class="text-xs text-gray-300 shrink-0">${agoStr(h.ts)}</span>
+              </div>`).join('')}
+            </div>
+          </div>`;
+        } else {
+          statusHtml = `<div class="mt-3 pt-3 border-t border-gray-50">
+            <span class="text-xs text-gray-400">No activity in current window</span>
+          </div>`;
+        }
+
         const card = document.createElement('div');
         card.className = 'bg-white rounded-2xl border border-gray-100 shadow-sm p-4';
         card.innerHTML = `
@@ -373,11 +630,12 @@
               </button>
             </div>
           </div>
-          <div class="flex gap-4 mt-3 ml-12">
-            <span class="text-xs text-gray-500">Trigger after <strong>${g.threshold}</strong> people</span>
-            <span class="text-xs text-gray-500">within <strong>${g.window_minutes || 30} min</strong></span>
+          <div class="flex gap-4 mt-2 ml-12">
+            <span class="text-xs text-gray-500">Trigger after <strong>${threshold}</strong> people</span>
+            <span class="text-xs text-gray-500">within <strong>${winMin} min</strong></span>
             <span class="text-xs text-gray-500">Cooldown: <strong>${g.cooldown_hours}h</strong></span>
-          </div>`;
+          </div>
+          ${statusHtml}`;
         el.appendChild(card);
       });
     }
@@ -464,6 +722,18 @@
       return new Date(ts).toLocaleString('en-US', { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit' });
     }
 
+    function agoStr(ts) {
+      const diff = Date.now() - ts;
+      const m = Math.floor(diff / 60000);
+      if (m < 1) return 'just now';
+      if (m < 60) return `${m}m ago`;
+      const h = Math.floor(m / 60);
+      if (h < 24) return `${h}h ago`;
+      return `${Math.floor(h / 24)}d ago`;
+    }
+
+    let lastTrackers = {};
+
     async function loadLog() {
       const el = document.getElementById('log-list');
       el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">Loading…</p>';
@@ -471,34 +741,16 @@
         const r = await fetch('/api/mazaltover/log');
         const d = await r.json();
         const log = d.log || [];
-        const pending = d.pending || {};
-        if (!log.length && !Object.keys(pending).length) {
-          el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No mazal tovs sent yet.</p>';
+        const detections = d.detections || [];
+        lastTrackers = d.trackers || {};
+        renderGroupsList();
+        if (!log.length && !detections.length) {
+          el.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">No activity yet.</p>';
           return;
         }
         let html = '';
-        // Pending trackers
-        const pendingGroups = Object.entries(pending);
-        if (pendingGroups.length) {
-          html += '<div class="mb-4">';
-          html += '<p class="text-xs font-semibold text-teal-600 uppercase tracking-wide mb-2">Building up…</p>';
-          pendingGroups.forEach(([jid, count]) => {
-            const g = groups.find(g => g.id === jid);
-            const name = g?.name || jid;
-            const threshold = g?.threshold || 3;
-            const winMin = g?.window_minutes || 30;
-            html += `<div class="flex items-center gap-3 py-2 px-3 bg-amber-50 rounded-xl mb-2">
-              <span class="text-lg">🔄</span>
-              <div class="flex-1 min-w-0">
-                <p class="text-sm font-medium text-gray-800 truncate">${name}</p>
-                <p class="text-xs text-gray-500">${count} of ${threshold} people within ${winMin} min — waiting for more</p>
-              </div>
-            </div>`;
-          });
-          html += '</div>';
-        }
         if (log.length) {
-          html += '<p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Sent</p>';
+          html += '<p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-2">Auto-sent</p>';
           log.forEach(entry => {
             html += `<div class="flex items-center gap-3 py-3 border-b border-gray-50 last:border-0">
               <span class="text-xl">🎉</span>
@@ -507,6 +759,22 @@
                 <p class="text-xs text-gray-400 mt-0.5" dir="auto">${entry.message}</p>
               </div>
               <span class="text-xs text-gray-400 flex-shrink-0">${timeStr(entry.sentAt)}</span>
+            </div>`;
+          });
+        }
+        if (detections.length) {
+          html += `<p class="text-xs font-semibold text-gray-400 uppercase tracking-wide mt-5 mb-2">All detections</p>`;
+          detections.forEach(entry => {
+            html += `<div class="flex items-start gap-3 py-2.5 border-b border-gray-50 last:border-0">
+              <span class="text-base mt-0.5">👀</span>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-baseline gap-1.5 flex-wrap">
+                  <span class="text-sm font-medium text-gray-800">${entry.sender}</span>
+                  <span class="text-xs text-gray-400">in ${entry.groupName}</span>
+                </div>
+                <p class="text-xs text-gray-500 mt-0.5 truncate" dir="auto">"${entry.text}"</p>
+              </div>
+              <span class="text-xs text-gray-400 shrink-0">${timeStr(entry.ts)}</span>
             </div>`;
           });
         }
@@ -535,9 +803,24 @@
       } catch (_) {}
     }
 
+    async function refreshTrackers() {
+      try {
+        const r = await fetch('/api/mazaltover/log');
+        const d = await r.json();
+        lastTrackers = d.trackers || {};
+        window._mazaltoverLog = d.log || [];
+        renderGroupsList();
+      } catch (_) {}
+    }
+
     loadNavStatus();
-    loadSettings();
     loadWaGroups();
+    // Load settings first, then immediately fetch tracker status
+    loadSettings().then(() => refreshTrackers());
+    // Poll every 15s while on groups tab
+    setInterval(() => {
+      if (!document.getElementById('panel-groups').classList.contains('hidden')) refreshTrackers();
+    }, 15000);
   </script>
   <script src="/static/dark.js"></script>
   <script src="/static/pin_lock.js"></script>

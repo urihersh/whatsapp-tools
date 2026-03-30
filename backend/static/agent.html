@@ -209,7 +209,6 @@
         const contacts = (d.contacts || []).map(c => ({ id: c.id, name: c.name, isGroup: false }));
         const groups = (d.groups || []).map(g => ({ id: g.id, name: g.name, isGroup: true }));
         allItems = [...contacts, ...groups].sort((a, b) => a.name.localeCompare(b.name));
-        filterPicker();
       } catch (_) {}
     }
 
@@ -255,7 +254,9 @@
           dd.appendChild(el);
         });
       }
-      dd.classList.remove('hidden');
+      if (document.activeElement === document.getElementById('picker-input')) {
+        dd.classList.remove('hidden');
+      }
     }
 
     function showPicker() { filterPicker(); }

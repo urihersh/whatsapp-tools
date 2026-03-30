@@ -68,10 +68,14 @@
       <div id="wa-connected" class="hidden">
         <div class="flex items-center gap-3 p-4 bg-green-50 rounded-xl border border-green-100">
           <span class="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></span>
-          <div>
+          <div class="flex-1">
             <p class="font-medium text-green-800" id="wa-name">Connected</p>
             <p class="text-sm text-green-600" id="wa-number"></p>
           </div>
+          <button onclick="waDisconnect()" id="wa-disconnect-btn"
+                  class="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+            Disconnect
+          </button>
         </div>
       </div>
 
@@ -79,12 +83,43 @@
       <div id="wa-disconnected">
         <div class="flex items-center gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100 mb-4">
           <span class="w-3 h-3 rounded-full bg-amber-400 flex-shrink-0"></span>
-          <p class="text-amber-800 text-sm">Not connected. Start the bot then scan the QR code below.</p>
+          <p class="text-amber-800 text-sm flex-1" id="wa-disconnected-msg">Not connected.</p>
+          <button onclick="waConnect()" id="wa-connect-btn"
+                  class="px-3 py-1.5 text-sm font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors">
+            Connect
+          </button>
         </div>
         <div id="qr-section" class="text-center">
           <div id="qr-loading" class="py-8 text-gray-400 text-sm">Waiting for QR code…</div>
           <img id="qr-image" class="hidden mx-auto w-52 h-52 rounded-xl border border-gray-200 shadow-sm" />
           <p class="text-xs text-gray-400 mt-3">Open WhatsApp on your phone → Linked Devices → Link a Device</p>
+        </div>
+      </div>
+
+      <!-- Schedule -->
+      <div class="mt-5 pt-5 border-t border-gray-100">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <p class="text-sm font-medium text-gray-800">Active hours</p>
+            <p class="text-xs text-gray-400 mt-0.5">Auto-disconnect outside these hours so your phone gets notifications</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" id="schedule-enabled" class="sr-only peer" onchange="saveSchedule()">
+            <div class="w-10 h-5 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:bg-teal-600 after:content-[''] after:absolute after:top-0.5 after:left-0.5 after:bg-white after:rounded-full after:h-4 after:w-4 after:transition-all peer-checked:after:translate-x-5"></div>
+          </label>
+        </div>
+        <div id="schedule-inputs" class="flex items-center gap-3">
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-gray-500">From</label>
+            <input type="time" id="schedule-from" value="08:00" onchange="saveSchedule()"
+                   class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          </div>
+          <div class="flex items-center gap-2">
+            <label class="text-xs text-gray-500">To</label>
+            <input type="time" id="schedule-to" value="22:00" onchange="saveSchedule()"
+                   class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500" />
+          </div>
+          <span class="text-xs text-gray-400">Bot disconnects outside this window</span>
         </div>
       </div>
     </div>
@@ -268,6 +303,48 @@
       setTimeout(() => el.classList.add('hidden'), 3000);
     }
 
+    async function waDisconnect() {
+      const btn = document.getElementById('wa-disconnect-btn');
+      btn.disabled = true;
+      btn.textContent = 'Disconnecting…';
+      try {
+        await fetch('/api/wa-disconnect', { method: 'POST' });
+        showToast('Disconnected — your phone will now receive notifications');
+        setTimeout(checkStatus, 1500);
+      } catch (_) {
+        showToast('Could not disconnect', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Disconnect';
+      }
+    }
+
+    async function waConnect() {
+      const btn = document.getElementById('wa-connect-btn');
+      btn.disabled = true;
+      btn.textContent = 'Connecting…';
+      try {
+        await fetch('/api/wa-connect', { method: 'POST' });
+        showToast('Reconnecting…');
+        setTimeout(checkStatus, 3000);
+      } catch (_) {
+        showToast('Could not connect', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Connect';
+      }
+    }
+
+    async function saveSchedule() {
+      const enabled = document.getElementById('schedule-enabled').checked;
+      const from = document.getElementById('schedule-from').value;
+      const to = document.getElementById('schedule-to').value;
+      await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ schedule_enabled: enabled ? 'true' : 'false', schedule_from: from, schedule_to: to }),
+      });
+      showToast(enabled ? `Schedule saved: ${from} – ${to}` : 'Schedule disabled');
+    }
+
     async function checkStatus() {
       try {
         const r = await fetch('/api/settings/whatsapp/status');
@@ -280,7 +357,14 @@
         } else {
           document.getElementById('wa-connected').classList.add('hidden');
           document.getElementById('wa-disconnected').classList.remove('hidden');
-          pollQR();
+          if (d.sessionExists) {
+            document.getElementById('wa-disconnected-msg').textContent = 'Disconnected — your phone is receiving notifications. Click Connect to resume.';
+            document.getElementById('qr-section').classList.add('hidden');
+          } else {
+            document.getElementById('wa-disconnected-msg').textContent = 'Not linked. Scan the QR code below to connect.';
+            document.getElementById('qr-section').classList.remove('hidden');
+            pollQR();
+          }
         }
       } catch (_) {}
     }
@@ -339,6 +423,10 @@
           document.getElementById('pin-enabled').checked = true;
           document.getElementById('pin-field-row').classList.remove('hidden');
         }
+
+        document.getElementById('schedule-enabled').checked = d.schedule_enabled === 'true';
+        if (d.schedule_from) document.getElementById('schedule-from').value = d.schedule_from;
+        if (d.schedule_to) document.getElementById('schedule-to').value = d.schedule_to;
       } catch (_) {}
     }
 
