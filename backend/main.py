@@ -282,6 +282,10 @@ async def auth_middleware(request: Request, call_next):
     s = get_settings()
     if s.get("pin_enabled") != "true":
         return await call_next(request)
+    # Allow internal bot calls from localhost without a session
+    client_host = request.client.host if request.client else ""
+    if client_host in ("127.0.0.1", "::1", "localhost"):
+        return await call_next(request)
     token = request.cookies.get("pt_session", "")
     if is_valid_session(token):
         return await call_next(request)
@@ -1078,6 +1082,12 @@ async def agent_reject(request: Request):
             return r.json()
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/api/wa-logout")
+async def wa_logout():
+    async with httpx.AsyncClient(timeout=10.0) as hx:
+        r = await hx.post(f"{BOT_API_URL}/wa-logout")
+        return r.json()
 
 @app.post("/api/wa-disconnect")
 async def wa_disconnect():

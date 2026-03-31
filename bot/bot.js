@@ -1473,6 +1473,20 @@ app.post('/wa-disconnect', async (req, res) => {
   }
 });
 
+app.post('/wa-logout', async (req, res) => {
+  try {
+    manuallyDisconnected = true;
+    if (isConnected) await sock.logout();
+    else {
+      fs.rmSync(SESSION_DIR, { recursive: true, force: true });
+      fs.mkdirSync(SESSION_DIR, { recursive: true });
+    }
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 app.post('/wa-connect', async (req, res) => {
   if (isConnected) return res.json({ ok: true, message: 'Already connected' });
   try {

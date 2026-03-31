@@ -73,8 +73,12 @@
             <p class="text-sm text-green-600" id="wa-number"></p>
           </div>
           <button onclick="waDisconnect()" id="wa-disconnect-btn"
-                  class="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                  class="px-3 py-1.5 text-sm font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors">
             Disconnect
+          </button>
+          <button onclick="waLogout()" id="wa-logout-btn"
+                  class="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+            Sign out
           </button>
         </div>
       </div>
@@ -315,6 +319,22 @@
         showToast('Could not disconnect', 'error');
         btn.disabled = false;
         btn.textContent = 'Disconnect';
+      }
+    }
+
+    async function waLogout() {
+      if (!confirm('This will unlink the bot from your WhatsApp account. You will need to scan a QR code to reconnect. Continue?')) return;
+      const btn = document.getElementById('wa-logout-btn');
+      btn.disabled = true;
+      btn.textContent = 'Signing out…';
+      try {
+        await fetch('/api/wa-logout', { method: 'POST' });
+        showToast('Signed out — scan QR to reconnect');
+        setTimeout(checkStatus, 2000);
+      } catch (_) {
+        showToast('Could not sign out', 'error');
+        btn.disabled = false;
+        btn.textContent = 'Sign out';
       }
     }
 
