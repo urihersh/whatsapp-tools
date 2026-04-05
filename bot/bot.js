@@ -25,6 +25,7 @@ fs.mkdirSync(SESSION_DIR, { recursive: true });
 let currentQR = null;
 let isConnected = false;
 let manuallyDisconnected = false;
+let presenceInterval = null;
 let phoneInfo = null;
 let allGroups = [];
 let allChats = [];
@@ -355,12 +356,18 @@ async function connect() {
       console.log(`[bot] Connected as ${phoneInfo.name} (+${phoneInfo.number})`);
       // Mark presence as unavailable so WhatsApp doesn't suppress phone notifications
       await sock.sendPresenceUpdate('unavailable');
+      // Re-broadcast unavailable every 5 minutes in case WA resets it
+      if (presenceInterval) clearInterval(presenceInterval);
+      presenceInterval = setInterval(async () => {
+        if (isConnected) await sock.sendPresenceUpdate('unavailable').catch(() => {});
+      }, 5 * 60 * 1000);
       await refreshGroupsAndChats();
     }
 
     if (connection === 'close') {
       isConnected = false;
       phoneInfo = null;
+      if (presenceInterval) { clearInterval(presenceInterval); presenceInterval = null; }
       const code = lastDisconnect?.error?.output?.statusCode;
       if (manuallyDisconnected) {
         console.log('[bot] Disconnected manually — not reconnecting.');
@@ -409,7 +416,7 @@ async function connect() {
   sock.ev.on('contacts.set', ({ contacts }) => {
     let changed = false;
     for (const c of (contacts || [])) {
-      const name = c.notify || c.name;
+      const name = c.name || c.notify; // prefer full address book name over short notify name
       if (c.id && name && contactNames.get(c.id) !== name) {
         contactNames.set(c.id, name);
         changed = true;
@@ -420,7 +427,7 @@ async function connect() {
   sock.ev.on('contacts.upsert', contacts => {
     let changed = false;
     for (const c of (contacts || [])) {
-      const name = c.notify || c.name;
+      const name = c.name || c.notify;
       if (c.id && name && contactNames.get(c.id) !== name) {
         contactNames.set(c.id, name);
         changed = true;
@@ -579,7 +586,9 @@ async function connect() {
 
       // ── Conversation agent ──
       if (!isHistory && !msg.key.fromMe) {
-        const agentJid = msg.key.remoteJid;
+        // Normalize JID: strip device suffix (e.g. 972XXXXXXX:20@s.whatsapp.net → 972XXXXXXX@s.whatsapp.net)
+        const rawJid = msg.key.remoteJid;
+        const agentJid = rawJid?.includes(':') ? rawJid.replace(/:\d+@/, '@') : rawJid;
         const agent = agentConfigs.get(agentJid);
         if (agent?.active && !agentBusy.has(agentJid) && isConnected) {
           agentBusy.add(agentJid);
@@ -611,6 +620,8 @@ async function connect() {
                 prompt: agent.prompt,
                 history,
                 contact_name: agent.name,
+                contact_gender: agent.gender || '',
+                system_prompt: agent.systemPrompt || '',
               }, { timeout: 45000 });
               const reply = res.data?.reply;
               if (!reply) { agentBusy.delete(agentJid); return; }
@@ -828,6 +839,13 @@ app.post('/send-text', express.json(), async (req, res) => {
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+});
+
+app.get('/dm-history', (req, res) => {
+  const { jid } = req.query;
+  if (!jid) return res.status(400).json({ error: 'jid required' });
+  const msgs = (dmTextHistory.get(jid) || []).slice(-50);
+  res.json({ messages: msgs });
 });
 
 app.get('/history-text', (req, res) => {
@@ -1345,7 +1363,7 @@ app.post('/contacts/save', express.json(), (req, res) => {
 
 // ── Conversation agent endpoints ─────────────────────────────────────────────
 app.post('/agent/start', (req, res) => {
-  const { jid, name, prompt, approval_mode } = req.body;
+  const { jid, name, prompt, approval_mode, gender, system_prompt } = req.body;
   if (!jid || !prompt) return res.status(400).json({ error: 'jid and prompt required' });
   const existing = agentConfigs.get(jid);
   agentConfigs.set(jid, {
@@ -1354,6 +1372,8 @@ app.post('/agent/start', (req, res) => {
     prompt,
     active: true,
     approval_mode: !!approval_mode,
+    gender: gender || '',
+    systemPrompt: system_prompt || '',
     log: existing?.log || [],
   });
   console.log(`[agent] Started for ${name || jid}${approval_mode ? ' (approval mode)' : ''}`);
@@ -1424,7 +1444,7 @@ app.post('/agent/clear-log', express.json(), (req, res) => {
 });
 
 app.get('/agent/list', (req, res) => {
-  const agents = [...agentConfigs.values()].map(({ log, ...a }) => ({ ...a, logCount: log.length }));
+  const agents = [...agentConfigs.values()].map(({ log, ...a }) => ({ ...a, logCount: log.length, system_prompt: a.systemPrompt || '' }));
   res.json({ agents });
 });
 

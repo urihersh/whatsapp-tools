@@ -928,12 +928,20 @@ async def digest_queue_status():
 
 # ── Conversation Agent endpoints ─────────────────────────────────────────────────
 
+@app.get("/api/dm-history")
+async def dm_history(jid: str = ""):
+    async with httpx.AsyncClient(timeout=5.0) as hx:
+        r = await hx.get(f"{BOT_API_URL}/dm-history", params={"jid": jid})
+        return r.json()
+
 @app.post("/api/agent/reply")
 async def agent_reply_endpoint(request: Request):
     body = await request.json()
     prompt = body.get("prompt", "")
     history = body.get("history", [])
     contact_name = body.get("contact_name", "")
+    contact_gender = body.get("contact_gender", "")
+    system_prompt = body.get("system_prompt", "")
     if not prompt:
         return {"error": "prompt required"}
     db_settings = get_settings()
@@ -941,7 +949,7 @@ async def agent_reply_endpoint(request: Request):
     if not api_key and not ollama_url:
         return {"error": "No AI configured"}
     reply = await asyncio.get_event_loop().run_in_executor(
-        None, agent_reply, prompt, history, contact_name, api_key, ollama_url, ollama_model
+        None, agent_reply, prompt, history, contact_name, contact_gender, api_key, ollama_url, ollama_model, system_prompt
     )
     return {"reply": reply}
 

@@ -318,26 +318,37 @@ def agent_reply(
     prompt: str,
     history: list[dict],
     contact_name: str = "",
+    contact_gender: str = "",
     api_key: str = "",
     ollama_url: str = "",
     ollama_model: str = "aya",
+    system_prompt: str = "",
 ) -> str:
     """Generate an autonomous reply for the conversation agent."""
-    who = f" with {contact_name}" if contact_name else ""
-    name_rule = f"- Always address the person by their full name \"{contact_name}\" — never shorten or nickname it" if contact_name else ""
-    system = (
-        f"You are managing a WhatsApp conversation{who} on behalf of the user.\n"
-        f"Instructions: {prompt}\n\n"
-        "Rules:\n"
-        "- Write ONLY the reply message text, nothing else\n"
-        "- Keep it natural and conversational\n"
-        "- Match the language used in the conversation\n"
-        "- Never use nicknames or diminutives for any name\n"
-        "- Never use placeholder text like [...] or template markers\n"
-        "- Write a complete, ready-to-send message — never leave blanks\n"
-        "- Never include meta-commentary, quotes, or explanation\n"
-        + (name_rule + "\n" if name_rule else "")
-    )
+    if system_prompt:
+        system = system_prompt
+    else:
+        who = f" with {contact_name}" if contact_name else ""
+        name_rule = f"- Always address the person by their full name \"{contact_name}\" — never shorten or nickname it" if contact_name else ""
+        gender_rule = ""
+        if contact_gender == "male":
+            gender_rule = f"- The person you are talking to is male — use masculine forms when addressing them (e.g. in Hebrew: אתה, שלך, etc.)\n"
+        elif contact_gender == "female":
+            gender_rule = f"- The person you are talking to is female — use feminine forms when addressing them (e.g. in Hebrew: את, שלך, etc.)\n"
+        system = (
+            f"You are managing a WhatsApp conversation{who} on behalf of the user.\n"
+            f"Instructions: {prompt}\n\n"
+            "Rules:\n"
+            "- Write ONLY the reply message text, nothing else\n"
+            "- Keep it natural and conversational\n"
+            "- Match the language used in the conversation\n"
+            "- Never use nicknames or diminutives for any name\n"
+            "- Never use placeholder text like [...] or template markers\n"
+            "- Write a complete, ready-to-send message — never leave blanks\n"
+            "- Never include meta-commentary, quotes, or explanation\n"
+            + (name_rule + "\n" if name_rule else "")
+            + gender_rule
+        )
     context = "\n".join(
         f"{'Me' if h.get('fromMe') else h.get('sender', 'Them')}: {h.get('text', '')}"
         for h in history[-25:]
