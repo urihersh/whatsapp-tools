@@ -409,7 +409,8 @@ async def analyze_photo(request: Request, file: UploadFile,
                 file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
                 original_filename=file.filename or ""
             )
-            thumbnail_filename = _save_thumbnail(file_bytes)
+            if db_settings.get("thumbnails_enabled", "true") != "false":
+                thumbnail_filename = _save_thumbnail(file_bytes)
             await save_to_google_photos(file_bytes, group_name, matched_kids, db_settings)
 
         forwarded = False
@@ -495,7 +496,7 @@ async def analyze_video(request: Request, file: UploadFile,
                 file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
                 original_filename=video_filename
             )
-            if best_frame_bytes:
+            if best_frame_bytes and db_settings.get("thumbnails_enabled", "true") != "false":
                 thumbnail_filename = _save_thumbnail(best_frame_bytes)
             await save_to_google_photos(file_bytes, group_name, matched_kids, db_settings,
                                         filename=video_filename)
