@@ -111,7 +111,7 @@
             <div class="relative" id="picker-wrap">
               <input id="picker-input" type="text" placeholder="Search contacts or groups…" autocomplete="off"
                      class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white"
-                     oninput="filterPicker()" onfocus="showPicker()" />
+                     oninput="filterPicker()" onfocus="filterPicker()" />
               <div id="picker-dropdown" class="hidden absolute left-0 right-0 z-20 mt-1 bg-white border border-gray-200 rounded-xl shadow-lg max-h-56 overflow-y-auto"></div>
             </div>
             <div id="name-prompt" class="hidden mt-3 flex items-center gap-2">
@@ -361,7 +361,7 @@
             <textarea id="${sid}-prompt" rows="6"
                       oninput="onPromptInput('${jid.replace(/'/g,"\\'")}', this.value)"
                       class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-gray-700 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white leading-relaxed">${escHtml(prompt)}</textarea>
-            <button id="${sid}-update-btn" onclick="updateInstructions('${jid.replace(/'/g,"\\'")}', false)"
+            <button id="${sid}-update-btn" onclick="updateInstructions('${jid.replace(/'/g,"\\'")}')"
                     class="hidden mt-3 w-full py-2 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 transition-colors">
               Update instructions
             </button>
@@ -382,8 +382,8 @@
                         oninput="onSysPromptInput('${jid.replace(/'/g,"\\'")}', this.value)"
                         class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs text-gray-600 resize-none focus:outline-none focus:ring-2 focus:ring-teal-500 bg-white leading-relaxed">${escHtml(sysprompt)}</textarea>
               <div class="flex items-center justify-between mt-2">
-                <button onclick="resetSysPrompt('${jid.replace(/'/g,"\\'")}', false)" class="text-xs text-gray-400 hover:text-gray-600 underline transition-colors">Reset to auto-generated</button>
-                <button onclick="updateInstructions('${jid.replace(/'/g,"\\'")}', true)"
+                <button onclick="resetSysPrompt('${jid.replace(/'/g,"\\'")}')" class="text-xs text-gray-400 hover:text-gray-600 underline transition-colors">Reset to auto-generated</button>
+                <button onclick="updateInstructions('${jid.replace(/'/g,"\\'")}')"
                         class="px-3 py-1.5 bg-teal-700 text-white text-xs font-semibold rounded-lg hover:bg-teal-800 transition-colors">Apply</button>
               </div>
             </div>
@@ -410,7 +410,7 @@
           </label>
 
           <!-- Activate/Stop -->
-          <button id="${sid}-activate-btn" onclick="toggleAgent('${jid.replace(/'/g,"\\'")}', false)"
+          <button id="${sid}-activate-btn" onclick="toggleAgent('${jid.replace(/'/g,"\\'")}')"
                   class="w-full py-3 ${agentActive ? 'bg-red-500 hover:bg-red-600' : 'bg-teal-700 hover:bg-teal-800'} text-white font-semibold rounded-xl transition-all shadow-sm flex items-center justify-center gap-2">
             ${agentActive
               ? `<svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/><path stroke-linecap="round" stroke-linejoin="round" d="M9 10h6v4H9z"/></svg> Stop Bot`
@@ -437,7 +437,7 @@
                 Thinking…
               </span>
             </div>
-            <button onclick="clearConvLog('${jid.replace(/'/g,"\\'")}', false)" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Clear log</button>
+            <button onclick="clearConvLog('${jid.replace(/'/g,"\\'")}')" class="text-xs text-gray-400 hover:text-gray-600 transition-colors">Clear log</button>
           </div>
           <!-- Approval card -->
           <div id="${sid}-approval-card" class="hidden px-5 py-4 border-b border-amber-100 bg-amber-50">
@@ -512,8 +512,6 @@
       }
       dd.classList.remove('hidden');
     }
-
-    function showPicker() { filterPicker(); }
 
     function selectNewItem(item) {
       document.getElementById('picker-input').value = '';
@@ -637,7 +635,7 @@
       if (badge) { badge.textContent = isCustom ? 'custom' : 'auto'; badge.className = `text-xs px-2 py-0.5 rounded-full ${isCustom ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'}`; }
     }
 
-    function resetSysPrompt(jid, skipConfirm) {
+    function resetSysPrompt(jid) {
       const conv = conversations.get(jid);
       if (!conv) return;
       const sid = conv.safeId;
@@ -676,44 +674,47 @@
       }
     }
 
-    async function toggleAgent(jid, skipConfirm) {
+    async function toggleAgent(jid) {
       const conv = conversations.get(jid);
       if (!conv) return;
-      if (conv.agentActive) {
-        await stopAgent(jid);
-      } else {
-        await startAgent(jid);
-      }
+      if (conv.agentActive) await stopAgent(jid);
+      else await startAgent(jid);
     }
 
-    async function startAgent(jid) {
+    // Shared: POST to /agent/start and commit state. Returns true on success.
+    async function _postAgentStart(jid) {
       const conv = conversations.get(jid);
-      if (!conv) return;
+      if (!conv) return false;
       const sid = conv.safeId;
-      const promptEl = document.getElementById(`${sid}-prompt`);
-      const sysEl = document.getElementById(`${sid}-sysprompt`);
-      const approvalEl = document.getElementById(`${sid}-approval-mode`);
-      const prompt = promptEl?.value.trim() || conv.prompt;
-      if (!prompt) { showToast('Write instructions first', 'error'); return; }
-      const sysPrompt = conv.sysEdited ? (sysEl?.value.trim() || '') : '';
-      const approvalMode = approvalEl?.checked ?? conv.approvalMode;
+      const prompt = document.getElementById(`${sid}-prompt`)?.value.trim() || conv.prompt;
+      const sysPrompt = conv.sysEdited ? (document.getElementById(`${sid}-sysprompt`)?.value.trim() || '') : '';
+      const approvalMode = document.getElementById(`${sid}-approval-mode`)?.checked ?? conv.approvalMode;
       const r = await fetch('/api/agent/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ jid, name: conv.name, prompt, approval_mode: approvalMode, gender: conv.gender, system_prompt: sysPrompt }),
       });
       const d = await r.json();
-      if (d.ok) {
-        conv.prompt = prompt; conv.approvalMode = approvalMode; conv.systemPrompt = sysPrompt;
-        document.getElementById(`${sid}-prompt-changed-dot`)?.classList.add('hidden');
-        document.getElementById(`${sid}-update-btn`)?.classList.add('hidden');
-        setConvAgentUI(jid, true);
-        startPolling(jid);
-        loadConvHistory(jid);
-        showToast('Bot activated');
-      } else {
-        showToast(d.error || 'Failed to start', 'error');
-      }
+      if (!d.ok) { showToast(d.error || 'Failed', 'error'); return false; }
+      conv.prompt = prompt;
+      conv.approvalMode = approvalMode;
+      conv.systemPrompt = sysPrompt;
+      document.getElementById(`${sid}-prompt-changed-dot`)?.classList.add('hidden');
+      document.getElementById(`${sid}-update-btn`)?.classList.add('hidden');
+      return true;
+    }
+
+    async function startAgent(jid) {
+      const conv = conversations.get(jid);
+      if (!conv) return;
+      const sid = conv.safeId;
+      const prompt = document.getElementById(`${sid}-prompt`)?.value.trim() || conv.prompt;
+      if (!prompt) { showToast('Write instructions first', 'error'); return; }
+      if (!await _postAgentStart(jid)) return;
+      setConvAgentUI(jid, true);
+      startPolling(jid);
+      loadConvHistory(jid);
+      showToast('Bot activated');
     }
 
     async function stopAgent(jid) {
@@ -726,41 +727,22 @@
       showToast('Bot stopped');
     }
 
-    async function updateInstructions(jid, fromSysPanel) {
+    async function updateInstructions(jid) {
       const conv = conversations.get(jid);
       if (!conv || !conv.agentActive) return;
       showConfirm(
         'Update instructions',
         'Keep the current conversation history, or start fresh?',
         [
-          { label: 'Keep history', primary: true,  action: () => _doUpdate(jid, false) },
-          { label: 'Start fresh',  primary: false, action: () => _doUpdate(jid, true) },
+          { label: 'Keep history', primary: true,  action: () => _applyUpdate(jid, false) },
+          { label: 'Start fresh',  primary: false, action: () => _applyUpdate(jid, true)  },
         ]
       );
     }
 
-    async function _doUpdate(jid, clearLog) {
-      const conv = conversations.get(jid);
-      if (!conv) return;
-      const sid = conv.safeId;
-      const prompt = document.getElementById(`${sid}-prompt`)?.value.trim() || conv.prompt;
-      const sysEl = document.getElementById(`${sid}-sysprompt`);
-      const sysPrompt = conv.sysEdited ? (sysEl?.value.trim() || '') : '';
-      const approvalMode = document.getElementById(`${sid}-approval-mode`)?.checked ?? conv.approvalMode;
-      await fetch('/api/agent/start', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jid, name: conv.name, prompt, approval_mode: approvalMode, gender: conv.gender, system_prompt: sysPrompt }),
-      });
-      conv.prompt = prompt; conv.approvalMode = approvalMode; conv.systemPrompt = sysPrompt;
-      document.getElementById(`${sid}-prompt-changed-dot`)?.classList.add('hidden');
-      document.getElementById(`${sid}-update-btn`)?.classList.add('hidden');
-      if (clearLog) {
-        await fetch('/api/agent/clear-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid }) });
-        const feed = document.getElementById(`${sid}-log-feed`);
-        if (feed) feed.innerHTML = '<p class="text-sm text-gray-300 text-center mt-16">Instructions updated. Waiting for next message…</p>';
-        conv.lastLogTs = 0;
-      }
+    async function _applyUpdate(jid, clearHistory) {
+      if (!await _postAgentStart(jid)) return;
+      if (clearHistory) await _doClearLog(jid);
       showToast('Instructions updated');
     }
 
@@ -925,20 +907,20 @@
       feed.scrollTop = feed.scrollHeight;
     }
 
-    async function clearConvLog(jid, skipConfirm) {
-      if (!skipConfirm) {
-        showConfirm('Clear log?', 'This removes the local conversation history. The bot will still continue if active.', [
-          { label: 'Clear', primary: true, action: () => clearConvLog(jid, true) },
-          { label: 'Cancel', primary: false, action: () => {} },
-        ]);
-        return;
-      }
+    async function _doClearLog(jid) {
       const conv = conversations.get(jid);
       if (!conv) return;
       await fetch('/api/agent/clear-log', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid }) });
       const feed = document.getElementById(`${conv.safeId}-log-feed`);
       if (feed) feed.innerHTML = '<p class="text-sm text-gray-300 text-center mt-16">Log cleared.</p>';
       conv.lastLogTs = 0;
+    }
+
+    function clearConvLog(jid) {
+      showConfirm('Clear log?', 'This removes the local conversation history. The bot will still continue if active.', [
+        { label: 'Clear',  primary: true,  action: () => _doClearLog(jid) },
+        { label: 'Cancel', primary: false, action: () => {} },
+      ]);
     }
 
     async function approveConvMessage(jid, btn) {
@@ -1015,14 +997,10 @@
       try {
         const r = await fetch('/api/agent/list');
         const d = await r.json();
-        const active = (d.agents || []).filter(a => a.active);
-        active.forEach(a => {
+        (d.agents || []).filter(a => a.active).forEach(a => {
           addConvTab(a.jid, a.name, a.jid.endsWith('@g.us'), a.prompt, a.approval_mode, a.gender || '', a.system_prompt || '', true);
         });
-        if (!active.length) switchTab('new');
-      } catch (_) {
-        switchTab('new');
-      }
+      } catch (_) {}
     }
 
     loadNavStatus();

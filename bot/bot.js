@@ -82,7 +82,7 @@ function saveContactNames() {
 // DM text history for agent context: jid → [{ts, fromMe, text, sender}]
 const dmTextHistory = new Map();
 const MAX_DM_TEXT = 60;
-// Conversation agents: jid → {jid, name, prompt, active, approval_mode, log: [{ts, role, text, sender?}]}
+/// Conversation agents: jid → {jid, name, prompt, active, approval_mode, log: [{ts, role, text, sender?}]}
 const agentConfigs = new Map();
 // Prevent overlapping responses per JID
 const agentBusy = new Set();
@@ -1444,7 +1444,11 @@ app.post('/agent/clear-log', express.json(), (req, res) => {
 });
 
 app.get('/agent/list', (req, res) => {
-  const agents = [...agentConfigs.values()].map(({ log, ...a }) => ({ ...a, logCount: log.length, system_prompt: a.systemPrompt || '' }));
+  const agents = [...agentConfigs.values()].map(({ log, systemPrompt, ...a }) => ({
+    ...a,
+    logCount: log.length,
+    system_prompt: systemPrompt || '',
+  }));
   res.json({ agents });
 });
 
