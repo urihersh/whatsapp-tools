@@ -27,6 +27,12 @@
 
   <div id="toast" class="hidden fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50"></div>
 
+  <!-- Photo lightbox -->
+  <div id="lightbox" class="hidden fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4" onclick="closeLightbox()">
+    <img id="lightbox-img" src="" class="max-h-[90vh] max-w-[90vw] rounded-2xl shadow-2xl object-contain" onclick="event.stopPropagation()" />
+    <button onclick="closeLightbox()" class="absolute top-4 right-4 w-9 h-9 rounded-full bg-white/10 hover:bg-white/20 text-white text-lg flex items-center justify-center transition-colors">✕</button>
+  </div>
+
   <!-- Add Kid modal -->
   <div id="add-kid-modal" class="hidden fixed inset-0 bg-black/40 z-40 flex items-center justify-center">
     <div class="bg-white rounded-2xl shadow-xl p-6 w-80">
@@ -155,6 +161,7 @@
           <table class="w-full text-sm">
             <thead class="bg-gray-50/70">
               <tr>
+                <th class="px-3 py-3 w-12"></th>
                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Time</th>
                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Sender</th>
                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Group</th>
@@ -164,7 +171,7 @@
               </tr>
             </thead>
             <tbody id="activity-body">
-              <tr><td colspan="6" class="px-5 py-10 text-center text-gray-300">Loading…</td></tr>
+              <tr><td colspan="7" class="px-5 py-10 text-center text-gray-300">Loading…</td></tr>
             </tbody>
           </table>
         </div>
@@ -518,6 +525,23 @@
         <p id="ai-key-hint" class="hidden text-xs text-amber-600">⚠ No AI model configured — <a href="/static/settings.html" class="underline font-medium">set up Anthropic or Ollama in Settings → Integrations</a></p>
       </div>
 
+      <!-- Activity thumbnails -->
+      <div class="section-card p-5 mb-4">
+        <div class="flex items-center gap-2.5 mb-3">
+          <div class="w-7 h-7 rounded-lg bg-teal-50 flex items-center justify-center flex-shrink-0">
+            <svg class="w-3.5 h-3.5 text-teal-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          </div>
+          <h3 class="font-semibold text-gray-900 text-sm">Activity Thumbnails</h3>
+        </div>
+        <p class="text-xs text-gray-400 mb-3">Matched photos are saved as small thumbnails in the activity log. They are automatically deleted after a set time to save space.</p>
+        <div class="flex items-center gap-3">
+          <label class="text-xs text-gray-600 whitespace-nowrap">Keep thumbnails for</label>
+          <input type="number" id="thumbnail-retention" min="1" max="720" value="48"
+                 class="w-20 border border-gray-200 rounded-xl px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald-400" />
+          <span class="text-xs text-gray-400">hours</span>
+        </div>
+      </div>
+
       <!-- Google Photos -->
       <div class="section-card p-5 mb-4">
         <div class="flex items-center justify-between mb-1">
@@ -620,6 +644,17 @@
       } catch (_) {}
     }
 
+    // ── Lightbox ─────────────────────────────────────────────────────────────────
+    function openLightbox(src) {
+      document.getElementById('lightbox-img').src = src;
+      document.getElementById('lightbox').classList.remove('hidden');
+    }
+    function closeLightbox() {
+      document.getElementById('lightbox').classList.add('hidden');
+      document.getElementById('lightbox-img').src = '';
+    }
+    document.addEventListener('keydown', e => { if (e.key === 'Escape') closeLightbox(); });
+
     // ── Tab switching ────────────────────────────────────────────────────────────
     const TABS = ['activity', 'kids', 'groups', 'configure'];
     function showTab(tab) {
@@ -683,7 +718,7 @@
         const d = await r.json();
         const tbody = document.getElementById('activity-body');
         if (!d.activity.length) {
-          tbody.innerHTML = '<tr><td colspan="6" class="px-5 py-10 text-center text-gray-300">No activity yet. Waiting for photos from monitored groups…</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="7" class="px-5 py-10 text-center text-gray-300">No activity yet. Waiting for photos from monitored groups…</td></tr>';
           return;
         }
         tbody.innerHTML = d.activity.map(row => {
@@ -692,7 +727,14 @@
             ? `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">Match</span>${row.kid_names ? `<span class="ml-1 text-xs text-gray-500">${row.kid_names}</span>` : ''}`
             : '<span class="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-full text-xs">No match</span>';
           const conf = row.matched ? `${(row.confidence * 100).toFixed(0)}%` : '-';
+          const thumb = row.thumbnail_filename
+            ? `<img src="/api/activity/thumbnail/${encodeURIComponent(row.thumbnail_filename)}"
+                    class="w-10 h-10 rounded-lg object-cover cursor-pointer ring-1 ring-gray-100 hover:ring-emerald-400 transition-all"
+                    onclick="openLightbox('/api/activity/thumbnail/${encodeURIComponent(row.thumbnail_filename)}')"
+                    onerror="this.parentElement.innerHTML=''" loading="lazy" />`
+            : '';
           return `<tr class="border-t border-gray-50 hover:bg-gray-50/70 transition-colors">
+            <td class="px-3 py-2">${thumb}</td>
             <td class="px-5 py-3 text-gray-400 whitespace-nowrap text-xs" title="${new Date(row.timestamp).toLocaleString()}">${t}</td>
             <td class="px-5 py-3 text-gray-700 font-medium">${row.sender}</td>
             <td class="px-5 py-3 text-gray-400 text-xs">${row.group_name}</td>
@@ -1396,6 +1438,7 @@
         updateSaveExample();
         if (d.digest_mode === 'true') { document.getElementById('digest-mode').checked = true; document.getElementById('digest-time-row').classList.remove('hidden'); }
         if (d.digest_time) document.getElementById('digest-time').value = d.digest_time;
+        document.getElementById('thumbnail-retention').value = d.thumbnail_retention_hours || '48';
         if (d.ai_captions_enabled === 'true') document.getElementById('ai-captions-enabled').checked = true;
         const hasAnyAI = !!d.has_anthropic_key || !!d.ollama_url;
         document.getElementById('ai-key-hint').classList.toggle('hidden', hasAnyAI);
@@ -1475,6 +1518,7 @@
           google_photos_enabled: String(document.getElementById('gp-enabled').checked),
           google_photos_album_organize_by: document.querySelector('input[name="gp-organize"]:checked')?.value || 'group',
           google_photos_album_name: document.getElementById('gp-album-name').value.trim() || null,
+          thumbnail_retention_hours: document.getElementById('thumbnail-retention').value || '48',
         };
         await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         showToast('Settings saved!');

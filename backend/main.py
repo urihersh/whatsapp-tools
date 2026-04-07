@@ -1,17 +1,20 @@
-from fastapi import FastAPI, UploadFile, Request
+from fastapi import FastAPI, UploadFile, Request, HTTPException
 from fastapi.staticfiles import StaticFiles
-from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse
+from fastapi.responses import RedirectResponse, StreamingResponse, JSONResponse, FileResponse
 from contextlib import asynccontextmanager
 from pathlib import Path
-from datetime import datetime
+from datetime import datetime, timedelta
 import asyncio
 import os
+import re
 import json
 import time
 import uuid
 import base64
 import httpx
 import aiofiles
+import numpy as np
+import cv2
 from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
@@ -34,6 +37,7 @@ def _is_enabled(settings: dict, key: str) -> bool:
     return settings.get(key) == "true"
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
+THUMBNAILS_DIR = DATA_DIR / "thumbnails"
 BOT_API_URL = os.getenv("BOT_API_URL", "http://localhost:3001")
 
 
@@ -41,6 +45,39 @@ BOT_API_URL = os.getenv("BOT_API_URL", "http://localhost:3001")
 
 def _safe_filename(name: str) -> str:
     return "".join(c if c.isalnum() or c in " -_." else "_" for c in name).strip() or "unknown"
+
+
+def _save_thumbnail(img_bytes: bytes) -> str:
+    """Resize img_bytes to a small JPEG, save to THUMBNAILS_DIR, return filename."""
+    try:
+        THUMBNAILS_DIR.mkdir(parents=True, exist_ok=True)
+        arr = np.frombuffer(img_bytes, np.uint8)
+        img = cv2.imdecode(arr, cv2.IMREAD_COLOR)
+        if img is None:
+            return ""
+        h, w = img.shape[:2]
+        max_dim = 320
+        if max(h, w) > max_dim:
+            scale = max_dim / max(h, w)
+            img = cv2.resize(img, (int(w * scale), int(h * scale)), interpolation=cv2.INTER_AREA)
+        fname = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19] + f"_{uuid.uuid4().hex[:6]}.jpg"
+        cv2.imwrite(str(THUMBNAILS_DIR / fname), img, [cv2.IMWRITE_JPEG_QUALITY, 80])
+        return fname
+    except Exception:
+        return ""
+
+
+def purge_old_thumbnails(retention_hours: int = 48):
+    """Delete thumbnails older than retention_hours from THUMBNAILS_DIR."""
+    if not THUMBNAILS_DIR.exists():
+        return
+    cutoff = datetime.now() - timedelta(hours=retention_hours)
+    for f in THUMBNAILS_DIR.glob("*.jpg"):
+        try:
+            if datetime.fromtimestamp(f.stat().st_mtime) < cutoff:
+                f.unlink()
+        except Exception:
+            pass
 
 
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
@@ -259,15 +296,36 @@ async def _flush_digest(settings: dict):
         _digest_queue[:0] = items
 
 
+async def _thumbnail_cleanup_scheduler():
+    """Hourly background task: delete thumbnails older than configured retention."""
+    while True:
+        await asyncio.sleep(3600)
+        settings = get_settings()
+        try:
+            hours = int(settings.get("thumbnail_retention_hours", "48") or "48")
+        except ValueError:
+            hours = 48
+        purge_old_thumbnails(hours)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    for subdir in ["enrolled", "embeddings", "temp"]:
+    for subdir in ["enrolled", "embeddings", "temp", "thumbnails"]:
         (DATA_DIR / subdir).mkdir(parents=True, exist_ok=True)
     app.state.face_service = FaceService(str(DATA_DIR))
-    task = asyncio.create_task(_digest_scheduler())
+    # Run thumbnail cleanup on startup
+    settings = get_settings()
+    try:
+        retention_hours = int(settings.get("thumbnail_retention_hours", "48") or "48")
+    except ValueError:
+        retention_hours = 48
+    purge_old_thumbnails(retention_hours)
+    digest_task = asyncio.create_task(_digest_scheduler())
+    cleanup_task = asyncio.create_task(_thumbnail_cleanup_scheduler())
     yield
-    task.cancel()
+    digest_task.cancel()
+    cleanup_task.cancel()
 
 
 app = FastAPI(title="Parent Tool", lifespan=lifespan)
@@ -299,6 +357,16 @@ app.include_router(auth_router, prefix="/api/auth")
 app.include_router(backup_router, prefix="/api/scout")
 
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
+
+
+@app.get("/api/activity/thumbnail/{filename}")
+async def get_activity_thumbnail(filename: str):
+    if not re.match(r'^[a-zA-Z0-9_.-]+$', filename):
+        raise HTTPException(status_code=400, detail="Invalid filename")
+    path = THUMBNAILS_DIR / filename
+    if not path.exists():
+        raise HTTPException(status_code=404)
+    return FileResponse(path, media_type="image/jpeg")
 
 
 @app.get("/")
@@ -335,11 +403,13 @@ async def analyze_photo(request: Request, file: UploadFile,
         matched_kids, best_confidence = _enrich_matches(result, kid_names)
 
         matched_photo_path = ""
+        thumbnail_filename = ""
         if result.get("matched"):
             matched_photo_path = save_matched_photo(
                 file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
                 original_filename=file.filename or ""
             )
+            thumbnail_filename = _save_thumbnail(file_bytes)
             await save_to_google_photos(file_bytes, group_name, matched_kids, db_settings)
 
         forwarded = False
@@ -384,6 +454,7 @@ async def analyze_photo(request: Request, file: UploadFile,
                 forwarded=forwarded,
                 kid_names=", ".join(m["kid_name"] for m in matched_kids),
                 matched_photo_path=matched_photo_path,
+                thumbnail_filename=thumbnail_filename,
             )
 
         return result
@@ -412,10 +483,11 @@ async def analyze_video(request: Request, file: UploadFile,
                     "error": "No kids configured for this group"}
 
         result = request.app.state.face_service.analyze_video(str(temp_path), kid_id_list, threshold)
-        result.pop("best_frame_bytes", None)  # no longer forwarded as image
+        best_frame_bytes = result.pop("best_frame_bytes", None)  # used for thumbnail
         matched_kids, best_confidence = _enrich_matches(result, kid_names)
 
         matched_photo_path = ""
+        thumbnail_filename = ""
         forwarded = False
         if result.get("matched"):
             video_filename = file.filename or "video.mp4"
@@ -423,6 +495,8 @@ async def analyze_video(request: Request, file: UploadFile,
                 file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
                 original_filename=video_filename
             )
+            if best_frame_bytes:
+                thumbnail_filename = _save_thumbnail(best_frame_bytes)
             await save_to_google_photos(file_bytes, group_name, matched_kids, db_settings,
                                         filename=video_filename)
             forward_to = db_settings.get("forward_to_id")
@@ -455,6 +529,7 @@ async def analyze_video(request: Request, file: UploadFile,
                 forwarded=forwarded,
                 kid_names=", ".join(m["kid_name"] for m in matched_kids),
                 matched_photo_path=matched_photo_path,
+                thumbnail_filename=thumbnail_filename,
             )
         return result
     finally:

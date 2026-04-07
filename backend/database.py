@@ -29,6 +29,7 @@ class ActivityLog(Base):
     forwarded = Column(Boolean, default=False)
     kid_names = Column(String, default="")
     matched_photo_path = Column(String, default="")
+    thumbnail_filename = Column(String, default="")
 
 
 class AppConfig(Base):
@@ -61,6 +62,13 @@ def init_db():
         except OperationalError as e:
             if "duplicate column" not in str(e).lower() and "already has column" not in str(e).lower():
                 raise
+    with engine.connect() as conn:
+        try:
+            conn.execute(text("ALTER TABLE activity_log ADD COLUMN thumbnail_filename TEXT DEFAULT ''"))
+            conn.commit()
+        except OperationalError as e:
+            if "duplicate column" not in str(e).lower() and "already has column" not in str(e).lower():
+                raise
 
 
 def get_settings() -> dict:
@@ -87,7 +95,7 @@ def save_setting(key: str, value: str):
 
 def log_activity(photo_filename: str, sender: str, group_name: str,
                  faces_detected: int, matched: bool, confidence: float, forwarded: bool,
-                 kid_names: str = "", matched_photo_path: str = ""):
+                 kid_names: str = "", matched_photo_path: str = "", thumbnail_filename: str = ""):
     db = SessionLocal()
     try:
         db.add(ActivityLog(
@@ -100,6 +108,7 @@ def log_activity(photo_filename: str, sender: str, group_name: str,
             forwarded=forwarded,
             kid_names=kid_names,
             matched_photo_path=matched_photo_path,
+            thumbnail_filename=thumbnail_filename,
         ))
         db.commit()
     finally:
@@ -131,6 +140,7 @@ def get_activity_log(limit: int = 50, matched: bool | None = None,
                 "forwarded": r.forwarded,
                 "kid_names": r.kid_names or "",
                 "matched_photo_path": r.matched_photo_path or "",
+                "thumbnail_filename": r.thumbnail_filename or "",
             }
             for r in rows
         ]
