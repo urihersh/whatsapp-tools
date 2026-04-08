@@ -496,7 +496,8 @@ async function connect() {
       }
 
       // ── MazalTover: if I sent מזל טוב myself, apply cooldown so bot stands down ──
-      if (!isHistory && msg.key.fromMe && msg.key.remoteJid?.endsWith('@g.us')) {
+      // Note: isHistory not excluded — we want to apply cooldown even for synced history
+      if (msg.key.fromMe && msg.key.remoteJid?.endsWith('@g.us')) {
         const groupJid = msg.key.remoteJid;
         try {
           const settings = await getSettings();
@@ -527,7 +528,8 @@ async function connect() {
       }
 
       // ── MazalTover: auto-congrats for group messages ──
-      if (!isHistory && !msg.key.fromMe && msg.key.remoteJid?.endsWith('@g.us')) {
+      // Note: isHistory not excluded — process caught-up messages from while bot was asleep
+      if (!msg.key.fromMe && msg.key.remoteJid?.endsWith('@g.us')) {
         const groupJid = msg.key.remoteJid;
         try {
           const settings = await getSettings();
@@ -543,6 +545,9 @@ async function connect() {
               // Use actual message send time — critical when bot was asleep and processes queued messages
               const msgTs = (msg.messageTimestamp || 0) * 1000 || Date.now();
               const windowMs = (parseInt(config.window_minutes) || 30) * 60 * 1000;
+              // Skip messages older than one window — they can't be part of an active window,
+              // and this prevents Baileys' initial full-history sync from triggering old events
+              if (Date.now() - msgTs > windowMs) continue;
               if (!mazaltoverTracker.has(groupJid)) {
                 mazaltoverTracker.set(groupJid, { senders: new Set(), windowStart: msgTs, lastSent: 0, hits: [] });
               }
