@@ -545,9 +545,14 @@ async function connect() {
               // Use actual message send time — critical when bot was asleep and processes queued messages
               const msgTs = (msg.messageTimestamp || 0) * 1000 || Date.now();
               const windowMs = (parseInt(config.window_minutes) || 30) * 60 * 1000;
-              // Skip messages older than one window — they can't be part of an active window,
-              // and this prevents Baileys' initial full-history sync from triggering old events
-              if (Date.now() - msgTs > windowMs) continue;
+              // Skip messages older than 24 hours — prevents Baileys' initial full-history sync
+              // from triggering on old events, while still processing messages from a typical
+              // overnight sleep (bot was down for a few hours and reconnects)
+              if (Date.now() - msgTs > 24 * 60 * 60 * 1000) {
+                console.log(`[mazaltover] Skipping old message from ${new Date(msgTs).toISOString()} (>24h old)`);
+                continue;
+              }
+              if (isHistory) console.log(`[mazaltover] Processing history-sync mazal tov from ${new Date(msgTs).toISOString()} in ${config.name || groupJid}`);
               if (!mazaltoverTracker.has(groupJid)) {
                 mazaltoverTracker.set(groupJid, { senders: new Set(), windowStart: msgTs, lastSent: 0, hits: [] });
               }
