@@ -508,12 +508,13 @@ async function connect() {
             if (msgType === 'conversation') text = msg.message.conversation || '';
             else if (msgType === 'extendedTextMessage') text = msg.message.extendedTextMessage?.text || '';
             if (isMazaltovMsg(text)) {
+              // Use actual message send time so sleep/wake doesn't confuse timing
+              const msgTs = (msg.messageTimestamp || 0) * 1000 || Date.now();
               if (!mazaltoverTracker.has(groupJid)) {
-                mazaltoverTracker.set(groupJid, { senders: new Set(), windowStart: Date.now(), lastSent: 0, hits: [] });
+                mazaltoverTracker.set(groupJid, { senders: new Set(), windowStart: msgTs, lastSent: 0, hits: [] });
               }
               const tracker = mazaltoverTracker.get(groupJid);
-              const cooldownMs = (parseInt(config.cooldown_hours) || 24) * 3600000;
-              tracker.lastSent = Date.now();
+              tracker.lastSent = msgTs;
               tracker.senders.clear();
               tracker.hits = [];
               saveTrackerState();
@@ -539,24 +540,25 @@ async function connect() {
             else if (msgType === 'extendedTextMessage') text = msg.message.extendedTextMessage?.text || '';
             if (isMazaltovMsg(text)) {
               const sender = msg.key.participant || groupJid;
-              const now = Date.now();
+              // Use actual message send time — critical when bot was asleep and processes queued messages
+              const msgTs = (msg.messageTimestamp || 0) * 1000 || Date.now();
               const windowMs = (parseInt(config.window_minutes) || 30) * 60 * 1000;
               if (!mazaltoverTracker.has(groupJid)) {
-                mazaltoverTracker.set(groupJid, { senders: new Set(), windowStart: now, lastSent: 0 });
+                mazaltoverTracker.set(groupJid, { senders: new Set(), windowStart: msgTs, lastSent: 0, hits: [] });
               }
               const tracker = mazaltoverTracker.get(groupJid);
-              if (now - tracker.windowStart > windowMs) {
+              // Reset window if this message falls outside the current window
+              if (msgTs - tracker.windowStart > windowMs) {
                 tracker.senders.clear();
                 tracker.hits = [];
-                tracker.windowStart = now;
+                tracker.windowStart = msgTs;
                 saveTrackerState();
               }
               tracker.senders.add(sender);
               if (!tracker.hits) tracker.hits = [];
               const senderName = getSender(msg);
-              tracker.hits.push({ sender: senderName, text, ts: now });
-              // Persist every individual detection to the detections log
-              mazaltoverDetections.unshift({ groupId: groupJid, groupName: config.name || groupJid, sender: senderName, text, ts: now });
+              tracker.hits.push({ sender: senderName, text, ts: msgTs });
+              mazaltoverDetections.unshift({ groupId: groupJid, groupName: config.name || groupJid, sender: senderName, text, ts: msgTs });
               saveMazaltoverDetections();
               saveTrackerState();
               // Skip if today is user's birthday (avoid congratulating yourself)
@@ -566,14 +568,14 @@ async function connect() {
               const isBirthday = birthday && birthday === todayMD;
               const threshold = parseInt(config.threshold) || 3;
               const cooldownMs = (parseInt(config.cooldown_hours) || 24) * 3600000;
-              if (!isBirthday && tracker.senders.size >= threshold && (now - tracker.lastSent) > cooldownMs) {
-                tracker.lastSent = now;
+              if (!isBirthday && tracker.senders.size >= threshold && (msgTs - tracker.lastSent) > cooldownMs) {
+                tracker.lastSent = msgTs;
                 tracker.senders.clear();
                 tracker.hits = [];
                 saveTrackerState();
                 const message = config.message || 'מזל טוב! 🎉';
                 await sock.sendMessage(groupJid, { text: message });
-                mazaltoverLog.unshift({ groupId: groupJid, groupName: config.name || groupJid, message, sentAt: now });
+                mazaltoverLog.unshift({ groupId: groupJid, groupName: config.name || groupJid, message, sentAt: msgTs });
                 saveMazaltoverLog();
                 console.log(`[mazaltover] Sent to ${config.name || groupJid}`);
               }
