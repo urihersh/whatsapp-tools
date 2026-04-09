@@ -592,7 +592,7 @@ async function connect() {
             }
           }
         } catch (e) {
-          console.error('[mazaltover] Error:', e.message);
+          if (e.message) console.error('[mazaltover] Error:', e.message);
         }
       }
 
@@ -667,13 +667,12 @@ async function connect() {
         }
       }
 
-      if (isHistory) continue; // don't re-process old media/actions for history
-      if (!msg.key.fromMe) {
+      if (!isHistory && !msg.key.fromMe) {
         storeMediaMsg(msg);
       }
 
       // ── Enroll-from-DM: image in a direct chat with caption "enroll <name>" ──
-      if (isImageMsg(msg)) {
+      if (!isHistory && isImageMsg(msg)) {
         const remoteJid = msg.key.remoteJid || '';
         const isDM = !remoteJid.endsWith('@g.us');
         const msgType = Object.keys(msg.message || {})[0];
@@ -730,6 +729,13 @@ async function connect() {
       const isImage = isImageMsg(msg);
       const isVideo = isVideoMsg(msg);
       if (!isImage && !isVideo) continue;
+
+      // For history-sync messages (bot was asleep), only process media from last 24h
+      if (isHistory) {
+        const msgAgeMs = Date.now() - (msg.messageTimestamp || 0) * 1000;
+        if (msgAgeMs > 24 * 60 * 60 * 1000) continue;
+        console.log(`[bot] Processing history-sync ${isVideo ? 'video' : 'image'} from ${new Date((msg.messageTimestamp || 0) * 1000).toISOString()}`);
+      }
 
       const groupId = msg.key.remoteJid;
       if (!groupId?.endsWith('@g.us')) continue;
