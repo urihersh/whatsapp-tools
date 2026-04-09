@@ -570,12 +570,14 @@
         const inCooldown = lastSent && (Date.now() - lastSent) < cooldownMs;
 
         const windowStart = tracker?.windowStart || 0;
+        const windowMs = winMin * 60 * 1000;
+        const windowExpired = windowStart && (Date.now() - windowStart) > windowMs;
         const trackerLoaded = !!tracker;
 
         let statusHtml = '';
         // Check last sent from log even if no active tracker
         const lastLogEntry = (window._mazaltoverLog || []).find(e => e.groupId === g.id);
-        if (!trackerLoaded) {
+        if (!trackerLoaded || windowExpired) {
           const lastSentStr = lastLogEntry ? `Last sent ${agoStr(lastLogEntry.sentAt)}` : 'Never fired';
           statusHtml = `<div class="mt-3 pt-3 border-t border-gray-50 flex items-center gap-2">
             <span class="text-xs text-gray-400">No active window ·</span>

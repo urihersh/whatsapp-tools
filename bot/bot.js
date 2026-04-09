@@ -1259,7 +1259,22 @@ app.get('/group-analysis', (req, res) => {
 });
 
 // MazalTover log + pending counts
-app.get('/mazaltover-log', (req, res) => {
+app.get('/mazaltover-log', async (req, res) => {
+  // Clear expired windows before responding so stale data doesn't linger
+  try {
+    const settings = await getSettings();
+    const mazaltovGroups = JSON.parse(settings.mazaltov_groups || '[]');
+    for (const [jid, t] of mazaltoverTracker) {
+      const config = mazaltovGroups.find(g => g.id === jid);
+      const windowMs = (parseInt(config?.window_minutes) || 30) * 60 * 1000;
+      if (t.windowStart && (Date.now() - t.windowStart) > windowMs) {
+        t.senders.clear();
+        t.hits = [];
+        t.windowStart = 0;
+        saveTrackerState();
+      }
+    }
+  } catch (_) {}
   const trackers = {};
   for (const [jid, t] of mazaltoverTracker) {
     trackers[jid] = {
