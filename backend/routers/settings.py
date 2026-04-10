@@ -156,7 +156,8 @@ async def google_photos_callback(request: Request, code: str = "", error: str = 
     svc = GooglePhotosService(client_id, client_secret, _gp_redirect_uri(request))
     data = await svc.exchange_code(code)
     if "access_token" not in data:
-        return RedirectResponse(url="/static/settings.html?gp_error=token_exchange_failed")
+        err_detail = data.get("error", "token_exchange_failed")
+        return RedirectResponse(url=f"/static/settings.html?gp_error={err_detail}")
     save_setting("google_photos_tokens", json.dumps(svc.tokens))
     return RedirectResponse(url="/static/settings.html?gp_connected=1")
 
