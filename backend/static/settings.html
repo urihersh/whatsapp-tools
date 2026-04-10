@@ -180,13 +180,16 @@
           <div class="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2.5 mb-3">
             <details class="text-xs text-gray-500">
               <summary class="text-blue-600 cursor-pointer font-medium">How to get credentials ▸</summary>
-              <ol class="mt-2 space-y-1 list-decimal pl-4">
-                <li>Go to <strong>console.cloud.google.com</strong> and create a project.</li>
-                <li>Enable the <strong>Photos Library API</strong>.</li>
-                <li>Go to <strong>Credentials → Create Credentials → OAuth Client ID</strong>.</li>
-                <li>Application type: <strong>Web application</strong>.</li>
-                <li>Add authorized redirect URI: <code class="bg-white border border-gray-200 px-1 rounded break-all">http://localhost:8000/api/settings/google-photos/callback</code></li>
-                <li>Copy Client ID and Client Secret below, then click <strong>Save Settings</strong>.</li>
+              <ol class="mt-2 space-y-1.5 list-decimal pl-4">
+                <li>Go to <strong>console.cloud.google.com</strong>, create a project (or select one).</li>
+                <li>Go to <strong>APIs &amp; Services → Library</strong>, search for <strong>Photos Library API</strong> and enable it.</li>
+                <li>Go to <strong>APIs &amp; Services → OAuth consent screen</strong>.<br>
+                  Under <strong>Audience</strong>, set User Type to <strong>External</strong> and publishing status to <strong>In production</strong>.</li>
+                <li>Go to <strong>APIs &amp; Services → Credentials → Create Credentials → OAuth Client ID</strong>.<br>
+                  Application type: <strong>Web application</strong>.</li>
+                <li>Under <strong>Authorized redirect URIs</strong>, add exactly:<br>
+                  <code class="bg-white border border-gray-200 px-1 rounded break-all select-all">http://localhost:8000/api/settings/google-photos/callback</code></li>
+                <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into the fields below, click <strong>Save Settings</strong>, then click <strong>Connect with Google</strong>.</li>
               </ol>
             </details>
             <input type="text" id="gp-client-id" placeholder="Client ID"

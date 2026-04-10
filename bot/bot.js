@@ -413,7 +413,7 @@ async function connect() {
 
   // Seed contactNames from WhatsApp's own contact store so display names are
   // available for contacts who haven't sent a message since the bot started.
-  sock.ev.on('contacts.set', ({ contacts }) => {
+  const syncContacts = contacts => {
     let changed = false;
     for (const c of (contacts || [])) {
       const name = c.name || c.notify; // prefer full address book name over short notify name
@@ -423,18 +423,9 @@ async function connect() {
       }
     }
     if (changed) saveContactNames();
-  });
-  sock.ev.on('contacts.upsert', contacts => {
-    let changed = false;
-    for (const c of (contacts || [])) {
-      const name = c.name || c.notify;
-      if (c.id && name && contactNames.get(c.id) !== name) {
-        contactNames.set(c.id, name);
-        changed = true;
-      }
-    }
-    if (changed) saveContactNames();
-  });
+  };
+  sock.ev.on('contacts.set', ({ contacts }) => syncContacts(contacts));
+  sock.ev.on('contacts.upsert', syncContacts);
 
   sock.ev.on('messages.upsert', async ({ messages, type }) => {
     // 'notify' = new live message; 'append' = historical sync from device
@@ -1016,71 +1007,52 @@ app.post('/fetch-history-all', express.json(), async (req, res) => {
   res.json({ ok: true, sent, skipped, results });
 });
 
-app.get('/history-images', (req, res) => {
-  const { groupId, since = '0' } = req.query;
-  if (!groupId) return res.status(400).json({ error: 'groupId required' });
-  const sinceTs = parseInt(since); // 0 = all history
-  const byJid = imageHistory.get(groupId);
-  if (!byJid) return res.json({ images: [], note: 'No history yet — messages are stored as they arrive after bot starts' });
-  const images = [];
+function historyList(store, groupId, sinceTs) {
+  const byJid = store.get(groupId);
+  if (!byJid) return null;
+  const items = [];
   for (const [id, msg] of byJid) {
     const ts = (msg.messageTimestamp || 0) * 1000;
     if (sinceTs > 0 && ts < sinceTs) continue;
-    images.push({
-      id,
-      timestamp: ts,
-      sender: getSender(msg),
-    });
+    items.push({ id, timestamp: ts, sender: getSender(msg) });
   }
-  images.sort((a, b) => a.timestamp - b.timestamp);
-  res.json({ images });
-});
+  items.sort((a, b) => a.timestamp - b.timestamp);
+  return items;
+}
 
-app.get('/download-image/:msgId', async (req, res) => {
-  const { groupId } = req.query;
-  const { msgId } = req.params;
+async function downloadFromStore(store, groupId, msgId, res, key) {
   if (!groupId) return res.status(400).json({ error: 'groupId required' });
-  const byJid = imageHistory.get(groupId);
-  const msg = byJid?.get(msgId);
+  const msg = store.get(groupId)?.get(msgId);
   if (!msg) return res.status(404).json({ error: 'Message not found in history' });
   try {
     const buffer = await downloadMediaMessage(msg, 'buffer', {});
-    res.json({ image_b64: buffer.toString('base64') });
+    res.json({ [key]: buffer.toString('base64') });
   } catch (e) {
     res.status(500).json({ error: e.message });
   }
+}
+
+app.get('/history-images', (req, res) => {
+  const { groupId, since = '0' } = req.query;
+  if (!groupId) return res.status(400).json({ error: 'groupId required' });
+  const items = historyList(imageHistory, groupId, parseInt(since));
+  if (!items) return res.json({ images: [], note: 'No history yet — messages are stored as they arrive after bot starts' });
+  res.json({ images: items });
 });
+
+app.get('/download-image/:msgId', (req, res) =>
+  downloadFromStore(imageHistory, req.query.groupId, req.params.msgId, res, 'image_b64'));
 
 app.get('/history-videos', (req, res) => {
   const { groupId, since = '0' } = req.query;
   if (!groupId) return res.status(400).json({ error: 'groupId required' });
-  const sinceTs = parseInt(since);
-  const byJid = videoHistory.get(groupId);
-  if (!byJid) return res.json({ videos: [] });
-  const videos = [];
-  for (const [id, msg] of byJid) {
-    const ts = (msg.messageTimestamp || 0) * 1000;
-    if (sinceTs > 0 && ts < sinceTs) continue;
-    videos.push({ id, timestamp: ts, sender: getSender(msg) });
-  }
-  videos.sort((a, b) => a.timestamp - b.timestamp);
-  res.json({ videos });
+  const items = historyList(videoHistory, groupId, parseInt(since));
+  if (!items) return res.json({ videos: [] });
+  res.json({ videos: items });
 });
 
-app.get('/download-video/:msgId', async (req, res) => {
-  const { groupId } = req.query;
-  const { msgId } = req.params;
-  if (!groupId) return res.status(400).json({ error: 'groupId required' });
-  const byJid = videoHistory.get(groupId);
-  const msg = byJid?.get(msgId);
-  if (!msg) return res.status(404).json({ error: 'Message not found in history' });
-  try {
-    const buffer = await downloadMediaMessage(msg, 'buffer', {});
-    res.json({ video_b64: buffer.toString('base64') });
-  } catch (e) {
-    res.status(500).json({ error: e.message });
-  }
-});
+app.get('/download-video/:msgId', (req, res) =>
+  downloadFromStore(videoHistory, req.query.groupId, req.params.msgId, res, 'video_b64'));
 
 // ── DM Inbox endpoints ──────────────────────────────────────────────────────
 

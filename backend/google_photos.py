@@ -126,5 +126,6 @@ class GooglePhotosService:
             results = r.json().get("newMediaItemResults", [])
             status = results[0].get("status", {}) if results else {}
             return status.get("message") == "Success" or status.get("code") in (None, 0)
-        except Exception:
+        except Exception as e:
+            print(f"[google-photos] upload_photo error: {e}", flush=True)
             return False

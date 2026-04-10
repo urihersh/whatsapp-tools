@@ -135,14 +135,20 @@ def _gp_redirect_uri(request: Request) -> str:
     return f"{base}/api/settings/google-photos/callback"
 
 
-@router.get("/google-photos/auth-url")
-async def google_photos_auth_url(request: Request):
+def _gp_service(request: Request) -> GooglePhotosService | None:
     settings = get_settings()
     client_id = settings.get("google_photos_client_id", "").strip()
     client_secret = settings.get("google_photos_client_secret", "").strip()
     if not client_id or not client_secret:
+        return None
+    return GooglePhotosService(client_id, client_secret, _gp_redirect_uri(request))
+
+
+@router.get("/google-photos/auth-url")
+async def google_photos_auth_url(request: Request):
+    svc = _gp_service(request)
+    if not svc:
         return {"error": "Save your Client ID and Client Secret first"}
-    svc = GooglePhotosService(client_id, client_secret, _gp_redirect_uri(request))
     return {"url": svc.get_auth_url()}
 
 
@@ -150,10 +156,9 @@ async def google_photos_auth_url(request: Request):
 async def google_photos_callback(request: Request, code: str = "", error: str = ""):
     if error or not code:
         return RedirectResponse(url=f"/static/settings.html?gp_error={error or 'cancelled'}")
-    settings = get_settings()
-    client_id = settings.get("google_photos_client_id", "").strip()
-    client_secret = settings.get("google_photos_client_secret", "").strip()
-    svc = GooglePhotosService(client_id, client_secret, _gp_redirect_uri(request))
+    svc = _gp_service(request)
+    if not svc:
+        return RedirectResponse(url="/static/settings.html?gp_error=missing_credentials")
     data = await svc.exchange_code(code)
     if "access_token" not in data:
         err_detail = data.get("error", "token_exchange_failed")
