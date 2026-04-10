@@ -494,7 +494,7 @@ async function connect() {
           const settings = await getSettings();
           const mazaltovGroups = JSON.parse(settings.mazaltov_groups || '[]');
           const config = mazaltovGroups.find(g => g.id === groupJid);
-          if (config) {
+          if (config && config.enabled !== false) {
             const msgType = Object.keys(msg.message || {})[0];
             let text = '';
             if (msgType === 'conversation') text = msg.message.conversation || '';
@@ -526,7 +526,7 @@ async function connect() {
           const settings = await getSettings();
           const mazaltovGroups = JSON.parse(settings.mazaltov_groups || '[]');
           const config = mazaltovGroups.find(g => g.id === groupJid);
-          if (config) {
+          if (config && config.enabled !== false) {
             const msgType = Object.keys(msg.message || {})[0];
             let text = '';
             if (msgType === 'conversation') text = msg.message.conversation || '';
