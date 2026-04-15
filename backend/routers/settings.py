@@ -35,6 +35,8 @@ class SettingsUpdate(BaseModel):
     digest_mode: str | None = None
     digest_time: str | None = None
     ai_captions_enabled: str | None = None
+    thumbnails_enabled: str | None = None
+    thumbnail_retention_hours: str | None = None
     anthropic_api_key: str | None = None
     pin_enabled: str | None = None
     app_pin: str | None = None
