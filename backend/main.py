@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
-from database import init_db, get_settings, log_activity, save_setting, get_activity_by_id
+from database import init_db, get_settings, log_activity, save_setting, get_activity_by_id, update_activity_caption
 from face_service import FaceService
 from google_photos import GooglePhotosService
 from ai_service import get_moment_caption, caption_image, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama, analyze_group_topics, stream_analyze_ollama, agent_reply, generate_opener
@@ -393,13 +393,16 @@ async def root():
 
 
 async def _send_caption_followup(img_bytes: bytes, kid_names: list[str], forward_to: str,
-                                  ai_key: str, ollama_url: str, ollama_vision_model: str):
-    """Background task: generate AI caption and send it as a follow-up message."""
+                                  ai_key: str, ollama_url: str, ollama_vision_model: str,
+                                  row_id: int = 0):
+    """Background task: generate AI caption, save to DB, and send as a follow-up message."""
     try:
         caption = await asyncio.get_running_loop().run_in_executor(
             None, get_moment_caption, img_bytes, kid_names, ai_key, ollama_url, ollama_vision_model
         )
         if caption:
+            if row_id:
+                update_activity_caption(row_id, caption)
             async with httpx.AsyncClient(timeout=10.0) as hx:
                 await hx.post(f"{BOT_API_URL}/send-text", json={"to": forward_to, "text": f"💬 {caption}"})
     except Exception as e:
@@ -464,16 +467,8 @@ async def analyze_photo(request: Request, file: UploadFile,
                 )
                 if fwd_err:
                     result["forward_error"] = fwd_err
-            # Generate caption in background and send as follow-up (never blocks the response)
-            if _is_enabled(db_settings, "ai_captions_enabled") and forward_to and not is_test and not _is_enabled(db_settings, "digest_mode"):
-                ai_key = db_settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "")
-                ollama_url = db_settings.get("ollama_url", "").strip()
-                ollama_vision_model = db_settings.get("ollama_vision_model", "llava").strip() or "llava"
-                asyncio.create_task(_send_caption_followup(
-                    file_bytes, kid_name_list, forward_to, ai_key, ollama_url, ollama_vision_model
-                ))
-
         result["forwarded"] = forwarded
+        row_id = 0
         if not is_test:
             row_id = log_activity(
                 photo_filename=file.filename or "photo.jpg",
@@ -488,6 +483,16 @@ async def analyze_photo(request: Request, file: UploadFile,
                 thumbnail_filename=thumbnail_filename,
             )
             _save_original(file_bytes, row_id)
+
+        if result.get("matched"):
+            # Generate caption in background and send as follow-up (never blocks the response)
+            if _is_enabled(db_settings, "ai_captions_enabled") and forward_to and not is_test and not _is_enabled(db_settings, "digest_mode"):
+                ai_key = db_settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "")
+                ollama_url = db_settings.get("ollama_url", "").strip()
+                ollama_vision_model = db_settings.get("ollama_vision_model", "llava").strip() or "llava"
+                asyncio.create_task(_send_caption_followup(
+                    file_bytes, kid_name_list, forward_to, ai_key, ollama_url, ollama_vision_model, row_id
+                ))
 
         return result
     finally:
