@@ -49,6 +49,20 @@ def _safe_filename(name: str) -> str:
     return "".join(c if c.isalnum() or c in " -_." else "_" for c in name).strip() or "unknown"
 
 
+def _extract_first_frame(video_path: str) -> bytes | None:
+    """Return JPEG bytes of the first readable frame of a video, or None."""
+    try:
+        cap = cv2.VideoCapture(video_path)
+        ret, frame = cap.read()
+        cap.release()
+        if not ret:
+            return None
+        _, buf = cv2.imencode(".jpg", frame)
+        return buf.tobytes()
+    except Exception:
+        return None
+
+
 def _save_thumbnail(img_bytes: bytes) -> str:
     """Resize img_bytes to a small JPEG, save to THUMBNAILS_DIR, return filename."""
     try:
@@ -520,7 +534,7 @@ async def analyze_video(request: Request, file: UploadFile,
                     "error": "No kids configured for this group"}
 
         result = request.app.state.face_service.analyze_video(str(temp_path), kid_id_list, threshold)
-        best_frame_bytes = result.pop("best_frame_bytes", None)  # used for thumbnail
+        best_frame_bytes = result.pop("best_frame_bytes", None) or _extract_first_frame(str(temp_path))
         matched_kids, best_confidence = _enrich_matches(result, kid_names)
 
         matched_photo_path = ""
