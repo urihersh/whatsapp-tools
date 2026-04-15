@@ -622,6 +622,42 @@ async def rerun_actions(activity_id: int):
     return result
 
 
+@app.post("/api/scout/caption/{activity_id}")
+async def rebuild_caption(activity_id: int):
+    """Generate (or regenerate) the AI moment caption for a logged photo."""
+    row = get_activity_by_id(activity_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Activity row not found")
+
+    img_bytes: bytes | None = None
+    for candidate in [ORIGINALS_DIR / f"{activity_id}.jpg",
+                      Path(row.matched_photo_path) if row.matched_photo_path else None]:
+        if candidate is None:
+            continue
+        try:
+            img_bytes = candidate.read_bytes()
+            break
+        except OSError:
+            continue
+    if not img_bytes:
+        raise HTTPException(status_code=404, detail="Original photo no longer available")
+
+    settings = get_settings()
+    ai_key = settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "")
+    ollama_url = settings.get("ollama_url", "").strip()
+    ollama_vision_model = settings.get("ollama_vision_model", "llava").strip() or "llava"
+    kid_names = [n.strip() for n in (row.kid_names or "").split(",") if n.strip()]
+
+    caption = await asyncio.get_running_loop().run_in_executor(
+        None, get_moment_caption, img_bytes, kid_names, ai_key, ollama_url, ollama_vision_model
+    )
+    if not caption:
+        raise HTTPException(status_code=500, detail="AI did not generate a caption")
+
+    update_activity_caption(activity_id, caption)
+    return {"caption": caption}
+
+
 @app.post("/api/fetch-history")
 async def fetch_history(group_id: str = ""):
     """Ask the bot to request older message history from WhatsApp for a group."""
