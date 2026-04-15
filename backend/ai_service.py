@@ -101,9 +101,9 @@ def get_moment_caption(
     """Return a short warm caption for a matched photo. Uses Anthropic first, falls back to Ollama vision."""
     names = " and ".join(kid_names)
     prompt = (
-        f"{names} appear in this photo. "
-        "In one short sentence (max 15 words), describe what activity or moment is shown. "
-        "Be specific and warm."
+        f"The child in this photo is {names}. "
+        f"In one short sentence (max 15 words), describe what {names} is doing or what moment is captured. "
+        f"Refer to them by name ({names}), not as 'the child' or 'a kid'. Be specific and warm."
     )
 
     # Anthropic
