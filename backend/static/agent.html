@@ -226,13 +226,16 @@
     });
 
     // ── System prompt builder ─────────────────────────────────────────────────
-    function buildSystemPrompt(name, gender, instructions) {
-      const who = name ? ` with ${name}` : '';
-      const nameRule = name ? `- Always address the person by their full name "${name}" — never shorten or nickname it\n` : '';
+    function buildSystemPrompt(name, gender, instructions, isGroup) {
+      // System prompt defines role + output format only. Instructions go in the user message at runtime.
+      if (isGroup) {
+        return `You are a person in a WhatsApp group chat. Write only the message text — no explanations, no meta-commentary. Be natural, like a real person texting. Match the language of the conversation.`;
+      }
+      const nameRule = name ? `Address the other person as "${name}". ` : '';
       let genderRule = '';
-      if (gender === 'male') genderRule = `- The person you are talking to is male — use masculine forms when addressing them (e.g. in Hebrew: אתה, שלך, etc.)\n`;
-      else if (gender === 'female') genderRule = `- The person you are talking to is female — use feminine forms when addressing them (e.g. in Hebrew: את, שלך, etc.)\n`;
-      return `You are managing a WhatsApp conversation${who} on behalf of the user.\nInstructions: ${instructions}\n\nRules:\n- Write ONLY the reply message text, nothing else\n- Keep it natural and conversational\n- Match the language used in the conversation\n- Never use nicknames or diminutives for any name\n- Never use placeholder text like [...] or template markers\n- Write a complete, ready-to-send message — never leave blanks\n- Never include meta-commentary, quotes, or explanation\n${nameRule}${genderRule}`;
+      if (gender === 'male') genderRule = `The other person is male — use masculine forms (e.g. in Hebrew: אתה, שלך). `;
+      else if (gender === 'female') genderRule = `The other person is female — use feminine forms (e.g. in Hebrew: את, שלך). `;
+      return `You are a person having a WhatsApp conversation. Write only the message text — no explanations, no meta-commentary. Be natural, like a real person texting. Match the language of the conversation. ${nameRule}${genderRule}`.trim();
     }
 
     // ── Tab management ────────────────────────────────────────────────────────
@@ -283,7 +286,7 @@
 
       // Create panel
       const main = document.querySelector('main');
-      const autoSys = buildSystemPrompt(name, gender, prompt);
+      const autoSys = buildSystemPrompt(name, gender, prompt, isGroup);
       const displaySys = systemPrompt || autoSys;
       const panelDiv = document.createElement('div');
       panelDiv.id = `panel-${sid}`;
@@ -389,15 +392,15 @@
             </div>
           </div>
 
-          <!-- Gender -->
-          <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
+          <!-- Gender (contacts only) -->
+          ${!isGroup ? `<div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-5">
             <h2 class="font-semibold text-gray-900 mb-1 text-sm">Contact gender <span class="text-xs font-normal text-gray-400">(affects Hebrew grammar)</span></h2>
             <div class="flex gap-2 mt-2">
               <button id="${sid}-gender-none"   onclick="setConvGender('${jid.replace(/'/g,"\\'")}','')"       class="flex-1 py-2 text-sm font-medium rounded-xl border transition-colors ${gNone}">Unknown</button>
               <button id="${sid}-gender-male"   onclick="setConvGender('${jid.replace(/'/g,"\\'")}','male')"   class="flex-1 py-2 text-sm font-medium rounded-xl border transition-colors ${gMale}">Male ♂</button>
               <button id="${sid}-gender-female" onclick="setConvGender('${jid.replace(/'/g,"\\'")}','female')" class="flex-1 py-2 text-sm font-medium rounded-xl border transition-colors ${gFemale}">Female ♀</button>
             </div>
-          </div>
+          </div>` : ''}
 
           <!-- Approval mode -->
           <label class="flex items-center gap-2.5 cursor-pointer select-none">
@@ -618,7 +621,7 @@
       document.getElementById(`${sid}-update-btn`)?.classList.toggle('hidden', !changed || !conv.agentActive);
       // If sys prompt not manually edited, regenerate preview
       if (!conv.sysEdited) {
-        const auto = buildSystemPrompt(conv.name, conv.gender, val.trim());
+        const auto = buildSystemPrompt(conv.name, conv.gender, val.trim(), conv.isGroup);
         const ta = document.getElementById(`${sid}-sysprompt`);
         if (ta) ta.value = auto;
       }
@@ -628,7 +631,7 @@
       const conv = conversations.get(jid);
       if (!conv) return;
       const sid = conv.safeId;
-      const auto = buildSystemPrompt(conv.name, conv.gender, document.getElementById(`${sid}-prompt`)?.value || conv.prompt);
+      const auto = buildSystemPrompt(conv.name, conv.gender, document.getElementById(`${sid}-prompt`)?.value || conv.prompt, conv.isGroup);
       const isCustom = val.trim() !== auto.trim();
       conv.sysEdited = isCustom;
       const badge = document.getElementById(`${sid}-sys-badge`);
@@ -639,7 +642,7 @@
       const conv = conversations.get(jid);
       if (!conv) return;
       const sid = conv.safeId;
-      const auto = buildSystemPrompt(conv.name, conv.gender, document.getElementById(`${sid}-prompt`)?.value || conv.prompt);
+      const auto = buildSystemPrompt(conv.name, conv.gender, document.getElementById(`${sid}-prompt`)?.value || conv.prompt, conv.isGroup);
       const ta = document.getElementById(`${sid}-sysprompt`);
       if (ta) ta.value = auto;
       conv.sysEdited = false;
@@ -668,7 +671,7 @@
       // Regenerate system prompt if not edited
       if (!conv.sysEdited) {
         const promptVal = document.getElementById(`${sid}-prompt`)?.value || conv.prompt;
-        const auto = buildSystemPrompt(conv.name, g, promptVal);
+        const auto = buildSystemPrompt(conv.name, g, promptVal, conv.isGroup);
         const ta = document.getElementById(`${sid}-sysprompt`);
         if (ta) ta.value = auto;
       }
@@ -692,7 +695,7 @@
       const r = await fetch('/api/agent/start', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ jid, name: conv.name, prompt, approval_mode: approvalMode, gender: conv.gender, system_prompt: sysPrompt }),
+        body: JSON.stringify({ jid, name: conv.name, is_group: conv.isGroup || false, prompt, approval_mode: approvalMode, gender: conv.gender, system_prompt: sysPrompt }),
       });
       const d = await r.json();
       if (!d.ok) { showToast(d.error || 'Failed', 'error'); return false; }
@@ -955,7 +958,7 @@
       const origHTML = btn?.innerHTML;
       if (btn) { btn.disabled = true; btn.innerHTML = '<svg class="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path></svg> Generating…'; }
       try {
-        const r = await fetch('/api/agent/initiate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid, name, prompt }) });
+        const r = await fetch('/api/agent/initiate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ jid, name, is_group: conv.isGroup || false, prompt }) });
         const d = await r.json();
         if (d.ok) showToast('Conversation started!');
         else showToast(d.error || 'Failed to send opener', 'error');

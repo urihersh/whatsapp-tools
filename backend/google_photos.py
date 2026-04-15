@@ -96,7 +96,7 @@ class GooglePhotosService:
         try:
             token = await self._get_access_token()
             async with httpx.AsyncClient(timeout=30.0) as client:
-                # Step 1: upload bytes
+                # Step 1: upload bytes → get upload token
                 r = await client.post(
                     self._UPLOAD_URL,
                     headers={
@@ -108,8 +108,12 @@ class GooglePhotosService:
                     },
                     content=img_bytes,
                 )
-                upload_token = r.text
+                if r.status_code != 200:
+                    print(f"[google-photos] upload step failed ({r.status_code}): {r.text[:200]}", flush=True)
+                    return False
+                upload_token = r.text.strip()
                 if not upload_token:
+                    print("[google-photos] upload step returned empty token", flush=True)
                     return False
                 # Step 2: create media item
                 body: dict = {"newMediaItems": [{"simpleMediaItem": {
@@ -123,9 +127,16 @@ class GooglePhotosService:
                     headers={"Authorization": f"Bearer {token}"},
                     json=body,
                 )
-            results = r.json().get("newMediaItemResults", [])
-            status = results[0].get("status", {}) if results else {}
-            return status.get("message") == "Success" or status.get("code") in (None, 0)
+            data = r.json()
+            results = data.get("newMediaItemResults", [])
+            if not results:
+                print(f"[google-photos] batchCreate failed ({r.status_code}): {data}", flush=True)
+                return False
+            status = results[0].get("status", {})
+            ok = status.get("message") == "Success" or status.get("code") in (0, None)
+            if not ok:
+                print(f"[google-photos] media item rejected: {status}", flush=True)
+            return ok
         except Exception as e:
             print(f"[google-photos] upload_photo error: {e}", flush=True)
             return False

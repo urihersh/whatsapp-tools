@@ -624,8 +624,9 @@ async function connect() {
                 history,
                 contact_name: agent.name,
                 contact_gender: agent.gender || '',
+                is_group: agent.isGroup || false,
                 system_prompt: agent.systemPrompt || '',
-              }, { timeout: 45000 });
+              }, { timeout: 90000 });
               const reply = res.data?.reply;
               if (!reply) { agentBusy.delete(agentJid); return; }
 
@@ -789,7 +790,6 @@ async function connect() {
           const medium = isVideo ? 'video' : 'photo';
           // Forward original message (preserves group name, sender, and media)
           await sock.sendMessage(forwardToId, { forward: msg });
-          // Follow-up text with match details
           await sock.sendMessage(forwardToId, {
             text: `${names} ${verb} in this ${medium}! (${(bestConf * 100).toFixed(0)}% confidence) — from "${groupName}"`,
           });
@@ -1368,7 +1368,7 @@ app.post('/contacts/save', express.json(), (req, res) => {
 
 // ── Conversation agent endpoints ─────────────────────────────────────────────
 app.post('/agent/start', (req, res) => {
-  const { jid, name, prompt, approval_mode, gender, system_prompt } = req.body;
+  const { jid, name, prompt, approval_mode, gender, system_prompt, is_group } = req.body;
   if (!jid || !prompt) return res.status(400).json({ error: 'jid and prompt required' });
   const existing = agentConfigs.get(jid);
   agentConfigs.set(jid, {
@@ -1379,6 +1379,7 @@ app.post('/agent/start', (req, res) => {
     approval_mode: !!approval_mode,
     gender: gender || '',
     systemPrompt: system_prompt || '',
+    isGroup: is_group ?? jid.endsWith('@g.us'),
     log: existing?.log || [],
   });
   console.log(`[agent] Started for ${name || jid}${approval_mode ? ' (approval mode)' : ''}`);
@@ -1470,6 +1471,15 @@ app.post('/agent/initiate', express.json(), async (req, res) => {
   const { jid, opener } = req.body;
   if (!jid || !opener) return res.status(400).json({ error: 'jid and opener required' });
   const agent = agentConfigs.get(jid);
+
+  // If approval mode is on, hold for user review instead of sending immediately
+  if (agent?.approval_mode) {
+    const id = Date.now().toString();
+    pendingApprovals.set(jid, { id, text: opener, ts: Date.now() });
+    if (agent) agent.log.push({ ts: Date.now(), role: 'pending', text: opener, id });
+    return res.json({ ok: true, pending: true });
+  }
+
   try {
     await new Promise(r => setTimeout(r, humanDelay(opener)));
     await sock.sendMessage(jid, { text: opener });

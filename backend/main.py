@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
-from database import init_db, get_settings, log_activity, save_setting
+from database import init_db, get_settings, log_activity, save_setting, get_activity_by_id
 from face_service import FaceService
 from google_photos import GooglePhotosService
 from ai_service import get_moment_caption, caption_image, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama, analyze_group_topics, stream_analyze_ollama, agent_reply, generate_opener
@@ -38,7 +38,9 @@ def _is_enabled(settings: dict, key: str) -> bool:
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
 THUMBNAILS_DIR = DATA_DIR / "thumbnails"
+ORIGINALS_DIR = DATA_DIR / "originals"
 BOT_API_URL = os.getenv("BOT_API_URL", "http://localhost:3001")
+_GENERIC_FILENAMES = {"photo.jpg", "video.mp4", "image.jpg"}
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────────
@@ -67,17 +69,30 @@ def _save_thumbnail(img_bytes: bytes) -> str:
         return ""
 
 
-def purge_old_thumbnails(retention_hours: int = 48):
-    """Delete thumbnails older than retention_hours from THUMBNAILS_DIR."""
-    if not THUMBNAILS_DIR.exists():
+def _purge_dir(directory: Path, cutoff: datetime) -> None:
+    if not directory.exists():
         return
-    cutoff = datetime.now() - timedelta(hours=retention_hours)
-    for f in THUMBNAILS_DIR.glob("*.jpg"):
+    for f in directory.glob("*.jpg"):
         try:
             if datetime.fromtimestamp(f.stat().st_mtime) < cutoff:
                 f.unlink()
         except Exception:
             pass
+
+
+def purge_old_thumbnails(retention_hours: int = 48):
+    """Delete thumbnails and originals older than retention_hours."""
+    cutoff = datetime.now() - timedelta(hours=retention_hours)
+    _purge_dir(THUMBNAILS_DIR, cutoff)
+    _purge_dir(ORIGINALS_DIR, cutoff)
+
+
+def _save_original(img_bytes: bytes, row_id: int) -> None:
+    """Save the full-size photo so it can be used later by the rerun-actions endpoint."""
+    try:
+        (ORIGINALS_DIR / f"{row_id}.jpg").write_bytes(img_bytes)
+    except Exception:
+        pass
 
 
 _DEFAULT_OLLAMA_URL = "http://localhost:11434"
@@ -165,19 +180,19 @@ async def _forward_media(forward_to: str, media_bytes: bytes, matched_kids: list
 
 
 async def save_to_google_photos(media_bytes: bytes, group_name: str, matched_kids: list, settings: dict,
-                               filename: str = ""):
+                               filename: str = "") -> bool:
     """Upload matched photo or video to Google Photos if configured."""
     if settings.get("google_photos_enabled") != "true":
-        return
+        return False
     client_id = settings.get("google_photos_client_id", "").strip()
     client_secret = settings.get("google_photos_client_secret", "").strip()
     tokens_json = settings.get("google_photos_tokens", "")
     if not (client_id and client_secret and tokens_json):
-        return
+        return False
     try:
         tokens = json.loads(tokens_json)
     except Exception:
-        return
+        return False
 
     svc = GooglePhotosService(
         client_id, client_secret,
@@ -185,17 +200,19 @@ async def save_to_google_photos(media_bytes: bytes, group_name: str, matched_kid
         tokens=tokens,
         on_tokens_updated=lambda t: save_setting("google_photos_tokens", json.dumps(t)),
     )
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    upload_filename = filename or f"{timestamp}.jpg"
-    organize_by = settings.get("google_photos_album_organize_by", "group")
-    if organize_by == "kid":
-        await asyncio.gather(*[
+    upload_filename = filename or f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{uuid.uuid4().hex[:6]}.jpg"
+    organize_by = settings.get("google_photos_album_organize_by", "none")
+    if organize_by == "none":
+        return await svc.upload_photo(media_bytes, filename=upload_filename)
+    elif organize_by == "kid":
+        results = await asyncio.gather(*[
             svc.upload_photo(media_bytes, album_name=m["kid_name"], filename=upload_filename)
             for m in matched_kids
         ])
+        return all(results)
     else:
         album = settings.get("google_photos_album_name", "").strip() or group_name
-        await svc.upload_photo(media_bytes, album_name=album, filename=upload_filename)
+        return await svc.upload_photo(media_bytes, album_name=album, filename=upload_filename)
 
 
 def save_matched_photo(img_bytes: bytes, group_name: str, kid_names: list, settings: dict,
@@ -207,10 +224,11 @@ def save_matched_photo(img_bytes: bytes, group_name: str, kid_names: list, setti
     if not save_path:
         return ""
     base = Path(save_path)
-    if original_filename:
+    if original_filename and original_filename.lower() not in _GENERIC_FILENAMES:
         filename = _safe_filename(original_filename)
     else:
-        filename = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19] + ".jpg"
+        ext = Path(original_filename).suffix if original_filename else ".jpg"
+        filename = datetime.now().strftime("%Y%m%d_%H%M%S_%f")[:19] + (ext or ".jpg")
     try:
         if settings.get("save_photos_organize_by") == "kid":
             first_path = ""
@@ -311,7 +329,7 @@ async def _thumbnail_cleanup_scheduler():
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     init_db()
-    for subdir in ["enrolled", "embeddings", "temp", "thumbnails"]:
+    for subdir in ["enrolled", "embeddings", "temp", "thumbnails", "originals"]:
         (DATA_DIR / subdir).mkdir(parents=True, exist_ok=True)
     app.state.face_service = FaceService(str(DATA_DIR))
     # Run thumbnail cleanup on startup
@@ -374,6 +392,20 @@ async def root():
     return RedirectResponse(url="/static/index.html")
 
 
+async def _send_caption_followup(img_bytes: bytes, kid_names: list[str], forward_to: str,
+                                  ai_key: str, ollama_url: str, ollama_vision_model: str):
+    """Background task: generate AI caption and send it as a follow-up message."""
+    try:
+        caption = await asyncio.get_running_loop().run_in_executor(
+            None, get_moment_caption, img_bytes, kid_names, ai_key, ollama_url, ollama_vision_model
+        )
+        if caption:
+            async with httpx.AsyncClient(timeout=10.0) as hx:
+                await hx.post(f"{BOT_API_URL}/send-text", json={"to": forward_to, "text": f"💬 {caption}"})
+    except Exception as e:
+        print(f"[scout] caption follow-up failed: {e}", flush=True)
+
+
 # ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @app.post("/api/analyze")
@@ -404,13 +436,13 @@ async def analyze_photo(request: Request, file: UploadFile,
 
         matched_photo_path = ""
         thumbnail_filename = ""
+        if db_settings.get("thumbnails_enabled", "true") != "false":
+            thumbnail_filename = _save_thumbnail(file_bytes)
         if result.get("matched"):
             matched_photo_path = save_matched_photo(
                 file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
                 original_filename=file.filename or ""
             )
-            if db_settings.get("thumbnails_enabled", "true") != "false":
-                thumbnail_filename = _save_thumbnail(file_bytes)
             await save_to_google_photos(file_bytes, group_name, matched_kids, db_settings)
 
         forwarded = False
@@ -427,25 +459,23 @@ async def analyze_photo(request: Request, file: UploadFile,
                         "media_bytes": file_bytes,
                     })
             elif forward and forward_to:
-                caption_suffix = " [test]" if is_test else ""
-                if _is_enabled(db_settings, "ai_captions_enabled"):
-                    ai_key = db_settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "")
-                    ollama_url = db_settings.get("ollama_url", "").strip()
-                    ollama_vision_model = db_settings.get("ollama_vision_model", "llava").strip() or "llava"
-                    caption_text = await asyncio.get_event_loop().run_in_executor(
-                        None, get_moment_caption, file_bytes, kid_name_list, ai_key, ollama_url, ollama_vision_model
-                    )
-                    if caption_text:
-                        caption_suffix = f"\n💬 {caption_text}" + caption_suffix
                 forwarded, fwd_err = await _forward_media(
-                    forward_to, file_bytes, matched_kids, best_confidence, caption_suffix=caption_suffix
+                    forward_to, file_bytes, matched_kids, best_confidence
                 )
                 if fwd_err:
                     result["forward_error"] = fwd_err
+            # Generate caption in background and send as follow-up (never blocks the response)
+            if _is_enabled(db_settings, "ai_captions_enabled") and forward_to and not is_test and not _is_enabled(db_settings, "digest_mode"):
+                ai_key = db_settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "")
+                ollama_url = db_settings.get("ollama_url", "").strip()
+                ollama_vision_model = db_settings.get("ollama_vision_model", "llava").strip() or "llava"
+                asyncio.create_task(_send_caption_followup(
+                    file_bytes, kid_name_list, forward_to, ai_key, ollama_url, ollama_vision_model
+                ))
 
         result["forwarded"] = forwarded
         if not is_test:
-            log_activity(
+            row_id = log_activity(
                 photo_filename=file.filename or "photo.jpg",
                 sender=sender or "unknown",
                 group_name=group_name or group_id or "unknown",
@@ -457,6 +487,7 @@ async def analyze_photo(request: Request, file: UploadFile,
                 matched_photo_path=matched_photo_path,
                 thumbnail_filename=thumbnail_filename,
             )
+            _save_original(file_bytes, row_id)
 
         return result
     finally:
@@ -490,14 +521,14 @@ async def analyze_video(request: Request, file: UploadFile,
         matched_photo_path = ""
         thumbnail_filename = ""
         forwarded = False
+        if best_frame_bytes and db_settings.get("thumbnails_enabled", "true") != "false":
+            thumbnail_filename = _save_thumbnail(best_frame_bytes)
         if result.get("matched"):
             video_filename = file.filename or "video.mp4"
             matched_photo_path = save_matched_photo(
                 file_bytes, group_name, [m["kid_name"] for m in matched_kids], db_settings,
                 original_filename=video_filename
             )
-            if best_frame_bytes and db_settings.get("thumbnails_enabled", "true") != "false":
-                thumbnail_filename = _save_thumbnail(best_frame_bytes)
             await save_to_google_photos(file_bytes, group_name, matched_kids, db_settings,
                                         filename=video_filename)
             forward_to = db_settings.get("forward_to_id")
@@ -520,7 +551,7 @@ async def analyze_video(request: Request, file: UploadFile,
 
         result["forwarded"] = forwarded
         if not is_test:
-            log_activity(
+            row_id = log_activity(
                 photo_filename=file.filename or "video.mp4",
                 sender=sender or "unknown",
                 group_name=group_name or group_id or "unknown",
@@ -532,9 +563,58 @@ async def analyze_video(request: Request, file: UploadFile,
                 matched_photo_path=matched_photo_path,
                 thumbnail_filename=thumbnail_filename,
             )
+            if best_frame_bytes:
+                _save_original(best_frame_bytes, row_id)
         return result
     finally:
         temp_path.unlink(missing_ok=True)
+
+
+@app.post("/api/scout/rerun/{activity_id}")
+async def rerun_actions(activity_id: int):
+    """Re-run all configured actions (forward, Google Photos, local save) for a logged photo."""
+    row = get_activity_by_id(activity_id)
+    if not row:
+        raise HTTPException(status_code=404, detail="Activity row not found")
+
+    # Resolve photo bytes: prefer stored original, fall back to matched_photo_path
+    img_bytes: bytes | None = None
+    for candidate in [ORIGINALS_DIR / f"{activity_id}.jpg",
+                      Path(row.matched_photo_path) if row.matched_photo_path else None]:
+        if candidate is None:
+            continue
+        try:
+            img_bytes = candidate.read_bytes()
+            break
+        except OSError:
+            continue
+    if not img_bytes:
+        raise HTTPException(status_code=404, detail="Original photo no longer available (retention period may have expired)")
+
+    settings = get_settings()
+    matched_kids = [{"kid_name": n.strip(), "kid_id": n.strip()}
+                    for n in (row.kid_names or "").split(",") if n.strip()]
+    group_name = row.group_name or ""
+    forward_to = settings.get("forward_to_id", "")
+
+    gp_task = save_to_google_photos(img_bytes, group_name, matched_kids, settings)
+    fwd_task = (
+        _forward_media(forward_to, img_bytes, matched_kids, row.confidence or 0.0)
+        if forward_to else None
+    )
+    saved_to_folder = save_matched_photo(img_bytes, group_name,
+                                         [k["kid_name"] for k in matched_kids], settings)
+    tasks = [gp_task] + ([fwd_task] if fwd_task else [])
+    task_results = await asyncio.gather(*tasks, return_exceptions=True)
+
+    gp_ok = task_results[0] if not isinstance(task_results[0], Exception) else False
+    forwarded, fwd_err = (task_results[1] if fwd_task and not isinstance(task_results[1], Exception)
+                          else (False, None))
+
+    result: dict = {"forwarded": forwarded, "saved_to_folder": saved_to_folder, "saved_to_gp": bool(gp_ok)}
+    if fwd_err:
+        result["forward_error"] = fwd_err
+    return result
 
 
 @app.post("/api/fetch-history")
@@ -1017,6 +1097,7 @@ async def agent_reply_endpoint(request: Request):
     history = body.get("history", [])
     contact_name = body.get("contact_name", "")
     contact_gender = body.get("contact_gender", "")
+    is_group = body.get("is_group", False)
     system_prompt = body.get("system_prompt", "")
     if not prompt:
         return {"error": "prompt required"}
@@ -1025,7 +1106,7 @@ async def agent_reply_endpoint(request: Request):
     if not api_key and not ollama_url:
         return {"error": "No AI configured"}
     reply = await asyncio.get_event_loop().run_in_executor(
-        None, agent_reply, prompt, history, contact_name, contact_gender, api_key, ollama_url, ollama_model, system_prompt
+        None, agent_reply, prompt, history, contact_name, contact_gender, api_key, ollama_url, ollama_model, system_prompt, is_group
     )
     return {"reply": reply}
 
@@ -1117,13 +1198,14 @@ async def agent_initiate(request: Request):
     body = await request.json()
     jid = body.get("jid", "")
     contact_name = body.get("name", "")
+    is_group = body.get("is_group", False)
     prompt = body.get("prompt", "")
     if not jid or not prompt:
         return JSONResponse({"error": "jid and prompt required"}, status_code=400)
     settings = get_settings()
     api_key, ollama_url, ollama_model = await _resolve_ai(settings)
     opener = await asyncio.get_event_loop().run_in_executor(
-        None, generate_opener, prompt, contact_name, api_key, ollama_url, ollama_model
+        None, generate_opener, prompt, contact_name, api_key, ollama_url, ollama_model, is_group
     )
     if not opener:
         return JSONResponse({"error": "AI did not generate an opener"}, status_code=500)

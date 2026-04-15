@@ -168,6 +168,7 @@
                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Faces</th>
                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Result</th>
                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Conf.</th>
+                <th class="px-3 py-3 w-10"></th>
               </tr>
             </thead>
             <tbody id="activity-body">
@@ -567,7 +568,8 @@
         <div id="gp-album-settings" class="hidden space-y-2 mt-3">
           <p class="text-xs font-medium text-gray-600">Organise albums by</p>
           <div class="flex flex-wrap gap-4">
-            <label class="flex items-center gap-2 cursor-pointer select-none"><input type="radio" name="gp-organize" value="group" checked class="accent-teal-600" onchange="updateGPAlbumNameRow()" /><span class="text-sm text-gray-700">Group</span></label>
+            <label class="flex items-center gap-2 cursor-pointer select-none"><input type="radio" name="gp-organize" value="none" checked class="accent-teal-600" onchange="updateGPAlbumNameRow()" /><span class="text-sm text-gray-700">No album</span></label>
+            <label class="flex items-center gap-2 cursor-pointer select-none"><input type="radio" name="gp-organize" value="group" class="accent-teal-600" onchange="updateGPAlbumNameRow()" /><span class="text-sm text-gray-700">Group</span></label>
             <label class="flex items-center gap-2 cursor-pointer select-none"><input type="radio" name="gp-organize" value="kid" class="accent-teal-600" onchange="updateGPAlbumNameRow()" /><span class="text-sm text-gray-700">Kid</span></label>
             <label class="flex items-center gap-2 cursor-pointer select-none"><input type="radio" name="gp-organize" value="single" class="accent-teal-600" onchange="updateGPAlbumNameRow()" /><span class="text-sm text-gray-700">Single album</span></label>
           </div>
@@ -724,7 +726,7 @@
         const d = await r.json();
         const tbody = document.getElementById('activity-body');
         if (!d.activity.length) {
-          tbody.innerHTML = '<tr><td colspan="7" class="px-5 py-10 text-center text-gray-300">No activity yet. Waiting for photos from monitored groups…</td></tr>';
+          tbody.innerHTML = '<tr><td colspan="8" class="px-5 py-10 text-center text-gray-300">No activity yet. Waiting for photos from monitored groups…</td></tr>';
           return;
         }
         tbody.innerHTML = d.activity.map(row => {
@@ -732,13 +734,19 @@
           const badge = row.matched
             ? `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">Match</span>${row.kid_names ? `<span class="ml-1 text-xs text-gray-500">${row.kid_names}</span>` : ''}`
             : '<span class="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-full text-xs">No match</span>';
-          const conf = row.matched ? `${(row.confidence * 100).toFixed(0)}%` : '-';
+          const conf = row.confidence > 0 ? `${(row.confidence * 100).toFixed(0)}%` : '-';
           const thumb = row.thumbnail_filename
             ? `<img src="/api/activity/thumbnail/${encodeURIComponent(row.thumbnail_filename)}"
                     class="w-10 h-10 rounded-lg object-cover cursor-pointer ring-1 ring-gray-100 hover:ring-emerald-400 transition-all"
                     onclick="openLightbox('/api/activity/thumbnail/${encodeURIComponent(row.thumbnail_filename)}')"
-                    onerror="this.parentElement.innerHTML=''" loading="lazy" />`
-            : '';
+                    onerror="this.outerHTML='<div class=\\'w-10 h-10 rounded-lg bg-gray-100\\'></div>'" loading="lazy" />`
+            : '<div class="w-10 h-10 rounded-lg bg-gray-50"></div>';
+          const runBtn = row.has_original
+            ? `<button onclick="rerunActions(${row.id}, this)" title="${row.matched ? 'Rerun actions' : 'Force match & run actions'}"
+                class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-emerald-50 hover:text-emerald-600 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
+              </button>`
+            : '<div class="w-7 h-7"></div>';
           return `<tr class="border-t border-gray-50 hover:bg-gray-50/70 transition-colors">
             <td class="px-3 py-2">${thumb}</td>
             <td class="px-5 py-3 text-gray-400 whitespace-nowrap text-xs" title="${new Date(row.timestamp).toLocaleString()}">${t}</td>
@@ -747,6 +755,7 @@
             <td class="px-5 py-3 text-gray-600">${row.faces_detected}</td>
             <td class="px-5 py-3">${badge}</td>
             <td class="px-5 py-3 text-gray-600">${conf}</td>
+            <td class="px-3 py-2">${runBtn}</td>
           </tr>`;
         }).join('');
       } catch (_) {}
@@ -764,6 +773,26 @@
       if (!confirm('Clear all activity logs?')) return;
       await fetch('/api/dashboard/activity', { method: 'DELETE' });
       loadActivity(); loadStats();
+    }
+
+    async function rerunActions(id, btn) {
+      btn.disabled = true;
+      btn.innerHTML = '<svg class="w-3.5 h-3.5 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>';
+      try {
+        const r = await fetch(`/api/scout/rerun/${id}`, { method: 'POST' });
+        const d = await r.json();
+        if (!r.ok) { showToast(d.detail || 'Failed', 'error'); return; }
+        const parts = [];
+        if (d.forwarded) parts.push('forwarded');
+        if (d.saved_to_gp) parts.push('Google Photos');
+        if (d.saved_to_folder) parts.push('saved to folder');
+        showToast(parts.length ? `Done: ${parts.join(', ')}` : 'No actions configured', parts.length ? 'success' : 'info');
+      } catch (e) {
+        showToast('Error: ' + e.message, 'error');
+      } finally {
+        btn.disabled = false;
+        btn.innerHTML = '<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>';
+      }
     }
 
     // ── Digest ────────────────────────────────────────────────────────────────────

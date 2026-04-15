@@ -10,6 +10,7 @@ load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
 DB_PATH = DATA_DIR / "parenttool.db"
+ORIGINALS_DIR = DATA_DIR / "originals"
 
 engine = None
 SessionLocal = None
@@ -95,10 +96,10 @@ def save_setting(key: str, value: str):
 
 def log_activity(photo_filename: str, sender: str, group_name: str,
                  faces_detected: int, matched: bool, confidence: float, forwarded: bool,
-                 kid_names: str = "", matched_photo_path: str = "", thumbnail_filename: str = ""):
+                 kid_names: str = "", matched_photo_path: str = "", thumbnail_filename: str = "") -> int:
     db = SessionLocal()
     try:
-        db.add(ActivityLog(
+        row = ActivityLog(
             photo_filename=photo_filename,
             sender=sender,
             group_name=group_name,
@@ -109,8 +110,10 @@ def log_activity(photo_filename: str, sender: str, group_name: str,
             kid_names=kid_names,
             matched_photo_path=matched_photo_path,
             thumbnail_filename=thumbnail_filename,
-        ))
+        )
+        db.add(row)
         db.commit()
+        return row.id
     finally:
         db.close()
 
@@ -127,10 +130,11 @@ def get_activity_log(limit: int = 50, matched: bool | None = None,
         if kid_name:
             query = query.filter(ActivityLog.kid_names.ilike(f"%{kid_name}%"))
         rows = query.limit(limit).all()
+        original_ids = {p.stem for p in ORIGINALS_DIR.iterdir()} if ORIGINALS_DIR.exists() else set()
         return [
             {
                 "id": r.id,
-                "timestamp": r.timestamp.isoformat(),
+                "timestamp": r.timestamp.isoformat() + "Z",
                 "photo_filename": r.photo_filename,
                 "sender": r.sender,
                 "group_name": r.group_name,
@@ -141,9 +145,18 @@ def get_activity_log(limit: int = 50, matched: bool | None = None,
                 "kid_names": r.kid_names or "",
                 "matched_photo_path": r.matched_photo_path or "",
                 "thumbnail_filename": r.thumbnail_filename or "",
+                "has_original": str(r.id) in original_ids or bool(r.matched_photo_path and Path(r.matched_photo_path).exists()),
             }
             for r in rows
         ]
+    finally:
+        db.close()
+
+
+def get_activity_by_id(activity_id: int) -> ActivityLog | None:
+    db = SessionLocal()
+    try:
+        return db.query(ActivityLog).filter(ActivityLog.id == activity_id).first()
     finally:
         db.close()
 

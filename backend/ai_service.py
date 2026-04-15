@@ -323,37 +323,32 @@ def agent_reply(
     ollama_url: str = "",
     ollama_model: str = "aya",
     system_prompt: str = "",
+    is_group: bool = False,
 ) -> str:
     """Generate an autonomous reply for the conversation agent."""
-    if system_prompt:
-        system = system_prompt
-    else:
-        who = f" with {contact_name}" if contact_name else ""
-        name_rule = f"- Always address the person by their full name \"{contact_name}\" — never shorten or nickname it" if contact_name else ""
-        gender_rule = ""
-        if contact_gender == "male":
-            gender_rule = f"- The person you are talking to is male — use masculine forms when addressing them (e.g. in Hebrew: אתה, שלך, etc.)\n"
-        elif contact_gender == "female":
-            gender_rule = f"- The person you are talking to is female — use feminine forms when addressing them (e.g. in Hebrew: את, שלך, etc.)\n"
-        system = (
-            f"You are managing a WhatsApp conversation{who} on behalf of the user.\n"
-            f"Instructions: {prompt}\n\n"
-            "Rules:\n"
-            "- Write ONLY the reply message text, nothing else\n"
-            "- Keep it natural and conversational\n"
-            "- Match the language used in the conversation\n"
-            "- Never use nicknames or diminutives for any name\n"
-            "- Never use placeholder text like [...] or template markers\n"
-            "- Write a complete, ready-to-send message — never leave blanks\n"
-            "- Never include meta-commentary, quotes, or explanation\n"
-            + (name_rule + "\n" if name_rule else "")
-            + gender_rule
-        )
     context = "\n".join(
-        f"{'Me' if h.get('fromMe') else h.get('sender', 'Them')}: {h.get('text', '')}"
+        f"{'You' if h.get('fromMe') else h.get('sender', 'Them')}: {h.get('text', '')}"
         for h in history[-25:]
     ) or "(conversation just started)"
-    user_msg = f"Recent conversation:\n{context}\n\nGenerate the next reply to send."
+
+    if system_prompt:
+        system = system_prompt
+    elif is_group:
+        system = "You are a person in a WhatsApp group chat. Write only the message text — no explanations, no meta-commentary. Be natural, like a real person texting. Match the language of the conversation."
+    else:
+        name_rule = f"Address the other person as \"{contact_name}\". " if contact_name else ""
+        gender_rule = ""
+        if contact_gender == "male":
+            gender_rule = "The other person is male — use masculine forms (e.g. in Hebrew: אתה, שלך). "
+        elif contact_gender == "female":
+            gender_rule = "The other person is female — use feminine forms (e.g. in Hebrew: את, שלך). "
+        system = f"You are a person having a WhatsApp conversation. Write only the message text — no explanations, no meta-commentary. Be natural, like a real person texting. Match the language of the conversation. {name_rule}{gender_rule}".strip()
+
+    user_msg = (
+        f"Instructions: {prompt}\n\n"
+        f"Conversation so far:\n{context}\n\n"
+        "Write your next message."
+    )
 
     key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
     if key:
@@ -364,6 +359,7 @@ def agent_reply(
                 max_tokens=300,
                 system=system,
                 messages=[{"role": "user", "content": user_msg}],
+                timeout=60.0,
             )
             return msg.content[0].text.strip()
         except Exception:
@@ -393,24 +389,17 @@ def generate_opener(
     api_key: str = "",
     ollama_url: str = "",
     ollama_model: str = "aya",
+    is_group: bool = False,
 ) -> str:
     """Generate an opening message to start a conversation, based on agent instructions."""
-    who = f" with {contact_name}" if contact_name else ""
-    name_rule = f"- Always address the person by their full name \"{contact_name}\" — never shorten or nickname it" if contact_name else ""
-    system = (
-        f"You are starting a WhatsApp conversation{who} on behalf of the user.\n"
-        f"Instructions: {prompt}\n\n"
-        "Rules:\n"
-        "- Write ONLY the opening message text, nothing else\n"
-        "- Keep it natural, warm, and conversational\n"
-        "- Match the tone implied by the instructions\n"
-        "- Never use nicknames or diminutives for any name\n"
-        "- Never use placeholder text like [...] or template markers\n"
-        "- Write a complete, ready-to-send message — never leave blanks\n"
-        "- Never include meta-commentary, quotes, or explanation\n"
-        + (name_rule + "\n" if name_rule else "")
-    )
-    user_msg = "Generate the first message to open this conversation."
+    if is_group:
+        system = "You are a person in a WhatsApp group chat. Write only the message text — no explanations, no meta-commentary. Be natural, like a real person texting."
+    else:
+        name_rule = f"Address the other person as \"{contact_name}\". " if contact_name else ""
+        system = f"You are a person sending a WhatsApp message. Write only the message text — no explanations, no meta-commentary. Be natural, like a real person texting. {name_rule}".strip()
+
+    user_msg = f"Instructions: {prompt}\n\nWrite the opening message."
+
     key = api_key or os.getenv("ANTHROPIC_API_KEY", "")
     if key:
         try:
