@@ -763,7 +763,7 @@
             <td class="px-5 py-3 text-gray-700 font-medium">${row.sender}</td>
             <td class="px-5 py-3 text-gray-400 text-xs">${row.group_name}</td>
             <td class="px-5 py-3 text-gray-600">${row.faces_detected}</td>
-            <td class="px-5 py-3">${badge}</td>
+            <td class="px-5 py-3" id="badge-cell-${row.id}">${badge}</td>
             <td class="px-5 py-3 text-gray-600">${conf}</td>
             <td class="px-5 py-3 max-w-xs">${caption}</td>
             <td class="px-3 py-2">${runBtn}</td>
@@ -799,6 +799,11 @@
         if (d.saved_to_gp) parts.push('Google Photos');
         if (d.saved_to_folder) parts.push('saved to folder');
         showToast(parts.length ? `Done: ${parts.join(', ')}` : 'No actions configured', parts.length ? 'success' : 'info');
+        const badgeCell = document.getElementById(`badge-cell-${id}`);
+        if (badgeCell && !badgeCell.querySelector('.bg-emerald-100')) {
+          badgeCell.innerHTML = '<span class="px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-xs font-medium">Matched manually</span>';
+          btn.textContent = 'Resend';
+        }
       } catch (e) {
         showToast('Error: ' + e.message, 'error');
       } finally {
