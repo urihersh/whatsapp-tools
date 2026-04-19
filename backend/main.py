@@ -86,9 +86,9 @@ def _save_thumbnail(img_bytes: bytes) -> str:
 def _purge_dir(directory: Path, cutoff: datetime) -> None:
     if not directory.exists():
         return
-    for f in directory.glob("*.jpg"):
+    for f in directory.iterdir():
         try:
-            if datetime.fromtimestamp(f.stat().st_mtime) < cutoff:
+            if f.is_file() and datetime.fromtimestamp(f.stat().st_mtime) < cutoff:
                 f.unlink()
         except Exception:
             pass
@@ -101,10 +101,10 @@ def purge_old_thumbnails(retention_hours: int = 48):
     _purge_dir(ORIGINALS_DIR, cutoff)
 
 
-def _save_original(img_bytes: bytes, row_id: int) -> None:
-    """Save the full-size photo so it can be used later by the rerun-actions endpoint."""
+def _save_original(data: bytes, row_id: int, ext: str = ".jpg") -> None:
+    """Save the original media so it can be used later by the rerun-actions endpoint."""
     try:
-        (ORIGINALS_DIR / f"{row_id}.jpg").write_bytes(img_bytes)
+        (ORIGINALS_DIR / f"{row_id}{ext}").write_bytes(data)
     except Exception:
         pass
 
@@ -582,8 +582,7 @@ async def analyze_video(request: Request, file: UploadFile,
                 matched_photo_path=matched_photo_path,
                 thumbnail_filename=thumbnail_filename,
             )
-            if best_frame_bytes:
-                _save_original(best_frame_bytes, row_id)
+            _save_original(file_bytes, row_id, suffix)
         return result
     finally:
         temp_path.unlink(missing_ok=True)
@@ -596,33 +595,39 @@ async def rerun_actions(activity_id: int):
     if not row:
         raise HTTPException(status_code=404, detail="Activity row not found")
 
-    # Resolve photo bytes: prefer stored original, fall back to matched_photo_path
-    img_bytes: bytes | None = None
-    for candidate in [ORIGINALS_DIR / f"{activity_id}.jpg",
-                      Path(row.matched_photo_path) if row.matched_photo_path else None]:
-        if candidate is None:
-            continue
+    # Resolve original media: find any file with this row's ID as stem in ORIGINALS_DIR
+    media_bytes: bytes | None = None
+    media_path: Path | None = None
+    if ORIGINALS_DIR.exists():
+        matches = list(ORIGINALS_DIR.glob(f"{activity_id}.*"))
+        if matches:
+            media_path = matches[0]
+    if media_path is None and row.matched_photo_path:
+        media_path = Path(row.matched_photo_path)
+    if media_path is not None:
         try:
-            img_bytes = candidate.read_bytes()
-            break
+            media_bytes = media_path.read_bytes()
         except OSError:
-            continue
-    if not img_bytes:
-        raise HTTPException(status_code=404, detail="Original photo no longer available (retention period may have expired)")
+            pass
+    if not media_bytes:
+        raise HTTPException(status_code=404, detail="Original media no longer available (retention period may have expired)")
 
+    is_video = media_path.suffix.lower() in {".mp4", ".mov", ".avi", ".mkv", ".webm"}
     settings = get_settings()
     matched_kids = [{"kid_name": n.strip(), "kid_id": n.strip()}
                     for n in (row.kid_names or "").split(",") if n.strip()]
     group_name = row.group_name or ""
     forward_to = settings.get("forward_to_id", "")
 
-    gp_task = save_to_google_photos(img_bytes, group_name, matched_kids, settings)
+    gp_task = save_to_google_photos(media_bytes, group_name, matched_kids, settings,
+                                    filename=media_path.name if is_video else "")
     fwd_task = (
-        _forward_media(forward_to, img_bytes, matched_kids, row.confidence or 0.0)
+        _forward_media(forward_to, media_bytes, matched_kids, row.confidence or 0.0, is_video=is_video)
         if forward_to else None
     )
-    saved_to_folder = save_matched_photo(img_bytes, group_name,
-                                         [k["kid_name"] for k in matched_kids], settings)
+    saved_to_folder = save_matched_photo(media_bytes, group_name,
+                                         [k["kid_name"] for k in matched_kids], settings,
+                                         original_filename=media_path.name)
     tasks = [gp_task] + ([fwd_task] if fwd_task else [])
     task_results = await asyncio.gather(*tasks, return_exceptions=True)
 
