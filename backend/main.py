@@ -19,7 +19,7 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=Path(__file__).parent.parent / ".env")
 
-from database import init_db, get_settings, log_activity, save_setting, get_activity_by_id, update_activity_caption
+from database import init_db, get_settings, log_activity, save_setting, get_activity_by_id, update_activity_caption, mark_activity_manually_matched
 from face_service import FaceService
 from google_photos import GooglePhotosService
 from ai_service import get_moment_caption, caption_image, summarize_messages, stream_summarize_ollama, suggest_reply, test_ollama, analyze_group_topics, stream_analyze_ollama, agent_reply, generate_opener
@@ -634,6 +634,19 @@ async def rerun_actions(activity_id: int):
     gp_ok = task_results[0] if not isinstance(task_results[0], Exception) else False
     forwarded, fwd_err = (task_results[1] if fwd_task and not isinstance(task_results[1], Exception)
                           else (False, None))
+
+    if not row.matched:
+        mark_activity_manually_matched(activity_id)
+
+    # Fire caption generation if not already present
+    kid_names = [n.strip() for n in (row.kid_names or "").split(",") if n.strip()]
+    if not row.moment_caption and not is_video and _is_enabled(settings, "ai_captions_enabled") and forward_to:
+        ai_key = settings.get("anthropic_api_key", "").strip() or os.getenv("ANTHROPIC_API_KEY", "")
+        ollama_url = settings.get("ollama_url", "").strip()
+        ollama_vision_model = settings.get("ollama_vision_model", "llava").strip() or "llava"
+        asyncio.create_task(_send_caption_followup(
+            media_bytes, kid_names, forward_to, ai_key, ollama_url, ollama_vision_model, activity_id
+        ))
 
     result: dict = {"forwarded": forwarded, "saved_to_folder": saved_to_folder, "saved_to_gp": bool(gp_ok)}
     if fwd_err:

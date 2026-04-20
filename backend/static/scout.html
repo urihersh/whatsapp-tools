@@ -732,7 +732,9 @@
         }
         tbody.innerHTML = d.activity.map(row => {
           const t = relativeTime(row.timestamp);
-          const badge = row.matched
+          const badge = row.manually_matched
+            ? `<span class="px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-xs font-medium">Matched manually</span>${row.kid_names ? `<span class="ml-1 text-xs text-gray-500">${row.kid_names}</span>` : ''}`
+            : row.matched
             ? `<span class="px-2 py-0.5 bg-emerald-100 text-emerald-700 rounded-full text-xs font-medium">Match</span>${row.kid_names ? `<span class="ml-1 text-xs text-gray-500">${row.kid_names}</span>` : ''}`
             : '<span class="px-2 py-0.5 bg-gray-100 text-gray-400 rounded-full text-xs">No match</span>';
           const conf = row.confidence > 0 ? `${(row.confidence * 100).toFixed(0)}%` : '-';
@@ -800,9 +802,9 @@
         if (d.saved_to_folder) parts.push('saved to folder');
         showToast(parts.length ? `Done: ${parts.join(', ')}` : 'No actions configured', parts.length ? 'success' : 'info');
         const badgeCell = document.getElementById(`badge-cell-${id}`);
-        if (badgeCell && !badgeCell.querySelector('.bg-emerald-100')) {
+        if (badgeCell && badgeCell.querySelector('.bg-gray-100')) {
           badgeCell.innerHTML = '<span class="px-2 py-0.5 bg-violet-100 text-violet-700 rounded-full text-xs font-medium">Matched manually</span>';
-          btn.textContent = 'Resend';
+          btn.innerHTML = originalHTML.replace('Send', 'Resend');
         }
       } catch (e) {
         showToast('Error: ' + e.message, 'error');
