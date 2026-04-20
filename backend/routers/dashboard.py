@@ -2,7 +2,7 @@ from fastapi import APIRouter
 from fastapi.responses import Response, FileResponse
 from pathlib import Path
 from typing import Optional
-from datetime import datetime
+from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 import os
 import httpx
@@ -61,9 +61,11 @@ async def stats():
 
 
 @router.get("/activity")
-async def activity(limit: int = 50, matched: Optional[bool] = None,
+async def activity(limit: int = 1000, days: int = 7, matched: Optional[bool] = None,
                    group_name: str = "", kid_name: str = ""):
-    return {"activity": get_activity_log(limit, matched=matched, group_name=group_name, kid_name=kid_name)}
+    since = datetime.utcnow() - timedelta(days=days)
+    return {"activity": get_activity_log(limit, matched=matched, group_name=group_name,
+                                         kid_name=kid_name, since=since)}
 
 
 @router.delete("/activity")

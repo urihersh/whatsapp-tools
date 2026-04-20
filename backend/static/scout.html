@@ -544,7 +544,7 @@
         <p class="text-xs text-gray-400 mb-3">Save small thumbnails of matched photos in the activity log. Automatically deleted after a set time.</p>
         <div id="thumbnail-options" class="flex items-center gap-3">
           <label class="text-xs text-gray-600 whitespace-nowrap">Keep for</label>
-          <input type="number" id="thumbnail-retention" min="1" max="720" value="48"
+          <input type="number" id="thumbnail-retention" min="1" max="720" value="168"
                  class="w-20 border border-gray-200 rounded-xl px-3 py-1.5 text-sm text-center focus:outline-none focus:ring-2 focus:ring-emerald-400" />
           <span class="text-xs text-gray-400">hours</span>
         </div>
@@ -719,7 +719,7 @@
         const matched = document.getElementById('filter-matched')?.value;
         const group = document.getElementById('filter-group')?.value || '';
         const kid = document.getElementById('filter-kid')?.value || '';
-        let url = '/api/dashboard/activity?limit=30';
+        let url = '/api/dashboard/activity?limit=1000&days=7';
         if (matched) url += `&matched=${matched}`;
         if (group) url += `&group_name=${encodeURIComponent(group)}`;
         if (kid) url += `&kid_name=${encodeURIComponent(kid)}`;
@@ -1511,7 +1511,7 @@
         if (d.digest_mode === 'true') { document.getElementById('digest-mode').checked = true; document.getElementById('digest-time-row').classList.remove('hidden'); }
         if (d.digest_time) document.getElementById('digest-time').value = d.digest_time;
         document.getElementById('thumbnails-enabled').checked = d.thumbnails_enabled !== 'false';
-        document.getElementById('thumbnail-retention').value = d.thumbnail_retention_hours || '48';
+        document.getElementById('thumbnail-retention').value = d.thumbnail_retention_hours || '168';
         document.getElementById('thumbnail-options').classList.toggle('hidden', d.thumbnails_enabled === 'false');
         if (d.ai_captions_enabled === 'true') document.getElementById('ai-captions-enabled').checked = true;
         const hasAnyAI = !!d.has_anthropic_key || !!d.ollama_url;
@@ -1593,7 +1593,7 @@
           google_photos_album_organize_by: document.querySelector('input[name="gp-organize"]:checked')?.value || 'group',
           google_photos_album_name: document.getElementById('gp-album-name').value.trim() || null,
           thumbnails_enabled: String(document.getElementById('thumbnails-enabled').checked),
-          thumbnail_retention_hours: document.getElementById('thumbnail-retention').value || '48',
+          thumbnail_retention_hours: document.getElementById('thumbnail-retention').value || '168',
         };
         await fetch('/api/settings', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) });
         showToast('Settings saved!');

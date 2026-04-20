@@ -134,11 +134,14 @@ def log_activity(photo_filename: str, sender: str, group_name: str,
         db.close()
 
 
-def get_activity_log(limit: int = 50, matched: bool | None = None,
-                     group_name: str = "", kid_name: str = "") -> list:
+def get_activity_log(limit: int = 1000, matched: bool | None = None,
+                     group_name: str = "", kid_name: str = "",
+                     since: datetime | None = None) -> list:
     db = SessionLocal()
     try:
         query = db.query(ActivityLog).order_by(ActivityLog.timestamp.desc())
+        if since is not None:
+            query = query.filter(ActivityLog.timestamp >= since)
         if matched is not None:
             query = query.filter(ActivityLog.matched == matched)
         if group_name:

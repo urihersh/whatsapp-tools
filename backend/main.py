@@ -94,7 +94,7 @@ def _purge_dir(directory: Path, cutoff: datetime) -> None:
             pass
 
 
-def purge_old_thumbnails(retention_hours: int = 48):
+def purge_old_thumbnails(retention_hours: int = 168):
     """Delete thumbnails and originals older than retention_hours."""
     cutoff = datetime.now() - timedelta(hours=retention_hours)
     _purge_dir(THUMBNAILS_DIR, cutoff)
@@ -334,9 +334,9 @@ async def _thumbnail_cleanup_scheduler():
         await asyncio.sleep(3600)
         settings = get_settings()
         try:
-            hours = int(settings.get("thumbnail_retention_hours", "48") or "48")
+            hours = int(settings.get("thumbnail_retention_hours", "168") or "168")
         except ValueError:
-            hours = 48
+            hours = 168
         purge_old_thumbnails(hours)
 
 
@@ -349,9 +349,9 @@ async def lifespan(app: FastAPI):
     # Run thumbnail cleanup on startup
     settings = get_settings()
     try:
-        retention_hours = int(settings.get("thumbnail_retention_hours", "48") or "48")
+        retention_hours = int(settings.get("thumbnail_retention_hours", "168") or "168")
     except ValueError:
-        retention_hours = 48
+        retention_hours = 168
     purge_old_thumbnails(retention_hours)
     digest_task = asyncio.create_task(_digest_scheduler())
     cleanup_task = asyncio.create_task(_thumbnail_cleanup_scheduler())
