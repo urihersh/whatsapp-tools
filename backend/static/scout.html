@@ -49,47 +49,32 @@
 
   <!-- Nav -->
   <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
-    <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-      <a href="/" class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center shadow-sm">
-          <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
+    <div class="max-w-6xl mx-auto px-6 h-14 flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2">
+        <div class="w-7 h-7 rounded-lg bg-emerald-600 flex items-center justify-center">
+          <svg class="w-3.5 h-3.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
           </svg>
         </div>
-        <span class="text-base font-bold text-gray-900">Myne</span>
+        <span class="text-sm font-bold text-gray-900">Myne</span>
       </a>
-      <div class="flex gap-1">
-        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
-      </div>
-      <div class="flex items-center gap-3">
+      <div class="flex items-center gap-1.5">
         <div id="nav-status" class="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-gray-100 text-xs font-medium text-gray-400">
           <span id="nav-dot" class="w-1.5 h-1.5 rounded-full bg-gray-300 flex-shrink-0"></span>
           <span id="nav-name">Connecting…</span>
         </div>
-        <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors">
-          <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
-          <svg id="dark-icon-sun" class="w-5 h-5 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
+        <a href="/static/settings.html" title="Settings" class="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+          <svg class="w-4.5 h-4.5" style="width:1.1rem;height:1.1rem" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><circle cx="12" cy="12" r="3"/>
+          </svg>
+        </a>
+        <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors">
+          <svg id="dark-icon-moon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+          <svg id="dark-icon-sun" class="w-4 h-4 hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364-6.364l-.707.707M6.343 17.657l-.707.707M17.657 17.657l-.707-.707M6.343 6.343l-.707-.707M12 8a4 4 0 100 8 4 4 0 000-8z"/></svg>
         </button>
       </div>
     </div>
-  </nav>
-
-  <!-- Scout header -->
-  <div class="bg-white border-b border-gray-100">
-    <div class="max-w-6xl mx-auto px-6 py-4 flex items-center gap-3">
-      <div class="w-10 h-10 rounded-2xl bg-emerald-500 flex items-center justify-center shadow-sm">
-        <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-          <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
-        </svg>
-      </div>
-      <div>
-        <h1 class="font-bold text-gray-900">Myne</h1>
-        <p class="text-xs text-gray-400" id="scout-subtitle">Loading…</p>
-      </div>
-    </div>
-
     <!-- Tab bar -->
     <div class="max-w-6xl mx-auto px-6">
       <div class="flex overflow-x-auto">
@@ -99,7 +84,7 @@
         <button onclick="showTab('configure')" id="tab-btn-configure" class="tab-btn">Configure</button>
       </div>
     </div>
-  </div>
+  </nav>
 
   <main class="max-w-6xl mx-auto px-6 py-6">
 
@@ -465,7 +450,7 @@
         <p class="text-xs text-gray-400 mb-3">Save every matched photo to a local folder.</p>
         <div id="save-section" class="hidden space-y-3">
           <div class="flex gap-2">
-            <input type="text" id="save-path" placeholder="/Users/you/Scout photos"
+            <input type="text" id="save-path" placeholder="/Users/you/matched photos"
                    class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-400" />
             <button onclick="browseSaveFolder()" class="px-3 py-2 bg-gray-100 text-gray-600 text-sm rounded-xl hover:bg-gray-200 transition-colors">Browse…</button>
           </div>
@@ -556,7 +541,7 @@
       </div>
 
       <!-- Save button -->
-      <button onclick="saveScoutSettings()" class="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm">
+      <button onclick="saveSettings()" class="w-full py-3 bg-emerald-600 text-white font-semibold rounded-xl hover:bg-emerald-700 transition-colors shadow-sm">
         Save Settings
       </button>
 
@@ -570,7 +555,7 @@
           </div>
           <h3 class="font-semibold text-gray-900 text-sm">Backup & Restore</h3>
         </div>
-        <p class="text-xs text-gray-400 mb-4">Backup includes all Scout settings and enrolled kids (photos + face data). API keys and WhatsApp session are excluded.</p>
+        <p class="text-xs text-gray-400 mb-4">Backup includes all settings and enrolled kids (photos + face data). WhatsApp session is excluded.</p>
         <div class="flex gap-3">
           <button onclick="downloadBackup()"
                   class="flex-1 flex items-center justify-center gap-2 py-2.5 bg-gray-800 text-white text-sm font-medium rounded-xl hover:bg-gray-700 transition-colors">
@@ -648,9 +633,9 @@
       if (tab === 'activity') { loadStats(); loadActivity(); checkDigest(); }
       if (tab === 'kids') loadKids();
       if (tab === 'groups') { loadKids(); refreshGroups(); }
-      if (tab === 'configure') loadScoutSettings();
+      if (tab === 'configure') loadSettings();
       // Persist tab
-      sessionStorage.setItem('scout_tab', tab);
+      sessionStorage.setItem('active_tab', tab);
     }
 
     function toggleAccordion(id) {
@@ -663,17 +648,8 @@
       if (id === 'hist' && open && !histWatchedGroups.length) loadHistGroups();
     }
 
-    // ── Scout subtitle ───────────────────────────────────────────────────────────
-    async function loadScoutSubtitle() {
-      try {
-        const [sR, kR] = await Promise.all([fetch('/api/settings'), fetch('/api/enrollment/kids')]);
-        const s = await sR.json();
-        const k = await kR.json();
-        const wg = JSON.parse(s.watch_groups || '[]');
-        const kCount = (k.kids || []).length;
-        document.getElementById('scout-subtitle').textContent =
-          `Watching ${wg.length} group${wg.length !== 1 ? 's' : ''} for ${kCount} kid${kCount !== 1 ? 's' : ''}`;
-      } catch (_) {}
+    async function loadStatus() {
+      // no-op: subtitle element removed; callers kept for group-save refresh
     }
 
     // ── Activity tab ─────────────────────────────────────────────────────────────
@@ -1431,12 +1407,12 @@
           body: JSON.stringify({ watch_groups: JSON.stringify(watchedGroupsConfig) }),
         });
         showToast('Groups saved!');
-        loadScoutSubtitle();
+        loadStatus();
       } catch (_) { showToast('Failed to save', 'error'); }
     }
 
     // ── Configure tab ─────────────────────────────────────────────────────────────
-    async function loadScoutSettings() {
+    async function loadSettings() {
       try {
         const r = await fetch('/api/settings');
         const d = await r.json();
@@ -1514,7 +1490,7 @@
       } catch (_) { showToast('Could not open folder picker', 'error'); }
     }
 
-    async function saveScoutSettings() {
+    async function saveSettings() {
       try {
         const forwardSel = document.getElementById('forward-select');
         const forwardEnabled = document.getElementById('forward-enabled').checked;
@@ -1561,7 +1537,7 @@
         const d = await r.json();
         if (!r.ok) { showToast(d.error || 'Restore failed', 'error'); return; }
         showToast(`Restored: ${d.restored_kids} kid${d.restored_kids !== 1 ? 's' : ''}, ${d.restored_settings} settings`);
-        loadScoutSettings();
+        loadSettings();
         loadKids();
       } catch (_) {
         showToast('Restore failed', 'error');
@@ -1572,10 +1548,10 @@
 
     // ── Init ───────────────────────────────────────────────────────────────────────
     loadNavStatus();
-    loadScoutSubtitle();
+    loadStatus();
 
     // Restore last active tab
-    const savedTab = sessionStorage.getItem('scout_tab') || 'activity';
+    const savedTab = sessionStorage.getItem('active_tab') || 'activity';
     showTab(savedTab);
 
     setInterval(() => { if (!document.getElementById('tab-activity').classList.contains('hidden')) { loadStats(); loadActivity(); } }, 30000);

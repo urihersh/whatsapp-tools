@@ -311,7 +311,7 @@ async def root():
     return RedirectResponse(url="/static/scout.html")
 
 
-# ── Scout endpoints ────────────────────────────────────────────────────────────
+# ── Endpoints ──────────────────────────────────────────────────────────────────
 
 @app.post("/api/analyze")
 async def analyze_photo(request: Request, file: UploadFile,
