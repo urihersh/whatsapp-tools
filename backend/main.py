@@ -308,7 +308,7 @@ async def get_activity_thumbnail(filename: str):
 
 @app.get("/")
 async def root():
-    return RedirectResponse(url="/static/scout.html")
+    return FileResponse(str(Path(__file__).parent / "static" / "scout.html"))
 
 
 # ── Endpoints ──────────────────────────────────────────────────────────────────
