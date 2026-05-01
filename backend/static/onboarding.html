@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WA Assistant – Setup</title>
+  <title>Myne – Setup</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
@@ -17,13 +17,13 @@
 
     <!-- Logo -->
     <div class="flex items-center gap-2.5 mb-10">
-      <div class="w-10 h-10 rounded-2xl bg-teal-700 flex items-center justify-center shadow-md">
+      <div class="w-10 h-10 rounded-2xl bg-emerald-600 flex items-center justify-center shadow-md">
         <svg class="w-5 h-5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M3 9a2 2 0 012-2h.93a2 2 0 001.664-.89l.812-1.22A2 2 0 0110.07 4h3.86a2 2 0 011.664.89l.812 1.22A2 2 0 0018.07 7H19a2 2 0 012 2v9a2 2 0 01-2 2H5a2 2 0 01-2-2V9z" />
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 13a3 3 0 11-6 0 3 3 0 016 0z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
         </svg>
       </div>
-      <span class="text-xl font-bold text-gray-900">WA Assistant</span>
+      <span class="text-xl font-bold text-gray-900">Myne</span>
     </div>
 
     <!-- Progress steps -->
@@ -42,7 +42,7 @@
           </svg>
         </div>
         <h2 class="text-xl font-bold text-gray-900 mb-1">Connect WhatsApp</h2>
-        <p class="text-sm text-gray-500 mb-6">Scan the QR code with your phone to link WhatsApp to WA Assistant.</p>
+        <p class="text-sm text-gray-500 mb-6">Scan the QR code with your phone to link WhatsApp to Myne.</p>
 
         <div id="wa-connected-banner" class="hidden mb-4 flex items-center gap-3 p-4 bg-green-50 rounded-xl border border-green-100">
           <span class="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></span>
@@ -70,13 +70,13 @@
 
       <!-- Step 2: Enroll a kid -->
       <div id="step-2" class="hidden p-8">
-        <div class="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
-          <svg class="w-6 h-6 text-teal-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
           </svg>
         </div>
         <h2 class="text-xl font-bold text-gray-900 mb-1">Enroll your kid</h2>
-        <p class="text-sm text-gray-500 mb-6">Add your child and upload a few clear face photos so Scout can recognise them.</p>
+        <p class="text-sm text-gray-500 mb-6">Add your child and upload a few clear face photos so Myne can recognise them.</p>
 
         <div id="kids-status" class="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm text-gray-500">
           Checking enrolled kids…
@@ -84,7 +84,7 @@
 
         <a href="/static/scout.html" target="_blank"
            class="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm transition-all">
-          Open Scout → Kids
+          Open Myne → Kids
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
@@ -101,13 +101,13 @@
 
       <!-- Step 3: Pick a group -->
       <div id="step-3" class="hidden p-8">
-        <div class="w-12 h-12 rounded-2xl bg-teal-50 flex items-center justify-center mb-4">
-          <svg class="w-6 h-6 text-teal-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <div class="w-12 h-12 rounded-2xl bg-emerald-50 flex items-center justify-center mb-4">
+          <svg class="w-6 h-6 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         </div>
         <h2 class="text-xl font-bold text-gray-900 mb-1">Add a group to monitor</h2>
-        <p class="text-sm text-gray-500 mb-6">Choose the WhatsApp group (e.g. your child's class) that Scout should watch for photos and videos.</p>
+        <p class="text-sm text-gray-500 mb-6">Choose the WhatsApp group (e.g. your child's class) that Myne should watch for photos and videos.</p>
 
         <div id="groups-status" class="mb-4 p-4 bg-gray-50 rounded-xl border border-gray-100 text-sm text-gray-500">
           Checking configured groups…
@@ -115,7 +115,7 @@
 
         <a href="/static/scout.html" target="_blank"
            class="flex items-center justify-center gap-2 w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm transition-all">
-          Open Scout → Groups
+          Open Myne → Groups
           <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
             <path stroke-linecap="round" stroke-linejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
           </svg>
@@ -138,7 +138,7 @@
           </svg>
         </div>
         <h2 class="text-2xl font-bold text-gray-900 mb-2">You're all set!</h2>
-        <p class="text-sm text-gray-500 mb-8">WA Assistant is ready. As soon as a photo or video arrives in your monitored group, Scout will scan it and notify you when your kid is spotted.</p>
+        <p class="text-sm text-gray-500 mb-8">Myne is ready. As soon as a photo or video arrives in your monitored group, Myne will scan it and notify you when your kid is spotted.</p>
         <button onclick="finishOnboarding()"
                 class="w-full py-3 bg-gradient-to-r from-blue-600 to-blue-700 text-white font-semibold rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm transition-all">
           Go to Dashboard
@@ -164,7 +164,7 @@
         const active = n === currentStep;
         return `<div class="flex items-center gap-2">
           <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold transition-all ${
-            done ? 'bg-green-500 text-white' : active ? 'bg-teal-700 text-white' : 'bg-gray-200 text-gray-400'
+            done ? 'bg-green-500 text-white' : active ? 'bg-emerald-600 text-white' : 'bg-gray-200 text-gray-400'
           }">${done ? '✓' : n}</div>
           ${n < STEPS ? '<div class="w-6 h-0.5 ' + (done ? 'bg-green-400' : 'bg-gray-200') + '"></div>' : ''}
         </div>`;

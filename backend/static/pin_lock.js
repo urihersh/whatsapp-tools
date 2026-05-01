@@ -43,12 +43,13 @@ window.__ptShowPin = function () {
 
   overlay.innerHTML = `
     <div style="text-align:center;max-width:320px;width:100%;padding:0 24px">
-      <div style="width:56px;height:56px;border-radius:16px;background:#0f766e;display:flex;align-items:center;justify-content:center;margin:0 auto 20px">
+      <div style="width:56px;height:56px;border-radius:16px;background:#059669;display:flex;align-items:center;justify-content:center;margin:0 auto 20px">
         <svg width="28" height="28" fill="none" viewBox="0 0 24 24" stroke="white" stroke-width="2">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
         </svg>
       </div>
-      <p style="color:#f8fafc;font-size:20px;font-weight:700;margin:0 0 6px">WA Assistant</p>
+      <p style="color:#f8fafc;font-size:20px;font-weight:700;margin:0 0 6px">Myne</p>
       <p style="color:#94a3b8;font-size:14px;margin:0 0 28px">Enter your PIN to continue</p>
       <div id="pin-dots" style="display:flex;justify-content:center;gap:12px;margin-bottom:24px">
         ${Array(6).fill('<span class="dot" style="width:14px;height:14px;border-radius:50%;background:#334155;transition:background .15s"></span>').join('')}
