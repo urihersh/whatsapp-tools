@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WA Assistant – Settings</title>
+  <title>Myne – Settings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
@@ -16,24 +16,18 @@
   <!-- Nav -->
   <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
     <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-      <a href="/static/index.html" class="flex items-center gap-2.5 group">
-        <div class="w-8 h-8 rounded-xl bg-teal-700 flex items-center justify-center shadow-sm group-hover:bg-teal-800 transition-colors">
+      <a href="/" class="flex items-center gap-2.5 group">
+        <div class="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center shadow-sm group-hover:bg-emerald-700 transition-colors">
           <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
           </svg>
         </div>
-        <span class="text-base font-bold text-gray-900">WA Assistant</span>
+        <span class="text-base font-bold text-gray-900">Myne</span>
       </a>
       <div class="flex gap-1">
-        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Home</a>
-        <a href="/static/groups.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Groups</a>
-        <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1.5">
-          DMs<span id="inbox-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
-        </a>
-        <a href="/static/scout.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Scout</a>
-        <a href="/static/agent.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1.5">Autopilot <span class="text-xs text-gray-400 font-normal">beta</span></a>
-        <a href="/static/mazaltover.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">MazalTover</a>
-        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-teal-700 bg-teal-50">Settings</a>
+        <a href="/" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Myne</a>
+        <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-emerald-700 bg-emerald-50">Settings</a>
       </div>
       <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:bg-gray-100 transition-colors" title="Toggle dark mode">
         <svg id="dark-icon-moon" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -142,24 +136,6 @@
 
       <div class="space-y-4">
 
-        <!-- Anthropic -->
-        <div class="border border-gray-100 rounded-xl p-4">
-          <div class="flex items-center gap-2 mb-3">
-            <div class="w-6 h-6 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
-              <svg class="w-3.5 h-3.5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"/>
-              </svg>
-            </div>
-            <span class="text-sm font-medium text-gray-800">Anthropic (Claude)</span>
-            <span id="api-key-status" class="text-xs ml-auto"></span>
-          </div>
-          <div class="flex gap-2 items-center">
-            <input type="password" id="anthropic-api-key" placeholder="sk-ant-…"
-                   class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-violet-500" />
-          </div>
-          <p class="text-xs text-gray-400 mt-1.5">Get yours at <span class="text-violet-600">console.anthropic.com</span></p>
-        </div>
-
         <!-- Google Photos -->
         <div class="border border-gray-100 rounded-xl p-4">
           <div class="flex items-center gap-2 mb-3">
@@ -208,56 +184,6 @@
               Disconnect
             </button>
           </div>
-        </div>
-
-        <!-- Ollama (local AI) -->
-        <div class="border border-gray-100 rounded-xl p-4">
-          <div class="flex items-center gap-2 mb-3">
-            <div class="w-6 h-6 rounded-lg bg-emerald-50 flex items-center justify-center flex-shrink-0">
-              <svg class="w-3.5 h-3.5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 3H5a2 2 0 00-2 2v4m6-6h10a2 2 0 012 2v4M9 3v18m0 0h10a2 2 0 002-2V9M9 21H5a2 2 0 01-2-2V9m0 0h18"/>
-              </svg>
-            </div>
-            <span class="text-sm font-medium text-gray-800">Ollama <span class="text-gray-400 font-normal">(free, local AI)</span></span>
-            <span id="ollama-status" class="text-xs ml-auto"></span>
-          </div>
-          <p class="text-xs text-gray-400 mb-3">Run AI summarization locally — no API key needed. Used as fallback when no Anthropic key is set.</p>
-          <div class="space-y-2 mb-3">
-            <input type="text" id="ollama-url" placeholder="http://localhost:11434"
-                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-            <div class="flex gap-2">
-              <div class="flex-1">
-                <label class="text-xs text-gray-400 mb-1 block">Text model</label>
-                <input type="text" id="ollama-model" placeholder="aya"
-                       class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              </div>
-              <div class="flex-1">
-                <label class="text-xs text-gray-400 mb-1 block">Vision model <span class="text-gray-300">(for captions)</span></label>
-                <input type="text" id="ollama-vision-model" placeholder="llava"
-                       class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-emerald-500" />
-              </div>
-            </div>
-          </div>
-          <div class="flex gap-2 items-center flex-wrap">
-            <button onclick="autoDetectOllama()"
-                    class="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-medium rounded-xl hover:bg-gray-200 transition-colors">
-              Auto-detect
-            </button>
-            <button onclick="testOllama()"
-                    class="px-3 py-1.5 bg-emerald-600 text-white text-xs font-medium rounded-xl hover:bg-emerald-700 transition-colors shadow-sm">
-              Test Connection
-            </button>
-            <span id="ollama-test-result" class="text-xs"></span>
-          </div>
-          <details class="mt-3">
-            <summary class="text-xs text-blue-600 cursor-pointer font-medium">Setup instructions ▸</summary>
-            <div class="mt-2 text-xs text-gray-500 space-y-1.5">
-              <p><strong>Linux / Raspberry Pi:</strong> run <code class="bg-gray-100 px-1 rounded">scripts/setup-ollama-rpi.sh</code></p>
-              <p><strong>Windows:</strong> run <code class="bg-gray-100 px-1 rounded">scripts\setup-ollama-windows.ps1</code> in PowerShell as Administrator</p>
-              <p><strong>Manual:</strong> install from <span class="text-blue-600">ollama.com</span>, then <code class="bg-gray-100 px-1 rounded">ollama pull llama3.2</code></p>
-              <p class="text-gray-400">If Ollama runs on a different machine, replace <code class="bg-gray-100 px-1 rounded">localhost</code> with that machine's IP.</p>
-            </div>
-          </details>
         </div>
 
       </div>
@@ -415,32 +341,11 @@
         const r = await fetch('/api/settings');
         const d = await r.json();
 
-        const keyStatus = document.getElementById('api-key-status');
-        if (d.has_anthropic_key) {
-          keyStatus.textContent = '✓ Key configured';
-          keyStatus.className = 'text-xs shrink-0 text-green-600';
-        } else {
-          keyStatus.textContent = 'Not set';
-          keyStatus.className = 'text-xs shrink-0 text-red-400';
-        }
-
         checkGPStatus();
         if (d.google_photos_client_id)
           document.getElementById('gp-client-id').value = d.google_photos_client_id;
         if (d.google_photos_client_secret)
           document.getElementById('gp-client-secret').value = '••••••••';
-
-        if (d.ollama_url) document.getElementById('ollama-url').value = d.ollama_url;
-        if (d.ollama_model) document.getElementById('ollama-model').value = d.ollama_model;
-        if (d.ollama_vision_model) document.getElementById('ollama-vision-model').value = d.ollama_vision_model;
-        const ollamaStatus = document.getElementById('ollama-status');
-        if (d.ollama_url) {
-          ollamaStatus.textContent = '✓ Configured';
-          ollamaStatus.className = 'text-xs ml-auto text-green-600';
-        } else {
-          ollamaStatus.textContent = 'Not set';
-          ollamaStatus.className = 'text-xs ml-auto text-gray-400';
-        }
 
         if (d.pin_enabled === 'true') {
           document.getElementById('pin-enabled').checked = true;
@@ -464,16 +369,6 @@
 
         if (gpClientId) payload.google_photos_client_id = gpClientId;
         if (gpClientSecret && gpClientSecret !== '••••••••') payload.google_photos_client_secret = gpClientSecret;
-
-        const anthropicKey = document.getElementById('anthropic-api-key').value.trim();
-        if (anthropicKey) payload.anthropic_api_key = anthropicKey;
-
-        const ollamaUrl = document.getElementById('ollama-url').value.trim();
-        const ollamaModel = document.getElementById('ollama-model').value.trim();
-        const ollamaVisionModel = document.getElementById('ollama-vision-model').value.trim();
-        if (ollamaUrl !== undefined) payload.ollama_url = ollamaUrl;
-        if (ollamaModel) payload.ollama_model = ollamaModel;
-        if (ollamaVisionModel) payload.ollama_vision_model = ollamaVisionModel;
 
         const pinVal = document.getElementById('app-pin').value.trim();
         if (pinVal) payload.app_pin = pinVal;
@@ -536,60 +431,6 @@
       showToast('Disconnected from Google Photos');
     }
 
-    async function autoDetectOllama() {
-      const resultEl = document.getElementById('ollama-test-result');
-      resultEl.textContent = 'Detecting…';
-      resultEl.className = 'text-xs text-gray-400';
-      const url = 'http://localhost:11434';
-      try {
-        const r = await fetch('/api/settings/ollama/test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, model: 'aya' }),
-        });
-        const d = await r.json();
-        if (d.ok) {
-          document.getElementById('ollama-url').value = url;
-          if (!document.getElementById('ollama-model').value) document.getElementById('ollama-model').value = 'aya';
-          await saveSettings();
-          resultEl.textContent = '✓ Detected & saved';
-          resultEl.className = 'text-xs text-green-600';
-        } else {
-          resultEl.textContent = '✗ Ollama not found at localhost:11434';
-          resultEl.className = 'text-xs text-red-500';
-        }
-      } catch (e) {
-        resultEl.textContent = '✗ Detection failed';
-        resultEl.className = 'text-xs text-red-500';
-      }
-    }
-
-    async function testOllama() {
-      const url = document.getElementById('ollama-url').value.trim() || 'http://localhost:11434';
-      const model = document.getElementById('ollama-model').value.trim() || 'llama3.2';
-      const resultEl = document.getElementById('ollama-test-result');
-      resultEl.textContent = 'Testing…';
-      resultEl.className = 'text-xs text-gray-400';
-      try {
-        const r = await fetch('/api/settings/ollama/test', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url, model }),
-        });
-        const d = await r.json();
-        if (d.ok) {
-          resultEl.textContent = '✓ Connected';
-          resultEl.className = 'text-xs text-green-600';
-        } else {
-          resultEl.textContent = `✗ ${d.error}`;
-          resultEl.className = 'text-xs text-red-500';
-        }
-      } catch (e) {
-        resultEl.textContent = '✗ Request failed';
-        resultEl.className = 'text-xs text-red-500';
-      }
-    }
-
     async function init() {
       await loadCurrentSettings();
       await checkStatus();
@@ -606,10 +447,6 @@
     }
 
     init();
-    fetch('/api/dm-inbox').then(r => r.json()).then(d => {
-      const b = document.getElementById('inbox-badge');
-      if (d.total > 0) { b.textContent = d.total; b.classList.remove('hidden'); }
-    }).catch(() => {});
   </script>
   <script src="/static/dark.js"></script>
   <script src="/static/pin_lock.js"></script>

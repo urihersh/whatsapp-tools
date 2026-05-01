@@ -31,7 +31,6 @@ class ActivityLog(Base):
     kid_names = Column(String, default="")
     matched_photo_path = Column(String, default="")
     thumbnail_filename = Column(String, default="")
-    moment_caption = Column(String, default="")
     manually_matched = Column(Boolean, default=False)
 
 
@@ -68,13 +67,6 @@ def init_db():
     with engine.connect() as conn:
         try:
             conn.execute(text("ALTER TABLE activity_log ADD COLUMN thumbnail_filename TEXT DEFAULT ''"))
-            conn.commit()
-        except OperationalError as e:
-            if "duplicate column" not in str(e).lower() and "already has column" not in str(e).lower():
-                raise
-    with engine.connect() as conn:
-        try:
-            conn.execute(text("ALTER TABLE activity_log ADD COLUMN moment_caption TEXT DEFAULT ''"))
             conn.commit()
         except OperationalError as e:
             if "duplicate column" not in str(e).lower() and "already has column" not in str(e).lower():
@@ -164,7 +156,6 @@ def get_activity_log(limit: int = 1000, matched: bool | None = None,
                 "kid_names": r.kid_names or "",
                 "matched_photo_path": r.matched_photo_path or "",
                 "thumbnail_filename": r.thumbnail_filename or "",
-                "moment_caption": r.moment_caption or "",
                 "manually_matched": bool(r.manually_matched),
                 "has_original": str(r.id) in original_ids or bool(r.matched_photo_path and Path(r.matched_photo_path).exists()),
             }
@@ -181,17 +172,6 @@ def mark_activity_manually_matched(activity_id: int) -> None:
         if row:
             row.matched = True
             row.manually_matched = True
-            db.commit()
-    finally:
-        db.close()
-
-
-def update_activity_caption(activity_id: int, caption: str) -> None:
-    db = SessionLocal()
-    try:
-        row = db.query(ActivityLog).filter(ActivityLog.id == activity_id).first()
-        if row:
-            row.moment_caption = caption
             db.commit()
     finally:
         db.close()

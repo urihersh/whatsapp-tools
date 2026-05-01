@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <link rel="icon" type="image/svg+xml" href="/static/favicon.svg" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>WA Assistant – Scout</title>
+  <title>Myne</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
   <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
@@ -50,23 +50,16 @@
   <!-- Nav -->
   <nav class="bg-white sticky top-0 z-30 shadow-sm border-b border-gray-100">
     <div class="max-w-6xl mx-auto px-6 h-16 flex items-center justify-between">
-      <a href="/static/index.html" class="flex items-center gap-2.5">
-        <div class="w-8 h-8 rounded-xl bg-teal-700 flex items-center justify-center shadow-sm">
+      <a href="/" class="flex items-center gap-2.5">
+        <div class="w-8 h-8 rounded-xl bg-emerald-600 flex items-center justify-center shadow-sm">
           <svg class="w-4 h-4 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z"/>
           </svg>
         </div>
-        <span class="text-base font-bold text-gray-900">WA Assistant</span>
+        <span class="text-base font-bold text-gray-900">Myne</span>
       </a>
       <div class="flex gap-1">
-        <a href="/static/index.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Home</a>
-        <a href="/static/groups.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Groups</a>
-        <a href="/static/inbox.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1.5">
-          DMs<span id="inbox-badge" class="hidden text-xs bg-red-500 text-white rounded-full px-1.5 py-0.5 font-semibold leading-none"></span>
-        </a>
-        <a href="/static/scout.html" class="px-4 py-2 rounded-xl text-sm font-medium text-emerald-600 bg-emerald-50">Scout</a>
-        <a href="/static/agent.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors flex items-center gap-1.5">Autopilot <span class="text-xs text-gray-400 font-normal">beta</span></a>
-        <a href="/static/mazaltover.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">MazalTover</a>
         <a href="/static/settings.html" class="px-4 py-2 rounded-xl text-sm font-medium text-gray-500 hover:text-gray-900 hover:bg-gray-50 transition-colors">Settings</a>
       </div>
       <div class="flex items-center gap-3">
@@ -92,7 +85,7 @@
         </svg>
       </div>
       <div>
-        <h1 class="font-bold text-gray-900">Scout</h1>
+        <h1 class="font-bold text-gray-900">Myne</h1>
         <p class="text-xs text-gray-400" id="scout-subtitle">Loading…</p>
       </div>
     </div>
@@ -168,7 +161,6 @@
                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Faces</th>
                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Result</th>
                 <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Conf.</th>
-                <th class="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Caption</th>
                 <th class="px-3 py-3 w-20"></th>
               </tr>
             </thead>
@@ -509,24 +501,6 @@
         </div>
       </div>
 
-      <!-- AI Captions -->
-      <div class="section-card p-5 mb-4">
-        <div class="flex items-center justify-between mb-1">
-          <div class="flex items-center gap-2.5">
-            <div class="w-7 h-7 rounded-lg bg-violet-50 flex items-center justify-center flex-shrink-0">
-              <svg class="w-3.5 h-3.5 text-violet-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2"><path stroke-linecap="round" stroke-linejoin="round" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17H3a2 2 0 01-2-2V5a2 2 0 012-2h14a2 2 0 012 2v10a2 2 0 01-2 2h-2"/></svg>
-            </div>
-            <h3 class="font-semibold text-gray-900 text-sm">AI Moment Captions</h3>
-          </div>
-          <label class="flex items-center gap-2 cursor-pointer select-none">
-            <input type="checkbox" id="ai-captions-enabled" class="accent-violet-600" />
-            <span class="text-xs text-gray-500">Enabled</span>
-          </label>
-        </div>
-        <p class="text-xs text-gray-400 mb-2">Automatically generate a short description of what's happening in each matched photo.</p>
-        <p id="ai-key-hint" class="hidden text-xs text-amber-600">⚠ No AI model configured — <a href="/static/settings.html" class="underline font-medium">set up Anthropic or Ollama in Settings → Integrations</a></p>
-      </div>
-
       <!-- Activity thumbnails -->
       <div class="section-card p-5 mb-4">
         <div class="flex items-center justify-between mb-1">
@@ -751,14 +725,6 @@
                 ${row.matched ? 'Resend' : 'Send'}
               </button>`
             : '';
-          const captionText = row.moment_caption
-            ? `<span class="text-xs text-gray-500 italic">${row.moment_caption}</span>`
-            : '<span class="text-xs text-gray-200">—</span>';
-          const captionBtn = row.matched && row.has_original
-            ? `<button onclick="rebuildCaption(${row.id}, this)" title="Rebuild caption" class="ml-1 flex-shrink-0 w-5 h-5 flex items-center justify-center rounded text-gray-300 hover:text-teal-500 hover:bg-teal-50 transition-colors">
-                <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>
-              </button>` : '';
-          const caption = `<div class="flex items-start gap-1" id="caption-cell-${row.id}">${captionText}${captionBtn}</div>`;
           return `<tr class="border-t border-gray-50 hover:bg-gray-50/70 transition-colors">
             <td class="px-3 py-2">${thumb}</td>
             <td class="px-5 py-3 text-gray-400 whitespace-nowrap text-xs" title="${new Date(row.timestamp).toLocaleString()}">${t}</td>
@@ -767,7 +733,6 @@
             <td class="px-5 py-3 text-gray-600">${row.faces_detected}</td>
             <td class="px-5 py-3" id="badge-cell-${row.id}">${badge}</td>
             <td class="px-5 py-3 text-gray-600">${conf}</td>
-            <td class="px-5 py-3 max-w-xs">${caption}</td>
             <td class="px-3 py-2">${runBtn}</td>
           </tr>`;
         }).join('');
@@ -811,24 +776,6 @@
       } finally {
         btn.disabled = false;
         btn.innerHTML = originalHTML;
-      }
-    }
-
-    async function rebuildCaption(id, btn) {
-      btn.disabled = true;
-      btn.innerHTML = '<svg class="w-3 h-3 animate-spin" fill="none" viewBox="0 0 24 24"><circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"/><path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"/></svg>';
-      try {
-        const r = await fetch(`/api/scout/caption/${id}`, { method: 'POST' });
-        const d = await r.json();
-        if (!r.ok) { showToast(d.detail || 'Failed', 'error'); return; }
-        const cell = document.getElementById(`caption-cell-${id}`);
-        if (cell) cell.querySelector('span').outerHTML = `<span class="text-xs text-gray-500 italic">${d.caption}</span>`;
-        showToast('Caption updated', 'success');
-      } catch (e) {
-        showToast('Error: ' + e.message, 'error');
-      } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5"><path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg>';
       }
     }
 
@@ -1513,10 +1460,6 @@
         document.getElementById('thumbnails-enabled').checked = d.thumbnails_enabled !== 'false';
         document.getElementById('thumbnail-retention').value = d.thumbnail_retention_hours || '168';
         document.getElementById('thumbnail-options').classList.toggle('hidden', d.thumbnails_enabled === 'false');
-        if (d.ai_captions_enabled === 'true') document.getElementById('ai-captions-enabled').checked = true;
-        const hasAnyAI = !!d.has_anthropic_key || !!d.ollama_url;
-        document.getElementById('ai-key-hint').classList.toggle('hidden', hasAnyAI);
-
         // Google Photos
         const gpConnected = await fetch('/api/settings/google-photos/status').then(r => r.json()).catch(() => ({ connected: false }));
         document.getElementById('gp-hint').classList.toggle('hidden', gpConnected.connected);
@@ -1588,7 +1531,6 @@
           save_photos_organize_by: document.querySelector('input[name="save-organize"]:checked')?.value || 'group',
           digest_mode: String(document.getElementById('digest-mode').checked),
           digest_time: document.getElementById('digest-time').value || '20:00',
-          ai_captions_enabled: String(document.getElementById('ai-captions-enabled').checked),
           google_photos_enabled: String(document.getElementById('gp-enabled').checked),
           google_photos_album_organize_by: document.querySelector('input[name="gp-organize"]:checked')?.value || 'group',
           google_photos_album_name: document.getElementById('gp-album-name').value.trim() || null,
@@ -1631,10 +1573,6 @@
     // ── Init ───────────────────────────────────────────────────────────────────────
     loadNavStatus();
     loadScoutSubtitle();
-    fetch('/api/dm-inbox').then(r => r.json()).then(d => {
-      const b = document.getElementById('inbox-badge');
-      if (d.total > 0) { b.textContent = d.total; b.classList.remove('hidden'); }
-    }).catch(() => {});
 
     // Restore last active tab
     const savedTab = sessionStorage.getItem('scout_tab') || 'activity';

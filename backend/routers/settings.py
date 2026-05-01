@@ -34,17 +34,10 @@ class SettingsUpdate(BaseModel):
     google_photos_album_name: str | None = None
     digest_mode: str | None = None
     digest_time: str | None = None
-    ai_captions_enabled: str | None = None
     thumbnails_enabled: str | None = None
     thumbnail_retention_hours: str | None = None
-    anthropic_api_key: str | None = None
     pin_enabled: str | None = None
     app_pin: str | None = None
-    ollama_url: str | None = None
-    ollama_model: str | None = None
-    ollama_vision_model: str | None = None
-    mazaltov_groups: str | None = None
-    my_birthday: str | None = None
 
 
 async def _bot_get(path: str, params: dict | None = None, timeout: float = 5.0):
@@ -60,9 +53,6 @@ async def _bot_get(path: str, params: dict | None = None, timeout: float = 5.0):
 async def get_all_settings():
     s = get_settings()
     s.pop("app_pin", None)  # never expose the PIN to the frontend
-    s["has_anthropic_key"] = bool(
-        s.pop("anthropic_api_key", None) or os.getenv("ANTHROPIC_API_KEY", "")
-    )
     return s
 
 

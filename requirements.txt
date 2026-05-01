@@ -9,4 +9,3 @@ aiofiles
 python-dotenv
 httpx
 numpy
-anthropic>=0.40.0

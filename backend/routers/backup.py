@@ -24,7 +24,6 @@ SCOUT_KEYS = [
     "save_photos_enabled",
     "save_photos_path",
     "save_photos_organize_by",
-    "ai_captions_enabled",
     "google_photos_enabled",
     "google_photos_album_organize_by",
     "google_photos_album_name",
