@@ -153,15 +153,12 @@
             <details class="text-xs text-gray-500">
               <summary class="text-blue-600 cursor-pointer font-medium" data-i18n="how_to_credentials">How to get credentials ▸</summary>
               <ol class="mt-2 space-y-1.5 list-decimal ps-4">
-                <li>Go to <strong>console.cloud.google.com</strong>, create a project (or select one).</li>
-                <li>Go to <strong>APIs &amp; Services → Library</strong>, search for <strong>Photos Library API</strong> and enable it.</li>
-                <li>Go to <strong>APIs &amp; Services → OAuth consent screen</strong>.<br>
-                  Under <strong>Audience</strong>, set User Type to <strong>External</strong> and publishing status to <strong>In production</strong>.</li>
-                <li>Go to <strong>APIs &amp; Services → Credentials → Create Credentials → OAuth Client ID</strong>.<br>
-                  Application type: <strong>Web application</strong>.</li>
-                <li>Under <strong>Authorized redirect URIs</strong>, add exactly:<br>
-                  <code class="bg-white border border-gray-200 px-1 rounded break-all select-all">http://localhost:8000/api/settings/google-photos/callback</code></li>
-                <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into the fields below, click <strong>Save Settings</strong>, then click <strong>Connect with Google</strong>.</li>
+                <li data-i18n-html="gp_step_1">Go to <a href="https://console.cloud.google.com" target="_blank" class="text-blue-600 underline hover:text-blue-800">console.cloud.google.com</a>, create a project (or select one).</li>
+                <li data-i18n-html="gp_step_2">Go to <strong>APIs &amp; Services → Library</strong>, search for <strong>Photos Library API</strong> and enable it.</li>
+                <li data-i18n-html="gp_step_3">Go to <strong>APIs &amp; Services → OAuth consent screen</strong>.<br>Under <strong>Audience</strong>, set User Type to <strong>External</strong> and publishing status to <strong>In production</strong>.</li>
+                <li data-i18n-html="gp_step_4">Go to <strong>APIs &amp; Services → Credentials → Create Credentials → OAuth Client ID</strong>.<br>Application type: <strong>Web application</strong>.</li>
+                <li data-i18n-html="gp_step_5">Under <strong>Authorized redirect URIs</strong>, add exactly:<br><code class="bg-white border border-gray-200 px-1 rounded break-all select-all">http://localhost:8000/api/settings/google-photos/callback</code></li>
+                <li data-i18n-html="gp_step_6">Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into the fields below, click <strong>Save Settings</strong>, then click <strong>Connect with Google</strong>.</li>
               </ol>
             </details>
             <input type="text" id="gp-client-id" placeholder="Client ID" data-i18n="client_id"
@@ -257,46 +254,46 @@
     async function waDisconnect() {
       const btn = document.getElementById('wa-disconnect-btn');
       btn.disabled = true;
-      btn.textContent = 'Disconnecting…';
+      btn.textContent = t('disconnecting');
       try {
         await fetch('/api/wa-disconnect', { method: 'POST' });
-        showToast('Disconnected — your phone will now receive notifications');
+        showToast(t('disconnected_phone_notif'));
         setTimeout(checkStatus, 1500);
       } catch (_) {
-        showToast('Could not disconnect', 'error');
+        showToast(t('could_not_disconnect'), 'error');
         btn.disabled = false;
-        btn.textContent = 'Disconnect';
+        btn.textContent = t('disconnect');
       }
     }
 
     async function waLogout() {
-      if (!confirm('This will unlink the bot from your WhatsApp account. You will need to scan a QR code to reconnect. Continue?')) return;
+      if (!confirm(t('wa_logout_confirm'))) return;
       const btn = document.getElementById('wa-logout-btn');
       btn.disabled = true;
-      btn.textContent = 'Signing out…';
+      btn.textContent = t('signing_out');
       try {
         await fetch('/api/wa-logout', { method: 'POST' });
-        showToast('Signed out — scan QR to reconnect');
+        showToast(t('signed_out_qr'));
         setTimeout(checkStatus, 2000);
       } catch (_) {
-        showToast('Could not sign out', 'error');
+        showToast(t('could_not_sign_out'), 'error');
         btn.disabled = false;
-        btn.textContent = 'Sign out';
+        btn.textContent = t('sign_out');
       }
     }
 
     async function waConnect() {
       const btn = document.getElementById('wa-connect-btn');
       btn.disabled = true;
-      btn.textContent = 'Connecting…';
+      btn.textContent = t('connecting_ellipsis');
       try {
         await fetch('/api/wa-connect', { method: 'POST' });
-        showToast('Reconnecting…');
+        showToast(t('reconnecting'));
         setTimeout(checkStatus, 3000);
       } catch (_) {
-        showToast('Could not connect', 'error');
+        showToast(t('could_not_connect'), 'error');
         btn.disabled = false;
-        btn.textContent = 'Connect';
+        btn.textContent = t('connect');
       }
     }
 
@@ -319,16 +316,16 @@
         if (d.connected) {
           document.getElementById('wa-connected').classList.remove('hidden');
           document.getElementById('wa-disconnected').classList.add('hidden');
-          document.getElementById('wa-name').textContent = d.phone?.name || 'Connected';
+          document.getElementById('wa-name').textContent = d.phone?.name || t('wa_connected');
           document.getElementById('wa-number').textContent = d.phone?.number ? `+${d.phone.number}` : '';
         } else {
           document.getElementById('wa-connected').classList.add('hidden');
           document.getElementById('wa-disconnected').classList.remove('hidden');
           if (d.sessionExists) {
-            document.getElementById('wa-disconnected-msg').textContent = 'Disconnected — your phone is receiving notifications. Click Connect to resume.';
+            document.getElementById('wa-disconnected-msg').textContent = t('wa_session_disconnected');
             document.getElementById('qr-section').classList.add('hidden');
           } else {
-            document.getElementById('wa-disconnected-msg').textContent = 'Not linked. Scan the QR code below to connect.';
+            document.getElementById('wa-disconnected-msg').textContent = t('wa_not_linked');
             document.getElementById('qr-section').classList.remove('hidden');
             pollQR();
           }
@@ -410,13 +407,13 @@
           body: JSON.stringify(payload),
         });
         if (r.ok) {
-          showToast('Settings saved!');
+          showToast(t('settings_saved'));
           await loadCurrentSettings();
         } else {
-          showToast('Failed to save settings', 'error');
+          showToast(t('failed_save_settings'), 'error');
         }
       } catch (_) {
-        showToast('Failed to save settings', 'error');
+        showToast(t('failed_save_settings'), 'error');
       }
     }
 

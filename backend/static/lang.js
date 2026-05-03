@@ -1,19 +1,16 @@
 const TRANSLATIONS = {
   en: {
     // Nav
-    connecting: 'Connecting…',
     settings: 'Settings',
     // Tabs
     tab_activity: 'Activity',
     tab_kids: 'Kids',
     tab_groups: 'Groups',
-    tab_configure: 'Configure',
     // Stats
     matched_today: 'matched today',
     scanned_today: 'scanned today',
     match_rate: 'match rate',
     // Digest
-    digest_on: 'Digest mode on ·',
     photos_queued: 'photos queued',
     send_now: 'Send now',
     // Activity log
@@ -107,7 +104,6 @@ const TRANSLATIONS = {
     hours: 'hours',
     google_photos: 'Google Photos',
     gp_description: 'Upload every matched photo to Google Photos.',
-    gp_not_connected: '⚠ Google Photos not connected — connect it in Settings → Integrations',
     organise_albums: 'Organise albums by',
     no_album: 'No album',
     single_album: 'Single album',
@@ -242,19 +238,16 @@ const TRANSLATIONS = {
   },
   he: {
     // Nav
-    connecting: 'מתחבר…',
     settings: 'הגדרות',
     // Tabs
     tab_activity: 'פעילות',
     tab_kids: 'ילדים',
     tab_groups: 'קבוצות',
-    tab_configure: 'הגדרות',
     // Stats
     matched_today: 'זוהו היום',
     scanned_today: 'נסרקו היום',
     match_rate: 'אחוז זיהוי',
     // Digest
-    digest_on: 'מצב תקציר פעיל ·',
     photos_queued: 'תמונות בהמתנה',
     send_now: 'שלח עכשיו',
     // Activity log
@@ -348,7 +341,6 @@ const TRANSLATIONS = {
     hours: 'שעות',
     google_photos: 'Google Photos',
     gp_description: 'העלה כל תמונה שזוהתה ל-Google Photos.',
-    gp_not_connected: '⚠ Google Photos לא מחובר — חבר בהגדרות ← שירותים',
     organise_albums: 'ארגן אלבומים לפי',
     no_album: 'ללא אלבום',
     single_album: 'אלבום יחיד',
