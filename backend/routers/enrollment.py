@@ -67,6 +67,21 @@ async def create_kid(request: Request):
     return kid
 
 
+@router.patch("/kids/{kid_id}")
+async def rename_kid(kid_id: str, request: Request):
+    body = await request.json()
+    name = body.get("name", "").strip()
+    if not name:
+        raise HTTPException(status_code=400, detail="Name is required")
+    kids = load_kids()
+    kid = next((k for k in kids if k["id"] == kid_id), None)
+    if not kid:
+        raise HTTPException(status_code=404, detail="Kid not found")
+    kid["name"] = name
+    save_kids(kids)
+    return kid
+
+
 @router.delete("/kids/{kid_id}")
 async def delete_kid(kid_id: str, request: Request):
     kids = load_kids()

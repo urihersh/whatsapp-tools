@@ -7,6 +7,7 @@
   <title>Myne – Settings</title>
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet" />
+  <script src="/static/lang.js?v=1"></script>
   <script>tailwind.config = { theme: { extend: { fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'] } } } }</script>
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="/static/dark.css" />
@@ -25,7 +26,7 @@
         </div>
         <span class="text-sm font-bold text-gray-900">Myne</span>
       </a>
-      <span class="text-sm font-semibold text-gray-500">Settings</span>
+      <span class="text-sm font-semibold text-gray-500" data-i18n="settings">Settings</span>
       <button id="dark-toggle" onclick="toggleDark()" class="p-2 rounded-xl text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors" title="Toggle dark mode">
         <svg id="dark-icon-moon" class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
           <path stroke-linecap="round" stroke-linejoin="round" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/>
@@ -40,7 +41,7 @@
   <main class="max-w-2xl mx-auto px-6 py-8">
 
     <!-- Toast -->
-    <div id="toast" class="hidden fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50"></div>
+    <div id="toast" class="hidden fixed top-6 end-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50"></div>
 
     <!-- WhatsApp Connection -->
     <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
@@ -50,7 +51,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
           </svg>
         </div>
-        <h2 class="font-semibold text-gray-900">WhatsApp Connection</h2>
+        <h2 class="font-semibold text-gray-900" data-i18n="whatsapp_connection">WhatsApp Connection</h2>
       </div>
 
       <!-- Connected state -->
@@ -58,15 +59,15 @@
         <div class="flex items-center gap-3 p-4 bg-green-50 rounded-xl border border-green-100">
           <span class="w-3 h-3 rounded-full bg-green-500 flex-shrink-0"></span>
           <div class="flex-1">
-            <p class="font-medium text-green-800" id="wa-name">Connected</p>
+            <p class="font-medium text-green-800" id="wa-name" data-i18n="wa_connected">Connected</p>
             <p class="text-sm text-green-600" id="wa-number"></p>
           </div>
           <button onclick="waDisconnect()" id="wa-disconnect-btn"
-                  class="px-3 py-1.5 text-sm font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors">
+                  class="px-3 py-1.5 text-sm font-medium text-orange-600 bg-orange-50 hover:bg-orange-100 rounded-lg transition-colors" data-i18n="disconnect">
             Disconnect
           </button>
           <button onclick="waLogout()" id="wa-logout-btn"
-                  class="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors">
+                  class="px-3 py-1.5 text-sm font-medium text-red-600 bg-red-50 hover:bg-red-100 rounded-lg transition-colors" data-i18n="sign_out">
             Sign out
           </button>
         </div>
@@ -76,16 +77,16 @@
       <div id="wa-disconnected">
         <div class="flex items-center gap-3 p-4 bg-amber-50 rounded-xl border border-amber-100 mb-4">
           <span class="w-3 h-3 rounded-full bg-amber-400 flex-shrink-0"></span>
-          <p class="text-amber-800 text-sm flex-1" id="wa-disconnected-msg">Not connected.</p>
+          <p class="text-amber-800 text-sm flex-1" id="wa-disconnected-msg" data-i18n="wa_not_connected">Not connected.</p>
           <button onclick="waConnect()" id="wa-connect-btn"
-                  class="px-3 py-1.5 text-sm font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors">
+                  class="px-3 py-1.5 text-sm font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 rounded-lg transition-colors" data-i18n="connect">
             Connect
           </button>
         </div>
         <div id="qr-section" class="text-center">
-          <div id="qr-loading" class="py-8 text-gray-400 text-sm">Waiting for QR code…</div>
+          <div id="qr-loading" class="py-8 text-gray-400 text-sm" data-i18n="waiting_qr">Waiting for QR code…</div>
           <img id="qr-image" class="hidden mx-auto w-52 h-52 rounded-xl border border-gray-200 shadow-sm" />
-          <p class="text-xs text-gray-400 mt-3">Open WhatsApp on your phone → Linked Devices → Link a Device</p>
+          <p class="text-xs text-gray-400 mt-3" data-i18n="scan_qr_instruction">Open WhatsApp on your phone → Linked Devices → Link a Device</p>
         </div>
       </div>
 
@@ -93,8 +94,8 @@
       <div class="mt-5 pt-5 border-t border-gray-100">
         <div class="flex items-center justify-between mb-3">
           <div>
-            <p class="text-sm font-medium text-gray-800">Active hours</p>
-            <p class="text-xs text-gray-400 mt-0.5">Auto-disconnect outside these hours so your phone gets notifications</p>
+            <p class="text-sm font-medium text-gray-800" data-i18n="active_hours">Active hours</p>
+            <p class="text-xs text-gray-400 mt-0.5" data-i18n="active_hours_subtitle">Auto-disconnect outside these hours so your phone gets notifications</p>
           </div>
           <label class="relative inline-flex items-center cursor-pointer">
             <input type="checkbox" id="schedule-enabled" class="sr-only peer" onchange="saveSchedule()">
@@ -103,16 +104,16 @@
         </div>
         <div id="schedule-inputs" class="flex items-center gap-3">
           <div class="flex items-center gap-2">
-            <label class="text-xs text-gray-500">From</label>
+            <label class="text-xs text-gray-500" data-i18n="from">From</label>
             <input type="time" id="schedule-from" value="08:00" onchange="saveSchedule()"
                    class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
           <div class="flex items-center gap-2">
-            <label class="text-xs text-gray-500">To</label>
+            <label class="text-xs text-gray-500" data-i18n="to">To</label>
             <input type="time" id="schedule-to" value="22:00" onchange="saveSchedule()"
                    class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-teal-500" />
           </div>
-          <span class="text-xs text-gray-400">Bot disconnects outside this window</span>
+          <span class="text-xs text-gray-400" data-i18n="bot_disconnects">Bot disconnects outside this window</span>
         </div>
       </div>
     </div>
@@ -125,9 +126,9 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/>
           </svg>
         </div>
-        <h2 class="font-semibold text-gray-900">Integrations</h2>
+        <h2 class="font-semibold text-gray-900" data-i18n="integrations">Integrations</h2>
       </div>
-      <p class="text-sm text-gray-400 mb-5 ml-10">Connect external services. Once configured here, each feature can be enabled per-app.</p>
+      <p class="text-sm text-gray-400 mb-5 ms-10" data-i18n="integrations_subtitle">Connect external services. Once configured here, each feature can be enabled per-app.</p>
 
       <div class="space-y-4">
 
@@ -141,17 +142,17 @@
             </div>
             <span class="text-sm font-medium text-gray-800">Google Photos</span>
             <div id="gp-not-connected" class="ml-auto flex items-center gap-1.5 text-xs text-gray-400">
-              <span class="w-1.5 h-1.5 rounded-full bg-gray-300 inline-block"></span>Not connected
+              <span class="w-1.5 h-1.5 rounded-full bg-gray-300 inline-block"></span><span data-i18n="gp_not_connected_badge">Not connected</span>
             </div>
             <div id="gp-connected-badge" class="hidden ml-auto flex items-center gap-1.5 text-xs text-green-600">
-              <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>Connected
+              <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span><span data-i18n="gp_connected_badge">Connected</span>
             </div>
           </div>
 
           <div class="p-3 bg-gray-50 rounded-xl border border-gray-100 space-y-2.5 mb-3">
             <details class="text-xs text-gray-500">
-              <summary class="text-blue-600 cursor-pointer font-medium">How to get credentials ▸</summary>
-              <ol class="mt-2 space-y-1.5 list-decimal pl-4">
+              <summary class="text-blue-600 cursor-pointer font-medium" data-i18n="how_to_credentials">How to get credentials ▸</summary>
+              <ol class="mt-2 space-y-1.5 list-decimal ps-4">
                 <li>Go to <strong>console.cloud.google.com</strong>, create a project (or select one).</li>
                 <li>Go to <strong>APIs &amp; Services → Library</strong>, search for <strong>Photos Library API</strong> and enable it.</li>
                 <li>Go to <strong>APIs &amp; Services → OAuth consent screen</strong>.<br>
@@ -163,19 +164,19 @@
                 <li>Copy the <strong>Client ID</strong> and <strong>Client Secret</strong> into the fields below, click <strong>Save Settings</strong>, then click <strong>Connect with Google</strong>.</li>
               </ol>
             </details>
-            <input type="text" id="gp-client-id" placeholder="Client ID"
+            <input type="text" id="gp-client-id" placeholder="Client ID" data-i18n="client_id"
                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
-            <input type="password" id="gp-client-secret" placeholder="Client Secret"
+            <input type="password" id="gp-client-secret" placeholder="Client Secret" data-i18n="client_secret"
                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500" />
           </div>
 
           <div class="flex gap-2">
             <button id="gp-connect-btn" onclick="connectGooglePhotos()"
-                    class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm">
+                    class="px-3 py-1.5 bg-gradient-to-r from-blue-600 to-blue-700 text-white text-xs font-medium rounded-xl hover:from-blue-700 hover:to-blue-800 shadow-sm" data-i18n="connect_google">
               Connect with Google
             </button>
             <button id="gp-disconnect-btn" onclick="disconnectGooglePhotos()"
-                    class="hidden px-3 py-1.5 bg-gray-200 text-gray-600 text-xs font-medium rounded-xl hover:bg-gray-300 transition-colors">
+                    class="hidden px-3 py-1.5 bg-gray-200 text-gray-600 text-xs font-medium rounded-xl hover:bg-gray-300 transition-colors" data-i18n="disconnect">
               Disconnect
             </button>
           </div>
@@ -192,30 +193,52 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
           </svg>
         </div>
-        <h2 class="font-semibold text-gray-900">Security</h2>
+        <h2 class="font-semibold text-gray-900" data-i18n="security">Security</h2>
       </div>
-      <p class="text-sm text-gray-400 mb-4 ml-10">Lock the UI with a PIN to prevent unauthorised access on your network.</p>
+      <p class="text-sm text-gray-400 mb-4 ms-10" data-i18n="security_subtitle">Lock the UI with a PIN to prevent unauthorised access on your network.</p>
       <div class="border border-gray-100 rounded-xl p-4 space-y-3">
         <div class="flex items-center justify-between">
-          <span class="text-sm font-medium text-gray-800">PIN lock</span>
+          <span class="text-sm font-medium text-gray-800" data-i18n="pin_lock">PIN lock</span>
           <label class="flex items-center gap-2 cursor-pointer select-none">
             <input type="checkbox" id="pin-enabled" class="accent-red-500" onchange="togglePinField()" />
-            <span class="text-sm text-gray-500">Enabled</span>
+            <span class="text-sm text-gray-500" data-i18n="enabled">Enabled</span>
           </label>
         </div>
         <div id="pin-field-row" class="hidden">
-          <label class="block text-xs font-medium text-gray-600 mb-1.5">PIN (4–6 digits)</label>
+          <label class="block text-xs font-medium text-gray-600 mb-1.5" data-i18n="pin_digits">PIN (4–6 digits)</label>
           <input type="password" id="app-pin" maxlength="6" pattern="\d{4,6}" placeholder="••••"
                  class="w-32 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-400"
                  inputmode="numeric" />
-          <p class="text-xs text-gray-400 mt-1">Leave blank to keep current PIN.</p>
+          <p class="text-xs text-gray-400 mt-1" data-i18n="pin_keep_hint">Leave blank to keep current PIN.</p>
         </div>
+      </div>
+    </div>
+
+    <!-- Language -->
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-6">
+      <div class="flex items-center gap-2.5 mb-4">
+        <div class="w-8 h-8 rounded-xl bg-violet-50 flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-violet-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 5h12M9 3v2m1.048 9.5A18.022 18.022 0 016.412 9m6.088 9h7M11 21l5-10 5 10M12.751 5C11.783 10.77 8.07 15.61 3 18.129"/>
+          </svg>
+        </div>
+        <h2 class="font-semibold text-gray-900" data-i18n="language">Language</h2>
+      </div>
+      <div class="flex gap-4">
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input type="radio" name="app-lang" value="en" class="accent-violet-500" onchange="onLangChange('en')" />
+          <span class="text-sm text-gray-700">English</span>
+        </label>
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input type="radio" name="app-lang" value="he" class="accent-violet-500" onchange="onLangChange('he')" />
+          <span class="text-sm text-gray-700">עברית</span>
+        </label>
       </div>
     </div>
 
     <!-- Save -->
     <button onclick="saveSettings()"
-            class="w-full py-3 bg-gradient-to-r from-teal-700 to-teal-800 text-white font-semibold rounded-xl hover:from-teal-800 hover:to-teal-900 transition-all shadow-sm">
+            class="w-full py-3 bg-gradient-to-r from-teal-700 to-teal-800 text-white font-semibold rounded-xl hover:from-teal-800 hover:to-teal-900 transition-all shadow-sm" data-i18n="save_settings">
       Save Settings
     </button>
   </main>
@@ -224,7 +247,7 @@
     function showToast(msg, type = 'success') {
       const el = document.getElementById('toast');
       el.textContent = msg;
-      el.className = `fixed top-6 right-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50 ${
+      el.className = `fixed top-6 end-6 px-4 py-3 rounded-xl text-sm font-medium shadow-lg z-50 ${
         type === 'success' ? 'bg-green-600 text-white' : 'bg-red-500 text-white'
       }`;
       el.classList.remove('hidden');
@@ -331,6 +354,15 @@
       }
     }
 
+    function onLangChange(lang) {
+      applyLang(lang);
+      fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ language: lang }),
+      });
+    }
+
     async function loadCurrentSettings() {
       try {
         const r = await fetch('/api/settings');
@@ -350,6 +382,10 @@
         document.getElementById('schedule-enabled').checked = d.schedule_enabled === 'true';
         if (d.schedule_from) document.getElementById('schedule-from').value = d.schedule_from;
         if (d.schedule_to) document.getElementById('schedule-to').value = d.schedule_to;
+
+        const lang = d.language || getLang();
+        document.querySelectorAll('input[name="app-lang"]').forEach(r => { r.checked = r.value === lang; });
+        applyLang(lang);
       } catch (_) {}
     }
 

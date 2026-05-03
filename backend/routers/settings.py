@@ -38,6 +38,11 @@ class SettingsUpdate(BaseModel):
     thumbnail_retention_hours: str | None = None
     pin_enabled: str | None = None
     app_pin: str | None = None
+    language: str | None = None
+    schedule_enabled: str | None = None
+    schedule_from: str | None = None
+    schedule_to: str | None = None
+    scan_all_groups: str | None = None
 
 
 async def _bot_get(path: str, params: dict | None = None, timeout: float = 5.0):
@@ -94,7 +99,7 @@ async def browse_folder():
                 return ""
         return ""
 
-    path = await asyncio.get_event_loop().run_in_executor(None, _pick)
+    path = await asyncio.get_running_loop().run_in_executor(None, _pick)
     return {"path": path} if path else {"path": "", "error": "No folder selected or picker unavailable"}
 
 
@@ -147,16 +152,16 @@ async def google_photos_auth_url(request: Request):
 @router.get("/google-photos/callback")
 async def google_photos_callback(request: Request, code: str = "", error: str = ""):
     if error or not code:
-        return RedirectResponse(url=f"/static/settings.html?gp_error={error or 'cancelled'}")
+        return RedirectResponse(url=f"/?gp_error={error or 'cancelled'}")
     svc = _gp_service(request)
     if not svc:
-        return RedirectResponse(url="/static/settings.html?gp_error=missing_credentials")
+        return RedirectResponse(url="/?gp_error=missing_credentials")
     data = await svc.exchange_code(code)
     if "access_token" not in data:
         err_detail = data.get("error", "token_exchange_failed")
-        return RedirectResponse(url=f"/static/settings.html?gp_error={err_detail}")
+        return RedirectResponse(url=f"/?gp_error={err_detail}")
     save_setting("google_photos_tokens", json.dumps(svc.tokens))
-    return RedirectResponse(url="/static/settings.html?gp_connected=1")
+    return RedirectResponse(url="/?gp_connected=1")
 
 
 @router.get("/google-photos/status")

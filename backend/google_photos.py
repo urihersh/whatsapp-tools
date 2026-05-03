@@ -1,3 +1,10 @@
+"""
+Google Photos Library API client.
+
+Handles OAuth token exchange/refresh, album lookup with pagination, and the
+two-step upload flow (raw bytes → upload token → media item creation).
+"""
+
 import json
 import urllib.parse
 import httpx
@@ -6,10 +13,10 @@ from typing import Callable
 
 
 class GooglePhotosService:
-    _AUTH_URL = "https://accounts.google.com/o/oauth2/auth"
+    _AUTH_URL  = "https://accounts.google.com/o/oauth2/auth"
     _TOKEN_URL = "https://oauth2.googleapis.com/token"
     _UPLOAD_URL = "https://photoslibrary.googleapis.com/v1/uploads"
-    _MEDIA_URL = "https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate"
+    _MEDIA_URL  = "https://photoslibrary.googleapis.com/v1/mediaItems:batchCreate"
     _ALBUMS_URL = "https://photoslibrary.googleapis.com/v1/albums"
     SCOPE = "https://www.googleapis.com/auth/photoslibrary.appendonly"
 
@@ -27,6 +34,8 @@ class GooglePhotosService:
         self.tokens = tokens or {}
         self.on_tokens_updated = on_tokens_updated
         self._album_cache: dict[str, str] = {}  # title -> album_id
+
+    # ── OAuth ──────────────────────────────────────────────────────────────────
 
     def get_auth_url(self) -> str:
         params = {
@@ -57,8 +66,7 @@ class GooglePhotosService:
         return data
 
     async def _get_access_token(self) -> str:
-        expires_at = self.tokens.get("expires_at", 0)
-        if datetime.now(timezone.utc).timestamp() < expires_at - 60:
+        if datetime.now(timezone.utc).timestamp() < self.tokens.get("expires_at", 0) - 60:
             return self.tokens["access_token"]
         async with httpx.AsyncClient(timeout=15.0) as client:
             r = await client.post(self._TOKEN_URL, data={
@@ -74,29 +82,61 @@ class GooglePhotosService:
             self.on_tokens_updated(self.tokens)
         return self.tokens["access_token"]
 
+    # ── Albums ─────────────────────────────────────────────────────────────────
+
     async def _get_or_create_album(self, title: str, token: str) -> str:
+        """Return the album ID for the given title, creating it if necessary.
+
+        Paginates through all albums (max 50 per page) so the cache-miss lookup
+        works correctly even when the user has more than 50 albums.
+        """
         if title in self._album_cache:
             return self._album_cache[title]
-        async with httpx.AsyncClient(timeout=10.0) as client:
-            r = await client.get(f"{self._ALBUMS_URL}?pageSize=50",
-                                 headers={"Authorization": f"Bearer {token}"})
-            for album in r.json().get("albums", []):
-                if album.get("title") == title:
-                    self._album_cache[title] = album["id"]
-                    return album["id"]
-            r = await client.post(self._ALBUMS_URL,
-                                  headers={"Authorization": f"Bearer {token}"},
-                                  json={"album": {"title": title}})
+
+        headers = {"Authorization": f"Bearer {token}"}
+        async with httpx.AsyncClient(timeout=15.0) as client:
+            page_token: str | None = None
+            while True:
+                params: dict = {"pageSize": "50"}
+                if page_token:
+                    params["pageToken"] = page_token
+                r = await client.get(self._ALBUMS_URL, headers=headers, params=params)
+                data = r.json()
+                for album in data.get("albums", []):
+                    if album.get("title") == title:
+                        self._album_cache[title] = album["id"]
+                        return album["id"]
+                page_token = data.get("nextPageToken")
+                if not page_token:
+                    break
+
+            # Album not found — create it
+            r = await client.post(
+                self._ALBUMS_URL,
+                headers=headers,
+                json={"album": {"title": title}},
+            )
             album_id = r.json()["id"]
+
         self._album_cache[title] = album_id
         return album_id
 
-    async def upload_photo(self, img_bytes: bytes, album_name: str = "",
-                           filename: str = "photo.jpg") -> bool:
+    # ── Upload ─────────────────────────────────────────────────────────────────
+
+    async def upload_photo(
+        self,
+        img_bytes: bytes,
+        album_name: str = "",
+        filename: str = "photo.jpg",
+    ) -> bool:
+        """Upload bytes to Google Photos.
+
+        Step 1: POST raw bytes → receive an upload token.
+        Step 2: POST batchCreate with the token (+ optional album ID).
+        """
         try:
             token = await self._get_access_token()
             async with httpx.AsyncClient(timeout=30.0) as client:
-                # Step 1: upload bytes → get upload token
                 r = await client.post(
                     self._UPLOAD_URL,
                     headers={
@@ -115,18 +155,20 @@ class GooglePhotosService:
                 if not upload_token:
                     print("[google-photos] upload step returned empty token", flush=True)
                     return False
-                # Step 2: create media item
+
                 body: dict = {"newMediaItems": [{"simpleMediaItem": {
                     "uploadToken": upload_token,
                     "fileName": filename,
                 }}]}
                 if album_name:
                     body["albumId"] = await self._get_or_create_album(album_name, token)
+
                 r = await client.post(
                     self._MEDIA_URL,
                     headers={"Authorization": f"Bearer {token}"},
                     json=body,
                 )
+
             data = r.json()
             results = data.get("newMediaItemResults", [])
             if not results:

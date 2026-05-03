@@ -27,9 +27,7 @@ from routers.settings import router as settings_router
 from routers.dashboard import router as dashboard_router
 from routers.auth import router as auth_router, is_valid_session
 from routers.backup import router as backup_router
-
-def _is_enabled(settings: dict, key: str) -> bool:
-    return settings.get(key) == "true"
+from routers.digest import router as digest_router, start_scheduler
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
 THUMBNAILS_DIR = DATA_DIR / "thumbnails"
@@ -114,7 +112,10 @@ def _resolve_group(group_id: str, db_settings: dict) -> tuple[list, dict, str]:
                 kid_ids = g.get("kid_ids", [])
                 group_name = g.get("name", group_id)
                 break
-        kid_names = {k["id"]: k["name"] for k in load_kids()}
+        all_kids = load_kids()
+        kid_names = {k["id"]: k["name"] for k in all_kids}
+        if not kid_ids and db_settings.get("scan_all_groups") == "true":
+            kid_ids = [k["id"] for k in all_kids]
     except Exception:
         pass
     return kid_ids, kid_names, group_name
@@ -263,6 +264,7 @@ async def lifespan(app: FastAPI):
         retention_hours = 168
     purge_old_thumbnails(retention_hours)
     cleanup_task = asyncio.create_task(_thumbnail_cleanup_scheduler())
+    start_scheduler()
     yield
     cleanup_task.cancel()
 
@@ -292,6 +294,7 @@ app.include_router(settings_router, prefix="/api/settings")
 app.include_router(dashboard_router, prefix="/api/dashboard")
 app.include_router(auth_router, prefix="/api/auth")
 app.include_router(backup_router, prefix="/api/scout")
+app.include_router(digest_router, prefix="/api/digest")
 
 app.mount("/static", StaticFiles(directory=str(Path(__file__).parent / "static")), name="static")
 

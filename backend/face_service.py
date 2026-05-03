@@ -1,10 +1,18 @@
+"""
+Face detection and recognition service wrapping InsightFace.
+
+The InsightFace model is loaded lazily on first use (buffalo_l, CPU-only).
+Embeddings are unit-length vectors so cosine similarity equals dot product —
+no normalisation step required at comparison time.
+"""
+
 import base64
 import shutil
 import numpy as np
 import cv2
 from pathlib import Path
 
-_fa = None  # insightface app singleton
+_fa = None  # insightface FaceAnalysis singleton
 
 
 def _get_model():
@@ -17,7 +25,7 @@ def _get_model():
 
 
 def _largest_face(faces: list):
-    """Return the face with the largest bounding box area."""
+    """Return the face with the largest bounding-box area."""
     return max(faces, key=lambda f: (f.bbox[2] - f.bbox[0]) * (f.bbox[3] - f.bbox[1]))
 
 
@@ -25,7 +33,7 @@ class FaceService:
     def __init__(self, data_dir: str):
         self.kids_dir = Path(data_dir) / "kids"
         self.kids_dir.mkdir(parents=True, exist_ok=True)
-        self._cache: dict[str, list] = {}  # kid_id -> [embeddings]
+        self._cache: dict[str, list] = {}  # kid_id -> [normed_embeddings]
 
     # ── Directory helpers ──────────────────────────────────────────────────────
 
@@ -67,7 +75,9 @@ class FaceService:
             return [], None
 
     def get_face_crop_b64_from_array(self, img: np.ndarray, faces: list) -> str | None:
-        """Crop the largest face from an already-loaded image with already-detected faces."""
+        """Crop the largest face from an already-loaded image."""
+        if not faces:
+            return None
         try:
             x1, y1, x2, y2 = [max(0, int(v)) for v in _largest_face(faces).bbox]
             _, buf = cv2.imencode(".jpg", img[y1:y2, x1:x2])
@@ -76,7 +86,9 @@ class FaceService:
             return None
 
     def classify_face_quality(self, faces: list, img: np.ndarray) -> tuple[float, str]:
-        """Return (face_size_ratio, quality) for the largest detected face."""
+        """Return (face_size_ratio, quality_label) for the largest detected face."""
+        if not faces:
+            return 0.0, "small"
         bbox = _largest_face(faces).bbox
         face_area = (bbox[2] - bbox[0]) * (bbox[3] - bbox[1])
         img_area = img.shape[0] * img.shape[1]
@@ -93,9 +105,7 @@ class FaceService:
             faces = _get_model().get(img)
             if not faces:
                 return None
-            x1, y1, x2, y2 = [max(0, int(v)) for v in _largest_face(faces).bbox]
-            _, buf = cv2.imencode(".jpg", img[y1:y2, x1:x2])
-            return base64.b64encode(buf.tobytes()).decode()
+            return self.get_face_crop_b64_from_array(img, faces)
         except Exception:
             return None
 
@@ -121,7 +131,7 @@ class FaceService:
         self._cache.pop(kid_id, None)
         return removed
 
-    def delete_kid(self, kid_id: str):
+    def delete_kid(self, kid_id: str) -> None:
         d = self.kids_dir / kid_id
         if d.exists():
             shutil.rmtree(d)
@@ -140,7 +150,11 @@ class FaceService:
         return result
 
     def analyze_photo(self, image_path: str, kid_ids: list[str], threshold: float = 0.35) -> dict:
-        """Check photo against all specified kids. Returns overall match + per-kid breakdown."""
+        """Check a photo against all specified kids.
+
+        Returns overall match status, per-kid breakdown, and face count.
+        Uses cosine similarity (= dot product on unit-length normed embeddings).
+        """
         try:
             faces = _get_model().get(self._read(image_path))
         except Exception as e:
@@ -155,7 +169,6 @@ class FaceService:
             stored = self._load_embeddings(kid_id)
             if not stored:
                 continue
-            # normed_embedding is unit-length, so cosine similarity = dot product
             best = max(float(np.dot(fe, se)) for fe in face_embeddings for se in stored)
             kid_results.append({
                 "kid_id": kid_id,
@@ -170,17 +183,26 @@ class FaceService:
             "threshold": threshold,
         }
 
-    def analyze_video(self, video_path: str, kid_ids: list[str], threshold: float = 0.35,
-                      max_frames: int = 60) -> dict:
-        """Sample frames from a video and check each against enrolled kids.
+    def analyze_video(
+        self,
+        video_path: str,
+        kid_ids: list[str],
+        threshold: float = 0.35,
+        max_frames: int = 60,
+    ) -> dict:
+        """Sample frames from a video and match against enrolled kids.
 
         Reads frames sequentially (more reliable than seeking for H.264/MP4) and
-        distributes samples evenly across the full video duration.
+        distributes samples evenly across the full video duration.  Returns the
+        best matching frame as JPEG bytes so callers can build a meaningful
+        thumbnail rather than always falling back to the first frame.
         """
         cap = cv2.VideoCapture(video_path)
         if not cap.isOpened():
-            return {"matched": False, "faces_detected": 0, "matches": [],
-                    "error": "Could not open video", "frames_sampled": 0}
+            return {
+                "matched": False, "faces_detected": 0, "matches": [],
+                "error": "Could not open video", "frames_sampled": 0,
+            }
 
         total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT)) or 0
 
@@ -191,10 +213,12 @@ class FaceService:
             step = total_frames / max_frames
             sample_indices = {int(i * step) for i in range(max_frames)}
         else:
-            # Unknown length — fall back to sampling every ~2s at assumed 25fps
+            # Unknown length — fall back to one sample every ~2 s at assumed 25 fps
             sample_indices = {i * 50 for i in range(max_frames)}
 
         kid_best: dict[str, float] = {kid_id: 0.0 for kid_id in kid_ids}
+        best_overall_conf = 0.0
+        best_frame: np.ndarray | None = None
         max_faces_seen = 0
         frame_idx = 0
         frames_sampled = 0
@@ -220,6 +244,7 @@ class FaceService:
 
                 max_faces_seen = max(max_faces_seen, len(faces))
                 face_embeddings = [f.normed_embedding for f in faces]
+                frame_best_conf = 0.0
 
                 for kid_id in kid_ids:
                     stored = self._load_embeddings(kid_id)
@@ -228,13 +253,32 @@ class FaceService:
                     conf = max(float(np.dot(fe, se)) for fe in face_embeddings for se in stored)
                     if conf > kid_best[kid_id]:
                         kid_best[kid_id] = conf
+                    if conf > frame_best_conf:
+                        frame_best_conf = conf
+
+                if frame_best_conf > best_overall_conf:
+                    best_overall_conf = frame_best_conf
+                    best_frame = frame.copy()
         finally:
             cap.release()
 
+        # Encode the best matching frame as JPEG for use as a thumbnail
+        best_frame_bytes: bytes | None = None
+        if best_frame is not None:
+            try:
+                _, buf = cv2.imencode(".jpg", best_frame)
+                best_frame_bytes = buf.tobytes()
+            except Exception:
+                pass
+
         kid_results = [
-            {"kid_id": kid_id, "confidence": round(kid_best[kid_id], 4),
-             "matched": kid_best[kid_id] >= threshold}
-            for kid_id in kid_ids if self._load_embeddings(kid_id)
+            {
+                "kid_id": kid_id,
+                "confidence": round(kid_best[kid_id], 4),
+                "matched": kid_best[kid_id] >= threshold,
+            }
+            for kid_id in kid_ids
+            if self._load_embeddings(kid_id)
         ]
 
         return {
@@ -243,6 +287,7 @@ class FaceService:
             "matches": kid_results,
             "threshold": threshold,
             "frames_sampled": frames_sampled,
+            "best_frame_bytes": best_frame_bytes,
         }
 
     def get_enrolled_count(self, kid_id: str) -> int:

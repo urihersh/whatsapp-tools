@@ -82,7 +82,7 @@ function saveContactNames() {
 // DM text history for agent context: jid → [{ts, fromMe, text, sender}]
 const dmTextHistory = new Map();
 const MAX_DM_TEXT = 60;
-/// Conversation agents: jid → {jid, name, prompt, active, approval_mode, log: [{ts, role, text, sender?}]}
+// Conversation agents: jid → {jid, name, prompt, active, approval_mode, log: [{ts, role, text, sender?}]}
 const agentConfigs = new Map();
 // Prevent overlapping responses per JID
 const agentBusy = new Set();
@@ -743,12 +743,13 @@ async function connect() {
       let watchGroups = [];
       try { watchGroups = JSON.parse(settings.watch_groups || '[]'); } catch (_) {}
       const groupConfig = watchGroups.find(g => g.id === groupId);
-      if (!groupConfig) continue;
+      const scanAll = settings.scan_all_groups === 'true';
+      if (!groupConfig && !scanAll) continue;
 
       const forwardToId = settings.forward_to_id;
       if (!forwardToId) continue;
 
-      const groupName = groupConfig.name || groupId;
+      const groupName = groupConfig?.name || groupId;
       const mediaType = isVideo ? 'Video' : 'Image';
       console.log(`[bot] ${mediaType} received from "${groupName}", downloading...`);
 
@@ -788,12 +789,30 @@ async function connect() {
           const bestConf = Math.max(...matchedKids.map(m => m.confidence));
           const verb = matchedKids.length > 1 ? 'are' : 'is';
           const medium = isVideo ? 'video' : 'photo';
-          // Forward original message (preserves group name, sender, and media)
-          await sock.sendMessage(forwardToId, { forward: msg });
-          await sock.sendMessage(forwardToId, {
-            text: `${names} ${verb} in this ${medium}! (${(bestConf * 100).toFixed(0)}% confidence) — from "${groupName}"`,
-          });
-          console.log(`[bot] Forwarded to ${forwardToId}`);
+
+          if (settings.digest_mode === 'true') {
+            // Queue for daily digest instead of forwarding immediately
+            const digestForm = new FormData();
+            if (isVideo) {
+              digestForm.append('file', buffer, { filename: 'video.mp4', contentType: 'video/mp4' });
+            } else {
+              digestForm.append('file', buffer, { filename: 'photo.jpg', contentType: 'image/jpeg' });
+            }
+            const params = new URLSearchParams({ sender: senderName, group_name: groupName, kid_names: names, is_video: String(isVideo) });
+            await axios.post(`${PYTHON_API_URL}/api/digest/enqueue?${params}`, digestForm, { headers: digestForm.getHeaders() });
+            console.log(`[bot] Queued for digest: ${names}`);
+          } else {
+            // Forward original message immediately
+            await sock.sendMessage(forwardToId, { forward: msg });
+            const sentCaption = await sock.sendMessage(forwardToId, {
+              text: `${names} ${verb} in this ${medium}! (${(bestConf * 100).toFixed(0)}% confidence) — from "${groupName}"`,
+            });
+            // Mark chat as unread so the user sees a badge on their phone
+            try {
+              await sock.chatModify({ markRead: false, lastMessages: [sentCaption] }, forwardToId);
+            } catch (_) {}
+            console.log(`[bot] Forwarded to ${forwardToId}`);
+          }
         }
       } catch (e) {
         console.error('[bot] Analysis/forward failed:', e.message);
@@ -1113,7 +1132,7 @@ app.post('/dm-inbox/remind', express.json(), async (req, res) => {
   }
 });
 
-/// Top conversations: ranked by sent messages, with today counts
+// Top conversations: ranked by sent messages, with today counts
 app.get('/activity-heatmap', (req, res) => {
   const days = parseInt(req.query.days || '30');
   const since = Date.now() - days * 24 * 60 * 60 * 1000;

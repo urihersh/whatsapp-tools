@@ -1,7 +1,11 @@
+"""
+Dashboard and analytics endpoints: home stats, activity log, Wrapped report,
+memory book, and group/DM overview data aggregated from the WhatsApp bot.
+"""
+
 from fastapi import APIRouter
 from fastapi.responses import Response, FileResponse
 from pathlib import Path
-from typing import Optional
 from datetime import datetime, timedelta
 from collections import defaultdict, Counter
 import os
@@ -10,13 +14,11 @@ from dotenv import load_dotenv
 
 load_dotenv(dotenv_path=Path(__file__).parent.parent.parent / ".env")
 
-from database import get_stats, get_activity_log, clear_activity_log, ActivityLog
 import database as _db
-
-def SessionLocal():
-    return _db.SessionLocal()
+from database import get_stats, get_activity_log, clear_activity_log, ActivityLog
 
 DATA_DIR = Path(os.getenv("DATA_DIR", "./data")).resolve()
+BOT_API_URL = os.getenv("BOT_API_URL", "http://localhost:3001")
 
 router = APIRouter(tags=["dashboard"])
 
@@ -24,13 +26,13 @@ MONTH_NAMES = ["Jan", "Feb", "Mar", "Apr", "May", "Jun",
                "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"]
 
 
-BOT_API_URL = os.getenv("BOT_API_URL", "http://localhost:3001")
-
-
 @router.get("/home-stats")
 async def home_stats():
     """Combined WA message stats + Scout today stats for the Home page."""
-    wa = {"today": {"received": 0, "sent": 0, "media": 0}, "groups": [], "hourly": [], "total_groups": 0, "active_today": 0}
+    wa = {
+        "today": {"received": 0, "sent": 0, "media": 0},
+        "groups": [], "hourly": [], "total_groups": 0, "active_today": 0,
+    }
     try:
         async with httpx.AsyncClient(timeout=5.0) as hx:
             r = await hx.get(f"{BOT_API_URL}/message-stats")
@@ -38,7 +40,7 @@ async def home_stats():
     except Exception:
         pass
 
-    db = SessionLocal()
+    db = _db.SessionLocal()
     try:
         today_start = datetime.now().replace(hour=0, minute=0, second=0, microsecond=0)
         rows = db.query(ActivityLog).filter(ActivityLog.timestamp >= today_start).all()
@@ -61,8 +63,13 @@ async def stats():
 
 
 @router.get("/activity")
-async def activity(limit: int = 1000, days: int = 7, matched: Optional[bool] = None,
-                   group_name: str = "", kid_name: str = ""):
+async def activity(
+    limit: int = 1000,
+    days: int = 7,
+    matched: bool | None = None,
+    group_name: str = "",
+    kid_name: str = "",
+):
     since = datetime.utcnow() - timedelta(days=days)
     return {"activity": get_activity_log(limit, matched=matched, group_name=group_name,
                                          kid_name=kid_name, since=since)}
@@ -75,10 +82,10 @@ async def delete_activity():
 
 
 @router.get("/wrapped")
-async def wrapped(year: int = None):
+async def wrapped(year: int | None = None):
     """Return yearly stats for the Wrapped report."""
     target_year = year or datetime.now().year
-    db = SessionLocal()
+    db = _db.SessionLocal()
     try:
         rows = db.query(ActivityLog).filter(
             ActivityLog.timestamp >= datetime(target_year, 1, 1),
@@ -88,16 +95,17 @@ async def wrapped(year: int = None):
         db.close()
 
     if not rows:
-        return {"year": target_year, "total_scanned": 0, "total_matched": 0,
-                "match_rate": 0, "monthly_counts": [], "top_groups": [],
-                "top_kids": [], "best_month": None, "most_active_dow": None}
+        return {
+            "year": target_year, "total_scanned": 0, "total_matched": 0,
+            "match_rate": 0, "monthly_counts": [], "top_groups": [],
+            "top_kids": [], "best_month": None, "most_active_dow": None,
+        }
 
     total_scanned = len(rows)
     matched_rows = [r for r in rows if r.matched]
     total_matched = len(matched_rows)
     match_rate = round(total_matched / total_scanned * 100, 1) if total_scanned else 0
 
-    # Monthly breakdown
     monthly: dict[int, dict] = {i: {"scanned": 0, "matched": 0} for i in range(1, 13)}
     for r in rows:
         m = r.timestamp.month
@@ -109,38 +117,26 @@ async def wrapped(year: int = None):
         for i in range(1, 13)
     ]
 
-    # Top groups
-    group_counter: Counter = Counter()
-    for r in matched_rows:
-        if r.group_name:
-            group_counter[r.group_name] += 1
+    group_counter: Counter = Counter(
+        r.group_name for r in matched_rows if r.group_name
+    )
     top_groups = [{"name": n, "matched": c} for n, c in group_counter.most_common(5)]
 
-    # Top kids
     kid_counter: Counter = Counter()
     for r in matched_rows:
         for name in (r.kid_names or "").split(","):
-            name = name.strip()
-            if name:
-                kid_counter[name] += 1
+            if name.strip():
+                kid_counter[name.strip()] += 1
     top_kids = [{"name": n, "count": c} for n, c in kid_counter.most_common(5)]
 
-    # Best month (only meaningful when there are matches)
+    best_month = None
     if total_matched > 0:
         best_m = max(range(1, 13), key=lambda i: monthly[i]["matched"])
         best_month = {"month": MONTH_NAMES[best_m - 1], "count": monthly[best_m]["matched"]}
-    else:
-        best_month = None
 
-    # Most active day of week
-    dow_counter: Counter = Counter()
     dow_names = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"]
-    for r in matched_rows:
-        dow_counter[r.timestamp.weekday()] += 1
-    if dow_counter:
-        most_active_dow = dow_names[dow_counter.most_common(1)[0][0]]
-    else:
-        most_active_dow = None
+    dow_counter: Counter = Counter(r.timestamp.weekday() for r in matched_rows)
+    most_active_dow = dow_names[dow_counter.most_common(1)[0][0]] if dow_counter else None
 
     return {
         "year": target_year,
@@ -156,11 +152,11 @@ async def wrapped(year: int = None):
 
 
 @router.get("/memory-book")
-async def memory_book(year: int = None, month: int = None):
+async def memory_book(year: int | None = None, month: int | None = None):
     """Return matched activity log entries grouped by month for the memory book."""
-    db = SessionLocal()
+    db = _db.SessionLocal()
     try:
-        query = db.query(ActivityLog).filter(ActivityLog.matched == True)
+        query = db.query(ActivityLog).filter(ActivityLog.matched.is_(True))
         if year:
             query = query.filter(
                 ActivityLog.timestamp >= datetime(year, 1, 1),
@@ -179,11 +175,9 @@ async def memory_book(year: int = None, month: int = None):
     finally:
         db.close()
 
-    # Group by (year, month)
     groups: dict[tuple, list] = defaultdict(list)
     for r in rows:
         key = (r.timestamp.year, r.timestamp.month)
-        has_photo = bool(r.matched_photo_path and Path(r.matched_photo_path).exists())
         groups[key].append({
             "id": r.id,
             "timestamp": r.timestamp.isoformat(),
@@ -192,25 +186,25 @@ async def memory_book(year: int = None, month: int = None):
             "group_name": r.group_name,
             "kid_names": r.kid_names or "",
             "confidence": r.confidence,
-            "has_photo": has_photo,
+            "has_photo": bool(r.matched_photo_path and Path(r.matched_photo_path).exists()),
         })
 
-    months_list = []
-    for (y, m) in sorted(groups.keys(), reverse=True):
-        months_list.append({
+    months_list = [
+        {
             "year": y,
             "month": m,
             "label": f"{MONTH_NAMES[m - 1]} {y}",
             "entries": groups[(y, m)],
-        })
-
+        }
+        for (y, m) in sorted(groups.keys(), reverse=True)
+    ]
     return {"months": months_list}
 
 
 @router.get("/memory-book/photo/{activity_id}")
 async def memory_book_photo(activity_id: int):
     """Serve the saved photo for a memory book entry."""
-    db = SessionLocal()
+    db = _db.SessionLocal()
     try:
         row = db.query(ActivityLog).filter(ActivityLog.id == activity_id).first()
     finally:
